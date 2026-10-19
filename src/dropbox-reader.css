@@ -1,0 +1,13 @@
+/* GC UI semantic surfaces, no retired design system. */
+.dropboxReader{padding:15px;margin-top:15px;border:1px solid var(--gc-outline);border-radius:14px;background:var(--gc-surface-tonal)}
+.dropboxReaderTop{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.dropboxReaderTop strong{display:flex;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere;font-size:13px}
+.dropboxReaderTop .outline{min-width:38px;min-height:38px;display:grid;place-items:center;padding:7px}
+.dropboxReader p{font-size:11px;line-height:1.5}
+.dropboxEntries{padding:0!important;margin:9px 0!important;list-style:none!important;max-height:320px;overflow:auto}
+.dropboxEntries li{display:flex;align-items:center;gap:9px;justify-content:space-between;border-bottom:1px solid var(--gc-outline);padding:9px 0!important}
+.dropboxEntries li:last-child{border-bottom:0}
+.dropboxEntries li button,.dropboxFile{display:flex;align-items:center;gap:8px;flex:1;min-width:0;text-align:left;color:var(--gc-text);font-size:12px}
+.dropboxEntries li button{background:transparent;padding:9px;border-radius:8px}
+.dropboxEntries li button:hover,.dropboxEntries li button:focus-visible{background:var(--gc-brand-container)}
+.dropboxEntries li small{color:var(--gc-text-soft);font-size:11px;flex:none}
