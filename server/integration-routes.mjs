@@ -28,6 +28,14 @@ export async function discoverMcp(id,fetchImpl=fetch){
  try{
   const init=await call({jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'GoreeCloud Workspace AI',version:'0.2.0'}}})
   if(init.payload.error)throw Error('Initialize failed')
+  // MCP clients must acknowledge initialization before calling tools/list.
+  // Notifications normally return HTTP 202 without a JSON-RPC response.
+  const notified=await fetchImpl(url,{
+   method:'POST',headers:{...headers,...(init.session?{'Mcp-Session-Id':init.session}:{})},
+   body:JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'}),
+   signal:AbortSignal.timeout(12000),redirect:'error'
+  })
+  if(!notified.ok)throw Error('MCP initialization notification failed')
   const list=await call({jsonrpc:'2.0',id:2,method:'tools/list',params:{}},init.session)
   if(list.payload.error)throw Error('Tool listing failed')
   const tools=(list.payload.result?.tools||[]).filter(t=>typeof t?.name==='string').slice(0,120).map(t=>({name:t.name.slice(0,120),description:String(t.description||'').slice(0,240),executable:false,requiresApproval:true}))
