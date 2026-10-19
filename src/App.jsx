@@ -9,6 +9,7 @@ async function api(url,data){const r=await fetch(url,data?{method:'POST',headers
 export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
+const [apiDraft,setApiDraft]=useState(''),[apiBusy,setApiBusy]=useState(false),[apiMessage,setApiMessage]=useState('');
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
 const chat=chats.find(c=>c.id===current);
 const ready=provider==='api'?status.apiConfigured:provider==='plan'?status.planEnabled&&!!planModel:(status.planEnabled&&!!planModel)||(status.apiConfigured&&fallback);
