@@ -2,5 +2,8 @@
 .env.*
 !.env.example
 node_modules/
+dist/
+.runtime/
+coverage/
 *.log
 .DS_Store

@@ -1,0 +1,39 @@
+{
+  "name": "@goreecloud/workspace-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local-first AI workspace with ChatGPT plan and OpenAI API fallback",
+  "scripts": {
+    "dev": "concurrently -k \"node server/index.mjs\" \"vite --host 127.0.0.1\"",
+    "server": "node server/index.mjs",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run test && npm run build",
+    "start": "node server/index.mjs"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.8",
+    "express": "^4.21.2",
+    "jose": "^5.10.0",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-markdown": "^9.0.3",
+    "remark-gfm": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.17",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "typescript": "~5.7.3",
+    "vite": "^6.0.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "AGPL-3.0-or-later"
+}

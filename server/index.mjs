@@ -1,0 +1,181 @@
+import { fileURLToPath } from 'node:url'
+import 'dotenv/config'
+import express from 'express'
+import { getHostId, publicStatus, readProfile, updateProfile } from './storage.mjs'
+import { makeAttempt, consumeAttempt, exchangeCode, getPlanToken, disconnectAccount } from './oauth.mjs'
+import { checkMessages, chooseRoute, validModel, streamResponse } from './stream.mjs'
+
+const app = express()
+const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
+const apiKey = process.env.OPENAI_API_KEY?.trim() || ''
+const apiModel = process.env.OPENAI_API_MODEL || 'gpt-5-mini'
+const clientOrigin = 'http://127.0.0.1:' + PORT
+const callback = 'http://127.0.0.1:' + PORT + '/auth/callback'
+const endpoint = 'https://api.openai.com/v1'
+const cooldownCodes = new Set([
+  'subscription_sharing_usage_limit_exceeded',
+  'subscription_sharing_usage_unavailable',
+  'subscription_sharing_user_not_eligible',
+  'subscription_sharing_user_unavailable'
+])
+
+app.disable('x-powered-by')
+app.use((req, res, next) => {
+  const host = req.headers.host
+  if (host !== '127.0.0.1:' + PORT) return res.status(403).json({ error: 'Local-only host required.' })
+  res.setHeader('Cache-Control', 'no-store')
+  res.setHeader('X-Content-Type-Options', 'nosniff')
+  res.setHeader('Referrer-Policy', 'no-referrer')
+  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'")
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    if (req.headers.origin && !['http://127.0.0.1:5173', clientOrigin].includes(req.headers.origin)) return res.status(403).json({ error: 'Origin not allowed.' })
+  }
+  next()
+})
+app.use(express.json({ limit: '90kb' }))
+
+app.get('/api/status', async (_req, res) => {
+  res.json(publicStatus(await readProfile(), Boolean(apiKey)))
+})
+
+app.get('/api/auth/start', async (_req, res) => {
+  const profile = await readProfile()
+  const url = makeAttempt({
+    hostId: await getHostId(), callback,
+    current: profile.account?.client_id ? profile.account : null
+  })
+  res.json({ url })
+})
+
+app.get('/auth/callback', async (req, res) => {
+  let error = null
+  try {
+    const state = typeof req.query.state === 'string' ? req.query.state : ''
+    const attempt = consumeAttempt(state)
+    if (req.query.error) throw new Error('Authorization was declined or unavailable.')
+    if (typeof req.query.code !== 'string') throw new Error('Missing authorization code.')
+    const account = await exchangeCode({
+      code: req.query.code, issuedId: typeof req.query.client_id === 'string' ? req.query.client_id : '',
+      attempt
+    })
+    await updateProfile(profile => ({ ...profile, account }))
+  } catch (reason) {
+    error = reason instanceof Error ? reason.message : 'Unknown authorization error.'
+  }
+  // Never redirect tokens, codes, or the OAuth URL back into browser storage.
+  res.redirect(303, clientOrigin + '/?auth=' + (error ? 'failed' : 'connected'))
+})
+
+app.post('/api/auth/disconnect', async (_req, res) => {
+  const revoked = await disconnectAccount()
+  res.json({ revoked, warning: revoked ? null : 'Local credentials cleared; remote revocation was not confirmed. Disconnect this app in ChatGPT Settings.' })
+})
+
+app.get('/api/models', async (_req, res) => {
+  const models = []
+  let error = null
+  try {
+    const token = await getPlanToken()
+    if (token) {
+      const response = await fetch(endpoint + '/models', {
+        headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(12000)
+      })
+      if (!response.ok) throw new Error('Plan model list unavailable (' + response.status + ')')
+      const body = await response.json()
+      const visible = Array.isArray(body.models) ? body.models : []
+      for (const entry of visible) {
+        if (entry.visibility === 'list' && validModel(entry.slug)) {
+          models.push({ slug: entry.slug, name: entry.display_name || entry.slug })
+        }
+      }
+    }
+  } catch (reason) { error = reason.message }
+  res.json({
+    planModels: models,
+    apiModel: apiKey ? apiModel : null,
+    error
+  })
+})
+
+function normalizedError(response, json) {
+  return {
+    status: response.status,
+    code: json?.error?.code || '',
+    message: String(json?.error?.message || json?.detail || ('OpenAI returned HTTP ' + response.status)).slice(0, 300),
+    requestId: response.headers.get('x-request-id') || undefined
+  }
+}
+
+app.post('/api/chat', async (req, res) => {
+  const messages = checkMessages(req.body?.messages)
+  const preference = req.body?.preference
+  const fallbackAllowed = req.body?.allowApiFallback === true
+  const requestedModel = req.body?.model
+  if (!messages || !['auto', 'plan', 'api'].includes(preference)) {
+    return res.status(400).json({ error: 'Invalid conversation or provider selection.' })
+  }
+  const profile = await readProfile()
+  const planEnabled = Boolean(profile.account?.scopes?.includes('chatgpt.tokens.use.direct') && profile.account?.access_token)
+  let provider = chooseRoute({ preference, planEnabled, apiConfigured: Boolean(apiKey), fallbackAllowed })
+  if (!provider) return res.status(409).json({ error: 'Connect a ChatGPT plan or configure a separately billed OpenAI API key, then select a usable provider.' })
+  if (provider === 'plan' && !validModel(requestedModel)) {
+    return res.status(400).json({ error: 'Select a model from your ChatGPT plan model list.' })
+  }
+
+  const aborter = new AbortController()
+  res.on('close', () => aborter.abort())
+  const requestWith = async (route) => {
+    const token = route === 'plan' ? await getPlanToken() : apiKey
+    if (!token) throw new Error(route === 'plan' ? 'Sign in again to renew ChatGPT plan access.' : 'OpenAI API key is missing.')
+    const model = route === 'plan' ? requestedModel : apiModel
+    const response = await fetch(endpoint + '/responses', {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream'
+      },
+      body: JSON.stringify({ model, input: messages, store: false, stream: true }),
+      signal: AbortSignal.any([aborter.signal, AbortSignal.timeout(180_000)])
+    })
+    return { response, model }
+  }
+  try {
+    let result = await requestWith(provider)
+    if (!result.response.ok) {
+      const body = await result.response.json().catch(() => ({}))
+      const fault = normalizedError(result.response, body)
+      const shouldFallback = provider === 'plan'
+        && preference === 'auto' && fallbackAllowed && Boolean(apiKey)
+        && (cooldownCodes.has(fault.code) || [401, 429, 503].includes(fault.status))
+      if (!shouldFallback) return res.status(fault.status).json({ error: fault.message, code: fault.code, requestId: fault.requestId })
+      provider = 'api'
+      result = await requestWith(provider)
+      if (!result.response.ok) {
+        const other = normalizedError(result.response, await result.response.json().catch(() => ({})))
+        return res.status(other.status).json({ error: other.message, code: other.code, requestId: other.requestId })
+      }
+    }
+    res.status(200)
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
+    res.setHeader('X-Accel-Buffering', 'no')
+    const emit = (value) => { if (!res.destroyed) res.write(JSON.stringify(value) + '\n') }
+    emit({ type: 'meta', provider, model: result.model })
+    await streamResponse(result.response, emit)
+    res.end()
+  } catch (reason) {
+    const message = reason.name === 'AbortError' ? 'Request cancelled.' : String(reason.message || reason)
+    if (!res.headersSent) return res.status(502).json({ error: message.slice(0, 300) })
+    if (!res.destroyed) {
+      res.write(JSON.stringify({ type: 'error', message: message.slice(0, 300) }) + '\n')
+      res.end()
+    }
+  }
+})
+
+app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown endpoint.' }))
+app.use(express.static(fileURLToPath(new URL('../dist/', import.meta.url)), { dotfiles: 'deny' }))
+app.listen(PORT, '127.0.0.1', () => {
+  console.log('Workspace AI backend: http://127.0.0.1:' + PORT)
+  console.log('ChatGPT tokens are stored outside the repository. API fallback: ' + (apiKey ? 'configured' : 'not configured'))
+})
