@@ -50,6 +50,17 @@ export function attachIntegrationRoutes(app,origins){
   if(result.status==='connected'){tokens.set(s.id,token.trim());states.set(s.id,result)}
   res.json({service:s.id,...result,connected:result.status==='connected'})
  })
+ app.post('/api/integrations/:id/verify',async(req,res)=>{
+  if(!validOrigin(req,res))return
+  const service=byId(req.params.id)
+  if(!service)return res.status(404).json({error:'Unknown service.'})
+  const token=tokens.get(service.id)
+  if(!token)return res.status(409).json({error:'No active session token for this provider.'})
+  const result=await checkProviderToken(service.id,token)
+  lastCheck.set(service.id,result)
+  if(result.status==='invalid')tokens.delete(service.id)
+  res.json({service:service.id,...result,connected:result.status==='connected'})
+ })
  app.post('/api/integrations/:id/discover',async(req,res)=>{
   if(!allow(req,res))return
   const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'})
