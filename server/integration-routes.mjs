@@ -5,6 +5,8 @@ import {readTodoistPage} from './todoist-reader.mjs'
 import {attachTodoistReadRoute} from './todoist-routes.mjs'
 import {readGitHubPage} from './github-reader.mjs'
 import {attachGitHubReadRoute} from './github-routes.mjs'
+import {readDropboxFolder} from './dropbox-reader.mjs'
+import {attachDropboxReadRoute} from './dropbox-routes.mjs'
 const envKey=id=>'WORKSPACE_MCP_'+id.toUpperCase().replace(/-/g,'_')+'_URL'
 const tokenKey=id=>'WORKSPACE_MCP_'+id.toUpperCase().replace(/-/g,'_')+'_TOKEN'
 const endpoint=id=>{
@@ -46,7 +48,7 @@ export async function discoverMcp(id,fetchImpl=fetch){
   return {status:'connected',message:'MCP tools discovered. Execution remains disabled pending approvals.',tools}
  }catch{return {status:'unavailable',message:'MCP discovery failed; check server authorization and transport.',tools:[]}}
 }
-export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderToken,discover=discoverMcp,readTodoist=readTodoistPage,readGitHub=readGitHubPage}={}){
+export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderToken,discover=discoverMcp,readTodoist=readTodoistPage,readGitHub=readGitHubPage,readDropbox=readDropboxFolder}={}){
  const tokens=new Map(),states=new Map(),discovered=new Map(),revisions=new Map()
  const bump=id=>{const value=(revisions.get(id)||0)+1;revisions.set(id,value);return value}
  const allow=(req,res)=>{if(origins.has(req.headers.origin))return true;res.status(403).json({error:'Origin not allowed.'});return false}
@@ -58,6 +60,10 @@ export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderTok
   origins,getToken:()=>tokens.get('github'),getRevision:()=>revisions.get('github')||0,
   invalidate:()=>{tokens.delete('github');states.set('github',{status:'invalid',message:'GitHub rejected this credential.'});bump('github')}
  },readGitHub)
+ attachDropboxReadRoute(app,{
+  origins,getToken:()=>tokens.get('dropbox'),getRevision:()=>revisions.get('dropbox')||0,
+  invalidate:()=>{tokens.delete('dropbox');states.set('dropbox',{status:'invalid',message:'Dropbox rejected this credential.'});bump('dropbox')}
+ },readDropbox)
  const record=s=>({...s,authConfigured:!!(s.kind==='mcp'&&endpoint(s.id)),connected:states.get(s.id)?.status==='connected',hasSessionToken:tokens.has(s.id),status:states.get(s.id)?.status||(s.kind==='mcp'&&endpoint(s.id)?'ready-for-discovery':'setup-required'),message:states.get(s.id)?.message||'Requires its own authorized connection.',tools:discovered.get(s.id)||serviceTools(s.id)})
  app.get('/api/integrations',(_req,res)=>res.json({services:SERVICES.map(record),executionEnabled:false}))
  app.get('/api/integrations/:id/tools',(req,res)=>{const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'});res.json({service:s.id,tools:record(s).tools,executionEnabled:false})})
