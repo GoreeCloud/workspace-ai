@@ -42,3 +42,12 @@ test('API key field is masked, revocable, and not persisted in browser storage',
   assert.match(server, /apiKeySource/)
   assert.match(server, /clearCredential/)
 })
+
+test('API connection can verify without sending inference', async () => {
+  const [form, handler] = await Promise.all([load('src/ConnectionField.jsx'), load('server/api-key-verification.mjs')])
+  assert.match(form, /Verify connection/)
+  assert.match(form, /verifyAgain/)
+  assert.match(form, /api\/settings\/credential\/verify/)
+  assert.match(handler, /method: 'GET'/)
+  assert.doesNotMatch(handler, /\/responses/)
+})

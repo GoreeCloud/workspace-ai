@@ -5,6 +5,7 @@ import { getHostId, publicStatus, readProfile, updateProfile } from './storage.m
 import { makeAttempt, consumeAttempt, exchangeCode, getPlanToken, disconnectAccount } from './oauth.mjs'
 import { checkMessages, chooseRoute, validModel, streamResponse } from './stream.mjs'
 import { attachCredentialSettings } from './credential-settings.mjs'
+import { verifyApiKey } from './api-key-verification.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
@@ -36,10 +37,16 @@ app.use((req, res, next) => {
   next()
 })
 app.use(express.json({ limit: '90kb' }))
-attachCredentialSettings(app, {allowedOrigins:new Set([clientOrigin,'http://127.0.0.1:5173']),setCredential:value=>{apiKey=value;apiKeySource='session'},clearCredential:()=>{apiKey=environmentApiKey;apiKeySource=environmentApiKey?'environment':null}})
+const credentialSettings = attachCredentialSettings(app, {
+  allowedOrigins: new Set([clientOrigin, 'http://127.0.0.1:5173']),
+  getCredential: () => apiKey,
+  setCredential: value => { apiKey = value; apiKeySource = 'session' },
+  clearCredential: () => { apiKey = environmentApiKey; apiKeySource = environmentApiKey ? 'environment' : null },
+  verifyCredential: verifyApiKey
+})
 
 app.get('/api/status', async (_req, res) => {
-  res.json({...publicStatus(await readProfile(), Boolean(apiKey)),apiKeySource})
+  res.json({ ...publicStatus(await readProfile(), Boolean(apiKey)), apiKeySource, apiVerification: credentialSettings.getVerification() })
 })
 
 app.get('/api/auth/start', async (_req, res) => {
