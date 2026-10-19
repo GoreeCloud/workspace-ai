@@ -29,7 +29,7 @@ For development with Vite hot reload, run `npm run dev` and open **http://127.0.
 
 To connect a ChatGPT subscription, open **Settings & connections** and choose **Continue with ChatGPT**. An eligible plan and the user's approval are required; sign-in alone does not authorize plan usage.
 
-For the optional OpenAI API, copy `.env.example` to `.env`, set `OPENAI_API_KEY` and restart. In settings choose API-only or opt into automatic fallback. API usage is billed separately and is **not** included with ordinary ChatGPT Plus.
+For optional API access, open **Settings & connections → OpenAI API**, paste your key into the password field, and select **Use key**. This key stays in the local server's memory only, is not returned to the browser, and must be entered again after a server restart. For persistent configuration instead copy `.env.example` to `.env`, set `OPENAI_API_KEY`, and restart. In Settings choose API-only or opt into automatic fallback. API usage is billed separately and is **not** included with ordinary ChatGPT Plus.
 
 ## Security and scope
 
