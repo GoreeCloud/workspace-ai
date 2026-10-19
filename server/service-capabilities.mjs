@@ -1,0 +1,5 @@
+export const CAPABILITIES={
+todoist:[['projects.list','Read projects'],['tasks.create','Create task']], 'google-drive':[['files.search','Search files'],['files.write','Manage files']], dropbox:[['files.list','Browse files'],['files.upload','Upload files']],
+linear:[['issues.list','Read issues'],['issues.write','Update issues']], 'remote-desktop-commander':[['devices.list','Discover devices'],['process.execute','Run commands']], tinyfish:[['browser.extract','Extract pages'],['browser.act','Browser actions']],
+gmail:[['messages.search','Search mail'],['messages.send','Send mail']],firecrawl:[['web.scrape','Extract content'],['web.crawl','Crawl sites']],github:[['repos.list','List repositories'],['pullrequests.write','Manage pull requests']], 'cloudflare-pages':[['pages.projects','List projects'],['pages.deploy','Deploy sites']]}
+export const serviceTools=id=>(CAPABILITIES[id]||[]).map(([name,description])=>({name,description,executable:false,requiresApproval:/\.(write|create|execute|act|send|upload|deploy)$/.test(name)}))
