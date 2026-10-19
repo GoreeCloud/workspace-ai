@@ -32,7 +32,7 @@ async function send(value=draft){
   const stop=new AbortController();controller.current=stop;
   try{
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
-      messages:history.map(m=>({role:m.role,content:m.content})),preference:provider,model:planModel,allowApiFallback:fallback
+      messages:history.map(m=>({role:m.role,content:m.content})),preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
     if(!response.body)throw Error('The server returned no stream');
@@ -106,7 +106,7 @@ return <div className="shell">
 <h3>02 · ROUTING & MODEL</h3><label className="fieldLabel">Preferred provider</label><div className="segments">{[['auto','Automatic'],['plan','ChatGPT plan'],['api','OpenAI API']].map(([key,name])=><button key={key} aria-pressed={provider===key} className={provider===key?'selected':''} onClick={()=>setProvider(key)}>{name}</button>)}</div>
 <p className="helper">Automatic uses the eligible ChatGPT plan first. Separate API billing requires explicit opt-in below.</p>
 {provider!=='api'&&status.planEnabled&&<><label className="fieldLabel" htmlFor="modelPicker">ChatGPT plan model</label><select id="modelPicker" value={planModel} onChange={e=>setPlanModel(e.target.value)}>{models.length===0&&<option value="">No eligible models found</option>}{models.map(m=><option key={m.slug} value={m.slug}>{m.name}</option>)}</select></>}
-{provider==='auto'&&<label className="toggle"><div><strong>Allow API fallback</strong><small>May incur separate API charges if the ChatGPT plan cannot respond.</small></div><input type="checkbox" checked={fallback} onChange={e=>setFallback(e.target.checked)}/></label>}
+{provider==='auto'&&<label className="toggle"><div><strong>Allow API fallback</strong><small>{status.apiConfigured ? 'May incur separate API charges if the ChatGPT plan cannot respond.' : 'Unavailable until an OpenAI API key is configured in the local server.'}</small></div><input type="checkbox" disabled={!status.apiConfigured} checked={Boolean(fallback && status.apiConfigured)} onChange={e=>setFallback(e.target.checked)}/></label>}
 <h3>03 · DATA & PRIVACY</h3><p className="privacyInfo">Chat history is saved in browser local storage. OAuth credentials remain outside the repository in a protected local file. Requests use store: false.</p>
 <div className="actions"><button className="outline" disabled={!chat} onClick={exportChat}><Download size={15}/>Export conversation</button><button className="outline" onClick={refresh}>Refresh status</button></div></div>
 <footer className="dialogFooter"><small>LOCAL FIRST · PUBLIC SOURCE</small><button className="primary" onClick={()=>setSettings(false)}>Done</button></footer>
