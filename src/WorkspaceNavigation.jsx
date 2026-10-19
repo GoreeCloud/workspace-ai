@@ -14,7 +14,7 @@ export default function WorkspaceNavigation({workspace,onWorkspace,view,onNaviga
  <button className="sidebarCollapse" title={compact?'Expand sidebar':'Collapse sidebar'} aria-label={mobile?'Close navigation':compact?'Expand sidebar':'Collapse sidebar'} onClick={mobile?()=>onMobile(false):()=>onWorkspace(w=>({...w,collapsed:!w.collapsed}))}>{mobile?<X size={19}/>:compact?<PanelLeftOpen size={19}/>:<PanelLeftClose size={19}/>}</button></div>
  <button className="newChat" onClick={()=>{onNewChat();onMobile(false)}} title="New conversation" aria-label="New conversation"><Plus size={18}/>{!compact&&'New conversation'}</button>
  <nav className="workspaceNav" aria-label="Primary">
- {NAV_SECTIONS.map(item=>{const Icon=ICONS[item.id],active=view===item.id,open=workspace.expanded[item.id];return <div key={item.id}>
+ {NAV_SECTIONS.map(item=>{const Icon=ICONS[item.id],active=view===item.id||(item.id==='chats'&&view==='chat'),open=workspace.expanded[item.id];return <div key={item.id}>
  <div className={'workspaceNavRow '+(active?'active':'')}>
  <button className="workspaceNavLink" title={item.label} aria-label={item.label} aria-current={active?'page':undefined} onClick={()=>pick(item.id)}><Icon size={18}/>{!compact&&<span>{item.label}</span>}</button>
  {!compact&&['projects','pinned','chats'].includes(item.id)&&<button className="workspaceNavExpand" onClick={()=>toggle(item.id)} aria-expanded={Boolean(open)} aria-label={(open?'Collapse ':'Expand ')+item.label}>{open?<ChevronDown size={15}/>:<ChevronRight size={15}/>}</button>}</div>
