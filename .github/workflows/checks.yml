@@ -16,3 +16,22 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - name: GitHub browser synthetic acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHROME="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME" ]; then
+            echo "Chromium/Chrome not installed on runner"
+            exit 1
+          fi
+          HOME="$RUNNER_TEMP/workspace-ai-browser" WORKSPACE_AI_PORT=3031 npm start >"$RUNNER_TEMP/workspace-ai-server.log" 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3031/ >/dev/null; then
+              break
+            fi
+            sleep 0.25
+          done
+          CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github
