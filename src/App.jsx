@@ -101,23 +101,16 @@ async function send(value=draft){
   }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
 }
 function exportChat(){if(!chat)return;const md='# '+chat.title+'\n\n'+chat.messages.map(m=>'## '+m.role+'\n\n'+m.content).join('\n\n---\n\n');const url=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=url;a.download='workspace-ai-chat.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),0)}
-return <div className="shell">
-{mobile&&<button className="mobileShade" aria-label="Close navigation" onClick={()=>setMobile(false)}/>}
-<aside className={'sidebar '+(mobile?'open':'')} aria-label="Conversations">
- <button className="brand" onClick={newChat}><span className="brandIcon"><Sparkles size={19}/></span><strong>workspace<span>ai</span></strong></button>
- <button className="newChat" onClick={newChat}><Plus size={17}/>New conversation</button>
- <div className="history"><h4>YOUR WORKSPACE <span>{chats.length}</span></h4>
- {!chats.length&&<p>No conversations yet.</p>}
- {[...chats].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).map(c=><div className={'historyRow '+(c.id===current?'selected':'')} key={c.id}>
- <button onClick={()=>{if(!busy){setCurrent(c.id);setMobile(false)}}}>{c.title||'Conversation'}</button>
- <button className="deleteChat" aria-label={'Delete '+c.title} onClick={()=>remove(c.id)}><Trash2 size={15}/></button></div>)}</div>
- <footer className="sideFoot"><div className="private"><ShieldCheck size={18}/><div><b>Private by design</b><small>History stored in this browser</small></div></div>
- <button className="settingsLink" onClick={()=>{setSettings(true);setMobile(false)}}><Settings2 size={17}/>Settings & connections</button><small className="sig">GOREECLOUD · WORKSPACE AI</small></footer>
-</aside>
+return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed":"")}>
+<WorkspaceNavigation workspace={workspace} onWorkspace={setWorkspace} view={view} onNavigate={navigate}
+ chats={chats} current={current} onSelectChat={openChat} onNewChat={()=>newChat()}
+ mobile={mobile} onMobile={setMobile} selectedProject={selectedProject} onProject={setSelectedProject}/>
 <main className="main">
- <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>Workspace AI</strong><span className="beta">BETA</span></div>
+ <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{view==='chat'?'Workspace AI':{mcp:'MCP',api:'API',projects:'Projects',pinned:'Pinned',chats:'All Chats',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></div>
  <div><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
- <div className="viewport">{!chat?.messages?.length?<section className="welcome">
+ <div className="viewport">{view!=='chat'?<WorkspaceViews view={view} chats={chats} workspace={workspace} onWorkspace={setWorkspace}
+ onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat}
+ selectedProject={selectedProject} onProject={setSelectedProject} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
  <p className="eyebrow">✦ YOUR SPACE TO THINK BIGGER</p><div className="bigIcon"><Sparkles size={38}/></div>
  <h1>Good ideas start <em>here.</em></h1><p>Ask anything, create something, or follow your curiosity.<br/>Your AI workspace, your way.</p>
  <div className="ideas">{[['Explore an idea','Turn curiosity into clarity','Help me turn a new idea into a concrete project.'],['Write code','Build, debug and create','Help me plan and build a useful application.'],['Create content','Find the right words','Help me draft a clear and thoughtful article.'],['Learn something','Go beyond the surface','Explain an interesting concept with examples.']].map(([title,sub,idea],i)=><button key={title} className="idea" onClick={()=>{setDraft(idea);prompt.current?.focus()}}><span className={'ideaIcon icon'+i}>{i===0?<Sparkles size={19}/>:i===1?'⌘':i===2?'✎':'◇'}</span><span><strong>{title}</strong><small>{sub}</small></span><span className="ideaArrow">→</span></button>)}</div></section>:
