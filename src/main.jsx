@@ -1,6 +1,11 @@
-import React from 'react';
-import {createRoot} from 'react-dom/client';
-import App from './App.jsx';
-import './styles.css';
-createRoot(document.getElementById('root')).render(<React.StrictMode><App /></React.StrictMode>);
-import './connection-field.css';
+import React from 'react'
+import { createRoot } from 'react-dom/client'
+import App from './App.jsx'
+import './gc-ui-tokens.css'
+import './styles.css'
+import './connection-field.css'
+import './ui-refresh.css'
+
+createRoot(document.getElementById('root')).render(
+  <React.StrictMode><App /></React.StrictMode>
+)

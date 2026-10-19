@@ -10,6 +10,7 @@ const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
 const environmentApiKey = process.env.OPENAI_API_KEY?.trim() || ''
 let apiKey = environmentApiKey
+let apiKeySource = environmentApiKey ? 'environment' : null
 const apiModel = process.env.OPENAI_API_MODEL || 'gpt-5-mini'
 const clientOrigin = 'http://127.0.0.1:' + PORT
 const callback = 'http://127.0.0.1:' + PORT + '/auth/callback'
@@ -35,10 +36,10 @@ app.use((req, res, next) => {
   next()
 })
 app.use(express.json({ limit: '90kb' }))
-attachCredentialSettings(app, {allowedOrigins:new Set([clientOrigin,'http://127.0.0.1:5173']),setCredential:value=>{apiKey=value},clearCredential:()=>{apiKey=environmentApiKey}})
+attachCredentialSettings(app, {allowedOrigins:new Set([clientOrigin,'http://127.0.0.1:5173']),setCredential:value=>{apiKey=value;apiKeySource='session'},clearCredential:()=>{apiKey=environmentApiKey;apiKeySource=environmentApiKey?'environment':null}})
 
 app.get('/api/status', async (_req, res) => {
-  res.json(publicStatus(await readProfile(), Boolean(apiKey)))
+  res.json({...publicStatus(await readProfile(), Boolean(apiKey)),apiKeySource})
 })
 
 app.get('/api/auth/start', async (_req, res) => {
