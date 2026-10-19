@@ -1,3 +1,4 @@
+import './github-reader.css'
 import React, {useEffect, useRef, useState} from 'react'
 import {Github, RefreshCw, ArrowLeft, Search} from 'lucide-react'
 
