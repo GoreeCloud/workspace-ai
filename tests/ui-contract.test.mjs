@@ -25,6 +25,8 @@ test('settings support theme selection and dialog keyboard containment', async (
   assert.match(source, /workspace-ai-theme/)
   assert.match(source, /data-mode/)
   assert.match(source, /appearance===value/)
+  assert.match(source, /settingsTab!==/)
+  assert.match(source, /aria-current=\{settingsTab===key/)
   assert.match(source, /aria-modal="true"/)
   assert.match(source, /aria-labelledby="settings-title"/)
   assert.match(source, /event\.key==='Escape'/)

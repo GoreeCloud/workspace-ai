@@ -10,6 +10,7 @@ async function api(url,data){const r=await fetch(url,data?{method:'POST',headers
 export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
+const [settingsTab,setSettingsTab]=useState('connections');
 const [appearance,setAppearance]=useState(()=>{try{const saved=localStorage.getItem('workspace-ai-theme');return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
 const dialogRef=useRef(null);
@@ -119,23 +120,34 @@ return <div className="shell">
  {m.role==='assistant'&&!!m.content&&<button className="copy" onClick={()=>navigator.clipboard.writeText(m.content).catch(()=>setError('Could not copy text'))}><Copy size={14}/>Copy</button>}
  </div></article>)}<div ref={bottom}/></section>}</div>
  <div className="composerArea">{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
- {!ready&&<div className="notice"><span>Connect ChatGPT or configure a separately billed OpenAI API connection.</span><button onClick={()=>setSettings(true)}>Configure →</button></div>}
+ {!ready&&<div className="notice"><span>Connect ChatGPT or configure a separately billed OpenAI API connection.</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}
  <div className="composer"><textarea ref={prompt} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={12000} rows={2} placeholder="Ask anything…" aria-label="Message to Workspace AI" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}}/>
- <div className="composerBottom"><button className="sourceButton" onClick={()=>setSettings(true)}><Sparkles size={15}/>{provider==='auto'?'Automatic':provider==='api'?'OpenAI API':'ChatGPT plan'}<ChevronDown size={14}/></button><small>{provider==='plan'?planModel||'Choose a model':provider==='api'?status.model:'Smart routing'}</small>
+ <div className="composerBottom"><button className="sourceButton" onClick={()=>{setSettingsTab('routing');setSettings(true)}}><Sparkles size={15}/>{provider==='auto'?'Automatic':provider==='api'?'OpenAI API':'ChatGPT plan'}<ChevronDown size={14}/></button><small>{provider==='plan'?planModel||'Choose a model':provider==='api'?status.model:'Smart routing'}</small>
  <button className="send" disabled={!busy&&(!ready||!draft.trim())} onClick={()=>busy?controller.current?.abort():send()} aria-label={busy?'Stop generation':'Send message'}>{busy?<Square size={16} fill="currentColor"/>:<ArrowUp size={19}/>}</button></div></div>
  <p className="disclaimer">Workspace AI can make mistakes. Verify important information. <span>POWERED BY OPENAI</span></p></div>
 </main>
 {settings&&<div className="overlay" onMouseDown={e=>{if(e.target===e.currentTarget)setSettings(false)}}><section ref={dialogRef} className="dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-describedby="settings-description">
 <header className="modalHeader"><div><small>PREFERENCES</small><h2 id="settings-title">Settings & connections</h2><p id="settings-description">Customize your workspace and manage your AI connections.</p></div><button className="iconButton" onClick={()=>setSettings(false)} aria-label="Close settings"><X size={21}/></button></header>
+<nav className="settingsTabs" aria-label="Settings sections">
+ {[
+ ['connections','Connections'],['routing','Models & billing'],['appearance','Appearance'],['privacy','Privacy']
+ ].map(([key,label])=><button key={key} type="button" aria-current={settingsTab===key?'page':undefined}
+ className={settingsTab===key?'active':''} onClick={()=>setSettingsTab(key)}>{label}</button>)}
+</nav>
 <div className="dialogBody">
+<section className="settingsPanel" hidden={settingsTab!=='connections'}>
 <h3>01 · CONNECTIONS</h3><div className="connectionCard"><div className="connectionTop"><span className="providerIcon"><Sparkles size={20}/></span><div><strong>ChatGPT subscription</strong><small>Eligible plan allowance with your permission</small></div><span className={'pill '+(status.planEnabled?'active':'')}>{status.planEnabled?'Connected':status.connected?'Sign-in only':'Not connected'}</span></div>
 {status.connected&&<p className="connectedText"><CheckCircle size={16}/>{status.email||'ChatGPT account'}</p>}
 <div className="actions">{status.connected?<><button className="outline" onClick={signIn}>Reauthorize</button><button className="danger" onClick={signOut}>Disconnect</button></>:<button className="primary" onClick={signIn}><Sparkles size={16}/>Continue with ChatGPT →</button>}</div></div>
 <div className="connectionCard"><div className="connectionTop"><span className="providerIcon apiIcon"><KeyRound size={20}/></span><div><strong>OpenAI API</strong><small>Separately billed, optional fallback</small></div><span className={'pill '+(status.apiConfigured?'active':'')}>{status.apiConfigured?'Configured':'Not configured'}</span></div><ConnectionField configured={status.apiConfigured} keySource={status.apiKeySource} onRefresh={refresh}/></div>
+</section>
+<section className="settingsPanel" hidden={settingsTab!=='routing'}>
 <h3>02 · ROUTING & MODEL</h3><label className="fieldLabel">Preferred provider</label><div className="segments">{[['auto','Automatic'],['plan','ChatGPT plan'],['api','OpenAI API']].map(([key,name])=><button key={key} aria-pressed={provider===key} className={provider===key?'selected':''} onClick={()=>setProvider(key)}>{name}</button>)}</div>
 <p className="helper">Automatic uses the eligible ChatGPT plan first. Separate API billing requires explicit opt-in below.</p>
 {provider!=='api'&&status.planEnabled&&<><label className="fieldLabel" htmlFor="modelPicker">ChatGPT plan model</label><select id="modelPicker" value={planModel} onChange={e=>setPlanModel(e.target.value)}>{models.length===0&&<option value="">No eligible models found</option>}{models.map(m=><option key={m.slug} value={m.slug}>{m.name}</option>)}</select></>}
 {provider==='auto'&&<label className="toggle"><div><strong>Allow API fallback</strong><small>{status.apiConfigured ? 'May incur separate API charges if the ChatGPT plan cannot respond.' : 'Unavailable until an OpenAI API key is configured in the local server.'}</small></div><input type="checkbox" disabled={!status.apiConfigured} checked={Boolean(fallback && status.apiConfigured)} onChange={e=>setFallback(e.target.checked)}/></label>}
+</section>
+<section className="settingsPanel" hidden={settingsTab!=='appearance'}>
 <h3>03 · APPEARANCE</h3>
 <div className="settings-theme-group">
  <div className="settings-preview-row">
@@ -146,8 +158,11 @@ return <div className="shell">
  </div>
  <p>Follows your device by default. Your preference is saved on this browser.</p>
 </div>
+</section>
+<section className="settingsPanel" hidden={settingsTab!=='privacy'}>
 <h3>04 · DATA & PRIVACY</h3><p className="privacyInfo">Chat history is saved in browser local storage. OAuth credentials remain outside the repository in a protected local file. Requests use store: false.</p>
-<div className="actions"><button className="outline" disabled={!chat} onClick={exportChat}><Download size={15}/>Export conversation</button><button className="outline" onClick={refresh}>Refresh status</button></div></div>
+<div className="actions"><button className="outline" disabled={!chat} onClick={exportChat}><Download size={15}/>Export conversation</button><button className="outline" onClick={refresh}>Refresh status</button></div>
+</section></div>
 <footer className="dialogFooter"><small>LOCAL FIRST · PUBLIC SOURCE</small><button className="primary" onClick={()=>setSettings(false)}>Done</button></footer>
 </section></div>}
 </div>

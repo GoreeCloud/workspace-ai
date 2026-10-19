@@ -37,7 +37,7 @@ Workspace AI uses **GoreeCloud UI (GC UI)**, the platform-wide design authority 
 
 The included `src/gc-ui-tokens.css` is a pinned snapshot of the first-party GC UI alpha token stylesheet, distributed under its own Apache-2.0 license at `licenses/GC-UI-APACHE-2.0.txt`. GC UI's component registry remains experimental; this repo does not claim a stable React component package.
 
-Settings provides **System**, **Light**, and **Dark** appearance modes. The selected theme is stored in this browser and works without an external theme service. Dialog focus is contained while open and returned to the previous control after closing. Visual/accessibility testing on actual devices remains a release gate.
+Settings separates **Connections**, **Models & billing**, **Appearance**, and **Privacy** into accessible navigation sections instead of one long obscured form. The Appearance section provides **System**, **Light**, and **Dark** modes. The selected theme is stored in this browser and works without an external theme service. Dialog focus is contained while open and returned to the previous control after closing. Visual/accessibility testing on actual devices remains a release gate.
 
 ## Security and scope
 
