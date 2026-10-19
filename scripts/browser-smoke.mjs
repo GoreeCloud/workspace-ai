@@ -23,7 +23,7 @@ const port = await new Promise((resolve, reject) => {
   })
 })
 const chrome = spawn(executable, [
-  '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+  '--headless=new', '--disable-gpu', '--disable-dev-shm-usage',
   '--remote-debugging-port=' + port, '--user-data-dir=' + profile, 'about:blank'
 ], { stdio: 'ignore' })
 let ws
