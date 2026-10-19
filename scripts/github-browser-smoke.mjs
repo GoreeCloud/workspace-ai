@@ -81,6 +81,10 @@ try {
         id:'github',name:'GitHub',kind:'api',category:'Development',auth:'token',
         connected:true,hasSessionToken:true,status:'connected',message:'Synthetic authorized connection',
         tools:[{name:'repos.list',description:'Read repositories',executable:false}]
+      },{
+        id:'dropbox',name:'Dropbox',kind:'api',category:'Files',auth:'token',
+        connected:true,hasSessionToken:true,status:'connected',message:'Synthetic Dropbox session',
+        tools:[{name:'files.list',description:'Read files',executable:false}]
       }]})
       if(url.pathname==='/api/integrations/github/data'){
         const resource=url.searchParams.get('resource')
@@ -98,6 +102,20 @@ try {
         ]})
         if(resource==='pulls')return wrap({resource,repo:'workspace-ai',readOnly:true,nextPage:null,results:[
           {number:13,title:'Synthetic pull request',state:'open',updatedAt:'2026-10-19T00:00:00Z'}
+        ]})
+      }
+      if(url.pathname==='/api/integrations/dropbox/data'){
+        const path=url.searchParams.get('path')||''
+        const cursor=url.searchParams.get('cursor')
+        if(cursor)return wrap({path:null,readOnly:true,nextCursor:null,entries:[
+          {type:'file',name:'second-page.txt',path:'/second-page.txt',size:512,modified:''}
+        ]})
+        if(path==='/Design')return wrap({path,readOnly:true,nextCursor:null,entries:[
+          {type:'file',name:'mockup.png',path:'/Design/mockup.png',size:1234,modified:''}
+        ]})
+        return wrap({path:'',readOnly:true,nextCursor:'next',entries:[
+          {type:'folder',name:'Design',path:'/Design',size:null,modified:''},
+          {type:'file',name:'notes.txt',path:'/notes.txt',size:1024,modified:''}
         ]})
       }
       return nativeFetch(input,init)
@@ -120,10 +138,18 @@ try {
   await wait("document.querySelector('.githubEntries li')?.textContent.includes('Synthetic issue')")
   await evaluate("[...document.querySelectorAll('.githubReaderTabs button')].find(n=>n.textContent==='Pull requests').click()")
   await wait("document.querySelector('.githubEntries li')?.textContent.includes('Synthetic pull request')")
+  await evaluate("[...document.querySelectorAll('.workspaceCard')].find(c=>c.querySelector('.workspaceCardHead strong')?.textContent==='Dropbox').querySelector('.outline').click()")
+  await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('Design')")
+  await evaluate("[...document.querySelectorAll('.dropboxReader button')].find(n=>n.textContent.includes('Load more')).click()")
+  await wait("document.querySelectorAll('.dropboxEntries li').length===3")
+  await evaluate("document.querySelector('.dropboxEntries li button').click()")
+  await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('mockup.png')")
+  await evaluate("document.querySelector('button[aria-label=\"Back to parent Dropbox folder\"]').click()")
+  await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('Design')")
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true})
   assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Horizontal mobile overflow')
   assert.deepEqual(exceptions,[],'Browser JavaScript exceptions')
-  console.log(JSON.stringify({passed:true,repositoryBrowser:true,issues:true,pullRequests:true,pagination:true,mobile:true}))
+  console.log(JSON.stringify({passed:true,repositoryBrowser:true,issues:true,pullRequests:true,pagination:true,dropbox:true,mobile:true}))
 } finally {
   try{ws?.close()}catch{}
   chrome.kill('SIGTERM')
