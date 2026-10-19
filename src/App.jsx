@@ -55,7 +55,7 @@ function newChat(projectId){if(busy)return;setCurrent(null);setView('chat');setS
 function remove(id){if(busy||!confirm('Delete this chat locally?'))return;setChats(v=>v.filter(c=>c.id!==id));setWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id)setCurrent(null)}
 function openChat(id){if(busy)return;setCurrent(id);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
 function assignChat(id,projectId){setChats(v=>v.map(c=>c.id===id?{...c,projectId}:c))}
-function navigate(id){setView(id);setMobile(false);if(id==='projects')setSelectedProject(null)}
+function navigate(id){setView(id);setMobile(false)}
 function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
 async function signIn(){try{const r=await api('/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
 async function signOut(){if(!confirm('Disconnect ChatGPT?'))return;try{const r=await api('/api/auth/disconnect',{});await refresh();if(r.warning)setError(r.warning)}catch(e){setError(report(e))}}
