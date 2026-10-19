@@ -27,3 +27,7 @@ test('stream requires completion event',async()=>{
  assert.deepEqual(events,[{type:'delta',text:'Hi'},{type:'complete'}])
  await assert.rejects(()=>streamResponse(new Response('data: {"type":"response.output_text.delta","delta":"Hi"}\n\n'),()=>{}),/before response.completed/)
 })
+test('usage-limit errors fail the stream',async()=>{
+ const frame='data: {"type":"response.failed","response":{"error":{"code":"subscription_sharing_usage_limit_exceeded"}}}\n\n'
+ await assert.rejects(()=>streamResponse(new Response(frame),()=>{}),/subscription_sharing_usage_limit_exceeded/)
+})

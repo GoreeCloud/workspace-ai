@@ -116,7 +116,8 @@ app.post('/api/chat', async (req, res) => {
   }
   const profile = await readProfile()
   const planEnabled = Boolean(profile.account?.scopes?.includes('chatgpt.tokens.use.direct') && profile.account?.access_token)
-  let provider = chooseRoute({ preference, planEnabled, apiConfigured: Boolean(apiKey), fallbackAllowed })
+  if (preference === 'plan' && planEnabled && !validModel(requestedModel)) return res.status(400).json({ error: 'Select a valid account model.' })
+  let provider = chooseRoute({ preference, planEnabled: planEnabled && validModel(requestedModel), apiConfigured: Boolean(apiKey), fallbackAllowed })
   if (!provider) return res.status(409).json({ error: 'Connect a ChatGPT plan or configure a separately billed OpenAI API key, then select a usable provider.' })
   if (provider === 'plan' && !validModel(requestedModel)) {
     return res.status(400).json({ error: 'Select a model from your ChatGPT plan model list.' })
@@ -159,9 +160,26 @@ app.post('/api/chat', async (req, res) => {
     res.status(200)
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8')
     res.setHeader('X-Accel-Buffering', 'no')
-    const emit = (value) => { if (!res.destroyed) res.write(JSON.stringify(value) + '\n') }
+    let emittedText = false
+    const emit = (value) => {
+      if (value.type === 'delta') emittedText = true
+      if (!res.destroyed) res.write(JSON.stringify(value) + '\n')
+    }
     emit({ type: 'meta', provider, model: result.model })
-    await streamResponse(result.response, emit)
+    try {
+      await streamResponse(result.response, emit)
+    } catch (streamError) {
+      const quota = /subscription_sharing_(usage_limit_exceeded|usage_unavailable|user_not_eligible|user_unavailable)/.test(String(streamError?.message || streamError))
+      if (!(provider === 'plan' && preference === 'auto' && fallbackAllowed && Boolean(apiKey) && !emittedText && quota)) throw streamError
+      provider = 'api'
+      result = await requestWith(provider)
+      if (!result.response.ok) {
+        const failure = normalizedError(result.response, await result.response.json().catch(() => ({})))
+        throw new Error('API fallback failed (' + failure.status + '): ' + failure.message)
+      }
+      emit({ type: 'meta', provider, model: result.model })
+      await streamResponse(result.response, emit)
+    }
     res.end()
   } catch (reason) {
     const message = reason.name === 'AbortError' ? 'Request cancelled.' : String(reason.message || reason)
