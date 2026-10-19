@@ -35,7 +35,8 @@ export async function discoverMcp(id,fetchImpl=fetch){
  }catch{return {status:'unavailable',message:'MCP discovery failed; check server authorization and transport.',tools:[]}}
 }
 export function attachIntegrationRoutes(app,origins){
- const tokens=new Map(),states=new Map(),discovered=new Map()
+ const tokens=new Map(),states=new Map(),discovered=new Map(),revisions=new Map()
+ const bump=id=>{const value=(revisions.get(id)||0)+1;revisions.set(id,value);return value}
  const allow=(req,res)=>{if(origins.has(req.headers.origin))return true;res.status(403).json({error:'Origin not allowed.'});return false}
  const record=s=>({...s,authConfigured:!!(s.kind==='mcp'&&endpoint(s.id)),connected:states.get(s.id)?.status==='connected',status:states.get(s.id)?.status||(s.kind==='mcp'&&endpoint(s.id)?'ready-for-discovery':'setup-required'),message:states.get(s.id)?.message||'Requires its own authorized connection.',tools:discovered.get(s.id)||serviceTools(s.id)})
  app.get('/api/integrations',(_req,res)=>res.json({services:SERVICES.map(record),executionEnabled:false}))
@@ -46,8 +47,12 @@ export function attachIntegrationRoutes(app,origins){
   if(!TOKEN_PROVIDERS[s.id])return res.status(409).json({error:'OAuth or administrator-approved MCP configuration required.'})
   const token=req.body?.token
   if(typeof token!=='string'||token.length>2048)return res.status(400).json({error:'Invalid token.'})
+  const revision=bump(s.id)
+  tokens.delete(s.id);states.delete(s.id);discovered.delete(s.id)
   const result=await checkProviderToken(s.id,token)
-  if(result.status==='connected'){tokens.set(s.id,token.trim());states.set(s.id,result)}
+  if(revision!==revisions.get(s.id))return res.status(409).json({error:'Connection changed during verification.'})
+  states.set(s.id,result)
+  if(result.status==='connected')tokens.set(s.id,token.trim())
   res.json({service:s.id,...result,connected:result.status==='connected'})
  })
  app.post('/api/integrations/:id/verify',async(req,res)=>{
@@ -56,22 +61,29 @@ export function attachIntegrationRoutes(app,origins){
   if(!service)return res.status(404).json({error:'Unknown service.'})
   const token=tokens.get(service.id)
   if(!token)return res.status(409).json({error:'No active session token for this provider.'})
+  const revision=revisions.get(service.id)||0
   const result=await checkProviderToken(service.id,token)
+  if(revision!==revisions.get(service.id))return res.status(409).json({error:'Connection changed during verification.'})
   states.set(service.id,result)
-  if(result.status==='invalid')tokens.delete(service.id)
+  if(result.status==='invalid'){tokens.delete(service.id);bump(service.id)}
   res.json({service:service.id,...result,connected:result.status==='connected'})
  })
  app.post('/api/integrations/:id/discover',async(req,res)=>{
   if(!allow(req,res))return
   const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'})
   if(s.kind!=='mcp')return res.status(409).json({error:'Not an MCP provider.'})
-  const result=await discoverMcp(s.id);states.set(s.id,{status:result.status,message:result.message})
+  const revision=bump(s.id)
+  states.set(s.id,{status:'discovering',message:'Discovering available tools.'});discovered.delete(s.id)
+  const result=await discoverMcp(s.id)
+  if(revision!==revisions.get(s.id))return res.status(409).json({error:'Connection changed during discovery.'})
+  states.set(s.id,{status:result.status,message:result.message})
   if(result.status==='connected')discovered.set(s.id,result.tools);else discovered.delete(s.id)
   res.json({...result,service:s.id,executionEnabled:false})
  })
  app.post('/api/integrations/:id/disconnect',(req,res)=>{
   if(!allow(req,res))return
   const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'})
+  bump(s.id)
   tokens.delete(s.id);states.delete(s.id);discovered.delete(s.id)
   res.json({service:s.id,connected:false,status:'setup-required'})
  })
