@@ -12,7 +12,7 @@ Projects support local create/delete and assignment of conversations. Pins and c
 
 | Service | Current connection path | Implemented now |
 | --- | --- | --- |
-| Todoist | API token | Read-only credential check |
+| Todoist | API token | API v1 credential check and paginated, read-only project/task browser |
 | Google Drive | OAuth registration required | Catalog and advertised capabilities only |
 | Dropbox | API token | Read-only credential check |
 | Linear | API token | Read-only credential check |

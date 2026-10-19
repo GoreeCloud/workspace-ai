@@ -53,3 +53,17 @@
 .workspaceScope button{margin-left:auto;background:transparent;border:0;color:inherit;min-width:32px;min-height:32px}
 @media(max-width:800px){.workspaceShell .workspaceSidebar{width:282px;max-width:88vw}.workspacePage{padding:25px 17px 70px}.workspacePageTop h1{font-size:24px}.workspaceChatRow{flex-wrap:wrap}.workspaceChatRow select{max-width:120px}}
 @media(prefers-reduced-motion:reduce){.workspaceShell .workspaceSidebar{transition:none}}
+
+/* Read-only Todoist browser: semantic GC UI surfaces and keyboard-friendly controls. */
+.todoistReader{margin-top:15px;padding:15px;border:1px solid var(--gc-outline);border-radius:14px;background:var(--gc-surface-tonal)}
+.todoistReaderTop{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.todoistReaderTop strong{display:flex;gap:7px;align-items:center;min-width:0;font-size:13px}
+.todoistReaderTop .outline{min-width:39px;min-height:38px;display:grid;place-items:center;padding:6px}
+.todoistReader p{font-size:11px;line-height:1.5}
+.todoistEntries{padding:0!important;margin:10px 0!important;list-style:none!important;max-height:320px;overflow:auto}
+.todoistEntries li{padding:10px 3px!important;display:flex;justify-content:space-between;align-items:center;gap:8px;border-bottom:1px solid var(--gc-outline);font-size:12px}
+.todoistEntries li:last-child{border-bottom:0}
+.todoistEntries li button{color:var(--gc-text);text-align:left;background:transparent;min-height:39px;padding:6px;border-radius:7px;flex:1}
+.todoistEntries li button:hover,.todoistEntries li button:focus-visible{background:var(--gc-brand-container)}
+.todoistEntries li span{color:var(--gc-text);overflow-wrap:anywhere}
+.todoistEntries li small{color:var(--gc-text-soft);font-size:11px;flex:none}
