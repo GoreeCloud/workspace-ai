@@ -144,3 +144,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .settingsPanel[hidden]{display:none!important}.settingsPanel{min-height:0;padding-top:1px}
 .settingsPanel .connectionCard:last-child{margin-bottom:6px}
 @media(max-width:580px){.settingsTabs{padding:9px 15px;gap:4px}.settingsTabs button{font-size:11px;padding:0 10px;flex:0 0 auto}}
+
+/* Connection validation uses semantic status, not color alone. */
+.apiKeyForm .keyVerification{display:flex;align-items:center;gap:9px;padding:10px 12px;border:1px solid var(--gc-outline);border-radius:12px;font-size:12px;line-height:1.5;margin:12px 0 0;color:var(--gc-text-soft);background:var(--gc-surface-tonal)}
+.keyVerification svg{flex:none}
+.apiKeyForm .keyVerification-verified{color:var(--gc-positive);background:var(--gc-positive-container);border-color:var(--gc-positive-container)}
+.apiKeyForm .keyVerification-invalid,.apiKeyForm .keyVerification-restricted{color:var(--gc-negative);background:var(--gc-negative-container);border-color:var(--gc-negative-container)}
+.apiKeyForm .keyVerification-unavailable{color:var(--gc-text);background:var(--gc-surface-tonal)}
+.apiKeyForm .keyVerification-untested,.apiKeyForm .keyVerification-missing{color:var(--gc-text-soft)}
+.apiKeyForm .actions{display:flex;flex-wrap:wrap;gap:8px}
+.apiKeyForm .actions button{white-space:normal}
+@media(max-width:580px){.apiKeyForm .actions .outline{flex:1}}
