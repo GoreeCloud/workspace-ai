@@ -1,6 +1,7 @@
 import React,{useEffect,useState} from 'react'
-import {FolderKanban,Pin,PinOff,Search,Plus,Trash2,Plug,Waypoints,Settings2,RefreshCw,KeyRound,ChevronDown,ChevronUp} from 'lucide-react'
+import {FolderKanban,Pin,PinOff,Search,Plus,Trash2,Plug,Waypoints,Settings2,RefreshCw,KeyRound,ChevronDown,ChevronUp,ListTodo} from 'lucide-react'
 import {searchChats} from './workspace-state.js'
+import TodoistBrowser from './TodoistBrowser.jsx'
 async function post(url,body){
  const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})})
  const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed');return result
@@ -8,7 +9,7 @@ async function post(url,body){
 const STATUS={connected:'Connected',invalid:'Rejected',restricted:'Restricted',unavailable:'Unavailable','ready-for-discovery':'Ready for discovery','setup-required':'Setup required'}
 function IntegrationsView({kind}){
  const [services,setServices]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState('')
- const [editing,setEditing]=useState(null),[tokens,setTokens]=useState({}),[busy,setBusy]=useState(null),[details,setDetails]=useState(null)
+ const [editing,setEditing]=useState(null),[tokens,setTokens]=useState({}),[busy,setBusy]=useState(null),[details,setDetails]=useState(null),[browser,setBrowser]=useState(null)
  const refresh=async()=>{
   try{const r=await fetch('/api/integrations');if(!r.ok)throw Error('Integration service unavailable');const j=await r.json();setServices(j.services||[]);setError('')}
   catch(e){setError(e.message||'Unable to load services')}finally{setLoading(false)}
@@ -16,7 +17,7 @@ function IntegrationsView({kind}){
  useEffect(()=>{refresh()},[])
  const action=async(id,operation,body)=>{
   setBusy(id);setError('')
-  try{const result=await post('/api/integrations/'+id+'/'+operation,body);setDetails(id);setEditing(null);setTokens(t=>({...t,[id]:''}));await refresh();if(['invalid','restricted','unavailable'].includes(result.status))setError(result.message)}
+  try{const result=await post('/api/integrations/'+id+'/'+operation,body);setDetails(id);setEditing(null);setTokens(t=>({...t,[id]:''}));if(operation==='disconnect')setBrowser(null);await refresh();if(['invalid','restricted','unavailable'].includes(result.status))setError(result.message)}
   catch(e){setError(e.message||'Action failed')}finally{setBusy(null)}
  }
  return <div className="workspacePage"><div className="workspacePageTop"><div><h1>{kind==='mcp'?'MCP connections':'API integrations'}</h1><p>{kind==='mcp'?'Discover tools from authorized Model Context Protocol servers.':'Manage optional services from your local Workspace AI server.'}</p></div><button className="outline" onClick={refresh}><RefreshCw size={16}/> Refresh</button></div>
@@ -27,10 +28,11 @@ function IntegrationsView({kind}){
   <p>{s.message}</p><div className="actions">
   {s.kind==='api'&&s.auth==='token'&&!s.hasSessionToken&&<button className="outline" onClick={()=>setEditing(editing===s.id?null:s.id)}><KeyRound size={15}/> Enter token</button>}
   {s.kind==='mcp'&&s.authConfigured&&<button className="outline" onClick={()=>action(s.id,'discover')} disabled={busy===s.id}><Plug size={15}/> Discover tools</button>}
-  {s.connected&&s.kind==='api'&&<button className="outline" onClick={()=>action(s.id,'verify')} disabled={busy===s.id}><RefreshCw size={15}/> Check health</button>}
+  {s.id==='todoist'&&s.hasSessionToken&&<button className="outline" aria-expanded={browser===s.id} onClick={()=>setBrowser(browser===s.id?null:s.id)}><ListTodo size={15}/> {browser===s.id?'Close preview':'Browse projects & tasks'}</button>}
   {s.kind==='api'&&s.hasSessionToken&&<button className="outline" onClick={()=>action(s.id,'verify')} disabled={busy===s.id}><RefreshCw size={15}/> Verify connection</button>}
   {(s.connected||s.hasSessionToken)&&<button className="outline" onClick={()=>action(s.id,'disconnect')} disabled={busy===s.id}>Disconnect</button>}
   <button className="outline" aria-expanded={details===s.id} onClick={()=>setDetails(details===s.id?null:s.id)}>Capabilities {details===s.id?<ChevronUp size={15}/>:<ChevronDown size={15}/>}</button></div>
+  {s.id==='todoist'&&browser===s.id&&s.hasSessionToken&&<TodoistBrowser/>}
   {editing===s.id&&<form className="workspaceTokenForm" onSubmit={e=>{e.preventDefault();action(s.id,'connect',{token:tokens[s.id]||''})}}><label htmlFor={'integration-'+s.id}>{s.name} token</label><input id={'integration-'+s.id} type="password" maxLength={2048} autoComplete="off" spellCheck={false} value={tokens[s.id]||''} onChange={e=>setTokens(t=>({...t,[s.id]:e.target.value}))} placeholder="Paste access token" required/><button className="primary" type="submit" disabled={busy===s.id||!(tokens[s.id]||'').trim()}>{busy===s.id?'Checking…':'Verify connection'}</button><small>Only server memory stores this token. No remote modifications are performed.</small></form>}
   {details===s.id&&<ul className="workspaceToolList">{(s.tools||[]).map(t=><li key={t.name}><span><strong>{t.name}</strong><br/><small>{t.description}</small></span><small>Not executable</small></li>)}</ul>}
   {s.auth==='oauth'&&<p className="workspaceToolNote">Provider OAuth application registration is required; not yet available.</p>}

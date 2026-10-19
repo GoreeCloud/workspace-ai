@@ -1,4 +1,4 @@
-export const TOKEN_PROVIDERS={todoist:{url:'https://api.todoist.com/rest/v2/projects',method:'GET'},dropbox:{url:'https://api.dropboxapi.com/2/users/get_current_account',method:'POST',body:'null'},linear:{url:'https://api.linear.app/graphql',method:'POST',body:JSON.stringify({query:'query { viewer { id name } }'})},github:{url:'https://api.github.com/user',method:'GET'},'cloudflare-pages':{url:'https://api.cloudflare.com/client/v4/user/tokens/verify',method:'GET'}}
+export const TOKEN_PROVIDERS={todoist:{url:'https://api.todoist.com/api/v1/projects?limit=1',method:'GET'},dropbox:{url:'https://api.dropboxapi.com/2/users/get_current_account',method:'POST',body:'null'},linear:{url:'https://api.linear.app/graphql',method:'POST',body:JSON.stringify({query:'query { viewer { id name } }'})},github:{url:'https://api.github.com/user',method:'GET'},'cloudflare-pages':{url:'https://api.cloudflare.com/client/v4/user/tokens/verify',method:'GET'}}
 export async function checkProviderToken(id,token,fetchImpl=fetch){
  const provider=TOKEN_PROVIDERS[id]
  if(!provider)return {status:'setup-required',message:'Provider requires OAuth or configured MCP.'}

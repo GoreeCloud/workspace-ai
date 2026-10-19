@@ -7,7 +7,7 @@ A local-first, open-source AI chat workspace with **Sign in with ChatGPT** plan 
 - Responsive desktop/mobile chat interface, streaming replies, conversation history, Markdown rendering, and export.
 - GC UI collapsible sidebar with MCP, API, Projects, Pinned, All Chats, and Settings; compact mode and expanded groups persist locally.
 - Browser-local projects, chat-to-project assignment, pinned conversations, and searchable conversation history.
-- Ten-service integration catalog with optional token verification and administrator-configured MCP tool discovery. **External tool execution is disabled**; this does not inherit ChatGPT-connected apps.
+- Ten-service integration catalog with optional token verification and administrator-configured MCP tool discovery. Connected Todoist sessions can browse projects and tasks through the current Todoist API v1 without writing or modifying data. **External tool execution is disabled**; this does not inherit ChatGPT-connected apps.
 - ChatGPT open-source OAuth registration with PKCE, ID-token validation against OpenAI's JWKS, and explicit `chatgpt.tokens.use.direct` permission checks.
 - Eligible per-account model selection via OpenAI's model catalog.
 - Plan-only, API-only, and automatic plan-first routing, with API fallback **off by default**.
@@ -38,7 +38,7 @@ For optional API access, open **Settings & connections → OpenAI API**, paste y
 
 The new sidebar supports project organization, pins, All Chats search, a seven-provider API dashboard, and a three-provider MCP dashboard. Connection badges are based on real server checks, not on whether a service appears in the catalog. Local project records do not automatically include uploaded files or imported ChatGPT Projects.
 
-Todoist, Dropbox, Linear, GitHub (authorized GoreeCloud identity only), and Cloudflare support **read-only token verification**. Gmail and Google Drive still require provider OAuth app registration. Remote Desktop Commander, TinyFish, and Firecrawl require authorized administrator-configured MCP endpoints for discovering tool definitions. All tools are shown as **non-executable** pending granular permissions, approval flows, and provider-specific implementations. See [architecture and provider matrix](docs/WORKSPACE_NAVIGATION.md).
+Todoist supports **read-only API v1 project/task browsing** after connecting a token; Dropbox, Linear, GitHub (authorized GoreeCloud identity only), and Cloudflare currently support **read-only token verification**. Gmail and Google Drive still require provider OAuth app registration. Remote Desktop Commander, TinyFish, and Firecrawl require authorized administrator-configured MCP endpoints for discovering tool definitions. All tools are shown as **non-executable** pending granular permissions, approval flows, and provider-specific implementations. See [architecture and provider matrix](docs/WORKSPACE_NAVIGATION.md).
 
 Run the optional browser navigation smoke check against a local running server using a locally installed Chromium binary:
 

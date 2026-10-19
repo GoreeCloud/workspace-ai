@@ -1,6 +1,8 @@
 import {SERVICES,byId} from './services.mjs'
 import {serviceTools} from './service-capabilities.mjs'
 import {checkProviderToken,TOKEN_PROVIDERS} from './service-validation.mjs'
+import {readTodoistPage} from './todoist-reader.mjs'
+import {attachTodoistReadRoute} from './todoist-routes.mjs'
 const envKey=id=>'WORKSPACE_MCP_'+id.toUpperCase().replace(/-/g,'_')+'_URL'
 const tokenKey=id=>'WORKSPACE_MCP_'+id.toUpperCase().replace(/-/g,'_')+'_TOKEN'
 const endpoint=id=>{
@@ -42,10 +44,14 @@ export async function discoverMcp(id,fetchImpl=fetch){
   return {status:'connected',message:'MCP tools discovered. Execution remains disabled pending approvals.',tools}
  }catch{return {status:'unavailable',message:'MCP discovery failed; check server authorization and transport.',tools:[]}}
 }
-export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderToken,discover=discoverMcp}={}){
+export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderToken,discover=discoverMcp,readTodoist=readTodoistPage}={}){
  const tokens=new Map(),states=new Map(),discovered=new Map(),revisions=new Map()
  const bump=id=>{const value=(revisions.get(id)||0)+1;revisions.set(id,value);return value}
  const allow=(req,res)=>{if(origins.has(req.headers.origin))return true;res.status(403).json({error:'Origin not allowed.'});return false}
+ attachTodoistReadRoute(app,{
+  origins,getToken:()=>tokens.get('todoist'),getRevision:()=>revisions.get('todoist')||0,
+  invalidate:()=>{tokens.delete('todoist');states.set('todoist',{status:'invalid',message:'Todoist rejected this credential.'});bump('todoist')}
+ },readTodoist)
  const record=s=>({...s,authConfigured:!!(s.kind==='mcp'&&endpoint(s.id)),connected:states.get(s.id)?.status==='connected',hasSessionToken:tokens.has(s.id),status:states.get(s.id)?.status||(s.kind==='mcp'&&endpoint(s.id)?'ready-for-discovery':'setup-required'),message:states.get(s.id)?.message||'Requires its own authorized connection.',tools:discovered.get(s.id)||serviceTools(s.id)})
  app.get('/api/integrations',(_req,res)=>res.json({services:SERVICES.map(record),executionEnabled:false}))
  app.get('/api/integrations/:id/tools',(req,res)=>{const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'});res.json({service:s.id,tools:record(s).tools,executionEnabled:false})})
