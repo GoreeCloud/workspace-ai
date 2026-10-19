@@ -5,6 +5,9 @@ A local-first, open-source AI chat workspace with **Sign in with ChatGPT** plan 
 ## Features
 
 - Responsive desktop/mobile chat interface, streaming replies, conversation history, Markdown rendering, and export.
+- GC UI collapsible sidebar with MCP, API, Projects, Pinned, All Chats, and Settings; compact mode and expanded groups persist locally.
+- Browser-local projects, chat-to-project assignment, pinned conversations, and searchable conversation history.
+- Ten-service integration catalog with optional token verification and administrator-configured MCP tool discovery. **External tool execution is disabled**; this does not inherit ChatGPT-connected apps.
 - ChatGPT open-source OAuth registration with PKCE, ID-token validation against OpenAI's JWKS, and explicit `chatgpt.tokens.use.direct` permission checks.
 - Eligible per-account model selection via OpenAI's model catalog.
 - Plan-only, API-only, and automatic plan-first routing, with API fallback **off by default**.
@@ -31,6 +34,20 @@ To connect a ChatGPT subscription, open **Settings & connections** and choose **
 
 For optional API access, open **Settings & connections → OpenAI API**, paste your key into the password field, and select **Use API key**. Workspace AI performs an automatic **GET /v1/models** authorization check (not a paid inference call); **Verify connection** lets you retry. A successful check proves that OpenAI accepts the key for listing models, **not** that the account has available credits, inference permissions, or access to a specific model. The result distinguishes rejected, restricted, and temporarily unavailable checks. This key stays in the local server's memory only, is not returned to the browser, and must be entered again after a server restart. For persistent configuration instead copy `.env.example` to `.env`, set `OPENAI_API_KEY`, and restart. In Settings choose API-only or opt into automatic fallback. API usage is billed separately and is **not** included with ordinary ChatGPT Plus.
 
+## Workspace navigation and integration status
+
+The new sidebar supports project organization, pins, All Chats search, a seven-provider API dashboard, and a three-provider MCP dashboard. Connection badges are based on real server checks, not on whether a service appears in the catalog. Local project records do not automatically include uploaded files or imported ChatGPT Projects.
+
+Todoist, Dropbox, Linear, GitHub (authorized GoreeCloud identity only), and Cloudflare support **read-only token verification**. Gmail and Google Drive still require provider OAuth app registration. Remote Desktop Commander, TinyFish, and Firecrawl require authorized administrator-configured MCP endpoints for discovering tool definitions. All tools are shown as **non-executable** pending granular permissions, approval flows, and provider-specific implementations. See [architecture and provider matrix](docs/WORKSPACE_NAVIGATION.md).
+
+Run the optional browser navigation smoke check against a local running server using a locally installed Chromium binary:
+
+```bash
+CHROMIUM_EXECUTABLE=/path/to/chromium npm run browser:smoke
+```
+
+Override the target with `WORKSPACE_AI_BASE_URL=http://127.0.0.1:3031` if needed. The smoke test uses a temporary browser profile and synthetic local project data, and covers desktop/sidebar/mobile navigation. It should be run against an isolated local test server rather than an active personal session.
+
 ## UI foundation and appearance
 
 Workspace AI uses **GoreeCloud UI (GC UI)**, the platform-wide design authority maintained in [GoreeCloud/gc-ui](https://github.com/GoreeCloud/gc-ui). Its Canvas/Surface/Lens hierarchy, Iris semantic colors, original shape/spacing tokens, focus indicators, and reduced-motion fallbacks inform this interface. No Glaze or Glaze UI source is used.
@@ -42,7 +59,7 @@ Settings separates **Connections**, **Models & billing**, **Appearance**, and **
 ## Security and scope
 
 - The backend binds only to `127.0.0.1`. It is not a multi-user hosted service. Do not expose it to the public Internet or place it behind an unauthenticated reverse proxy.
-- OAuth credentials live in `~/.config/workspace-ai/credentials.json` with owner-only permissions. API credentials belong in the local environment. Neither is committed to GitHub.
+- OAuth credentials live in `~/.config/workspace-ai/credentials.json` with owner-only permissions. API credentials can be provided through a private local environment or temporary server memory; integration tokens are held only in server memory. None are committed to GitHub.
 - History is stored in the browser's local storage until removed or site data is cleared. The app does not import ChatGPT chats, Projects, custom GPTs, memory, plugins, or tools.
 - Usage limits, model availability, eligibility, and revocation are managed by OpenAI. Review access in ChatGPT settings.
 - Successful sign-in, live model inference, and paid API billing require actual authorization/credentials; automated tests do not prove these flows.
