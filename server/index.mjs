@@ -6,6 +6,7 @@ import { makeAttempt, consumeAttempt, exchangeCode, getPlanToken, disconnectAcco
 import { checkMessages, chooseRoute, validModel, streamResponse } from './stream.mjs'
 import { attachCredentialSettings } from './credential-settings.mjs'
 import { verifyApiKey } from './api-key-verification.mjs'
+import { attachIntegrationRoutes } from './integration-routes.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
@@ -37,6 +38,7 @@ app.use((req, res, next) => {
   next()
 })
 app.use(express.json({ limit: '90kb' }))
+attachIntegrationRoutes(app,new Set([clientOrigin,'http://127.0.0.1:5173']))
 const credentialSettings = attachCredentialSettings(app, {
   allowedOrigins: new Set([clientOrigin, 'http://127.0.0.1:5173']),
   getCredential: () => apiKey,
