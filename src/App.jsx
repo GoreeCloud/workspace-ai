@@ -2,6 +2,9 @@ import React,{useEffect,useRef,useState} from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import ConnectionField from './ConnectionField.jsx';
+import WorkspaceNavigation from './WorkspaceNavigation.jsx';
+import WorkspaceViews from './WorkspaceViews.jsx';
+import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound} from 'lucide-react';
 const KEY='workspace-ai-history-v1';
 const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}};
@@ -11,12 +14,14 @@ export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
 const [settingsTab,setSettingsTab]=useState('connections');
+const [workspace,setWorkspace]=useState(readWorkspace),[view,setView]=useState('chat'),[selectedProject,setSelectedProject]=useState(null);
 const [appearance,setAppearance]=useState(()=>{try{const saved=localStorage.getItem('workspace-ai-theme');return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
 const dialogRef=useRef(null);
 const chat=chats.find(c=>c.id===current);
 const ready=provider==='api'?status.apiConfigured:provider==='plan'?status.planEnabled&&!!planModel:(status.planEnabled&&!!planModel)||(status.apiConfigured&&fallback);
 useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(chats.slice(0,50)))}catch{}},[chats]);
+useEffect(()=>{try{localStorage.setItem(WORKSPACE_KEY,JSON.stringify(workspace))}catch{}},[workspace]);
 useEffect(()=>{bottom.current?.scrollIntoView({behavior:'smooth'})},[chats,busy]);
 useEffect(()=>{
  const system=window.matchMedia('(prefers-color-scheme: dark)');
@@ -46,8 +51,11 @@ useEffect(()=>{
 },[settings]);
 async function refresh(){try{const s=await api('/api/status');setStatus(s);if(s.planEnabled){const m=await api('/api/models');setModels(m.planModels||[]);setPlanModel(old=>(m.planModels||[]).some(v=>v.slug===old)?old:(m.planModels?.[0]?.slug||''));if(m.error)setError(m.error)}}catch(e){setError(report(e))}}
 useEffect(()=>{refresh();const auth=new URLSearchParams(location.search).get('auth');if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}},[]);
-function newChat(){if(busy)return;setCurrent(null);setDraft('');setMobile(false);setError('');prompt.current?.focus()}
-function remove(id){if(busy||!confirm('Delete this chat locally?'))return;setChats(v=>v.filter(c=>c.id!==id));if(current===id)setCurrent(null)}
+function newChat(projectId){if(busy)return;setCurrent(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setMobile(false);setError('');prompt.current?.focus()}
+function remove(id){if(busy||!confirm('Delete this chat locally?'))return;setChats(v=>v.filter(c=>c.id!==id));setWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id)setCurrent(null)}
+function openChat(id){if(busy)return;setCurrent(id);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
+function assignChat(id,projectId){setChats(v=>v.map(c=>c.id===id?{...c,projectId}:c))}
+function navigate(id){setView(id);setMobile(false);if(id==='projects')setSelectedProject(null)}
 function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
 async function signIn(){try{const r=await api('/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
 async function signOut(){if(!confirm('Disconnect ChatGPT?'))return;try{const r=await api('/api/auth/disconnect',{});await refresh();if(r.warning)setError(r.warning)}catch(e){setError(report(e))}}
@@ -57,7 +65,7 @@ async function send(value=draft){
   const id=chat?.id||crypto.randomUUID();
   const history=[...(chat?.messages||[]).filter(m=>!m.error&&m.content?.trim()),{id:crypto.randomUUID(),role:'user',content:text}];
   const answer={id:crypto.randomUUID(),role:'assistant',content:''};
-  setChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],updatedAt:Date.now()},...v]);
+  setChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:selectedProject||null,updatedAt:Date.now()},...v]);
   setCurrent(id);setDraft('');setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
   try{
