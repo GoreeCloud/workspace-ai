@@ -1,0 +1,21 @@
+/* GoreeCloud UI semantic surface and spacing tokens. */
+.githubReader{margin-top:15px;padding:15px;border:1px solid var(--gc-outline);border-radius:14px;background:var(--gc-surface-tonal)}
+.githubReaderTop{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.githubReaderTop strong{display:flex;align-items:center;gap:8px;min-width:0;overflow-wrap:anywhere;font-size:13px}
+.githubReaderTop .outline{min-width:38px;min-height:38px;display:grid;place-items:center;padding:7px;flex:none}
+.githubReader p{font-size:11px;line-height:1.6}
+.githubReaderTabs{display:flex;gap:6px;margin:12px 0 7px}
+.githubReaderTabs button{min-height:38px;flex:1;border:1px solid var(--gc-outline);border-radius:10px;background:var(--gc-surface-raised);color:var(--gc-text-soft);font-size:12px}
+.githubReaderTabs button.active{background:var(--gc-brand-container);color:var(--gc-brand)}
+.githubEntries{padding:0!important;margin:9px 0!important;list-style:none!important;max-height:320px;overflow:auto}
+.githubEntries li{display:flex;align-items:center;justify-content:space-between;gap:9px;padding:10px 2px!important;border-bottom:1px solid var(--gc-outline)}
+.githubEntries li:last-child{border-bottom:0}
+.githubEntries li button{flex:1;background:transparent;text-align:left;color:var(--gc-text);border-radius:8px;padding:8px;min-width:0}
+.githubEntries li button:hover,.githubEntries li button:focus-visible{background:var(--gc-brand-container)}
+.githubEntries li strong,.githubEntries li small{display:block;overflow-wrap:anywhere}
+.githubEntries li strong{font-size:12px;color:var(--gc-text)}
+.githubEntries li small{font-size:11px;color:var(--gc-text-soft);margin-top:4px}
+.githubSearch{display:flex;align-items:center;gap:9px;background:var(--gc-surface-raised);border:1px solid var(--gc-outline);border-radius:10px;padding:0 10px;min-height:44px;margin:12px 0;color:var(--gc-text-soft)}
+.githubSearch:focus-within{outline:2px solid var(--gc-brand);outline-offset:2px}
+.githubSearch input{flex:1;min-width:0;min-height:42px;color:var(--gc-text);font:inherit;font-size:12px;background:transparent;border:0;outline:none}
+.githubSearch input:focus-visible{outline:none!important}

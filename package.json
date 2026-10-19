@@ -12,7 +12,8 @@
     "test": "node --test tests/*.test.mjs",
     "check": "npm run test && npm run build",
     "start": "node server/index.mjs",
-    "browser:smoke": "node scripts/browser-smoke.mjs"
+    "browser:smoke": "node scripts/browser-smoke.mjs",
+    "browser:github": "node scripts/github-browser-smoke.mjs"
   },
   "dependencies": {
     "dotenv": "^18.0.8",
