@@ -4,10 +4,12 @@ import express from 'express'
 import { getHostId, publicStatus, readProfile, updateProfile } from './storage.mjs'
 import { makeAttempt, consumeAttempt, exchangeCode, getPlanToken, disconnectAccount } from './oauth.mjs'
 import { checkMessages, chooseRoute, validModel, streamResponse } from './stream.mjs'
+import { attachCredentialSettings } from './credential-settings.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
-const apiKey = process.env.OPENAI_API_KEY?.trim() || ''
+const environmentApiKey = process.env.OPENAI_API_KEY?.trim() || ''
+let apiKey = environmentApiKey
 const apiModel = process.env.OPENAI_API_MODEL || 'gpt-5-mini'
 const clientOrigin = 'http://127.0.0.1:' + PORT
 const callback = 'http://127.0.0.1:' + PORT + '/auth/callback'
@@ -33,6 +35,7 @@ app.use((req, res, next) => {
   next()
 })
 app.use(express.json({ limit: '90kb' }))
+attachCredentialSettings(app, {allowedOrigins:new Set([clientOrigin,'http://127.0.0.1:5173']),setCredential:value=>{apiKey=value},clearCredential:()=>{apiKey=environmentApiKey}})
 
 app.get('/api/status', async (_req, res) => {
   res.json(publicStatus(await readProfile(), Boolean(apiKey)))
