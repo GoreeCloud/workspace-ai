@@ -185,3 +185,20 @@
 .projectLinkedList li{padding:9px;border:1px solid var(--gc-outline);border-radius:8px;display:grid;gap:6px;min-width:0}
 .projectLinkedList strong{font-size:12px;overflow-wrap:anywhere}
 .projectLinkedList small{font-size:10px;color:var(--gc-text-soft);overflow-wrap:anywhere}
+
+/* Project-level multi-provider overview and clearly blocked workflow preview. */
+.projectMultiProvider{margin:14px 0;border:1px solid var(--gc-outline);border-radius:11px;padding:12px;display:grid;gap:9px}
+.projectMultiProvider h4{margin:0}
+.projectProviderReadiness{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.projectProviderReadinessItem{border:1px solid var(--gc-outline);border-radius:8px;padding:9px;display:grid;gap:4px;min-width:0}
+.projectProviderReadinessItem strong{font-size:12px}
+.projectProviderReadinessItem small{font-size:11px;color:var(--gc-text-soft)}
+.projectProviderResults{display:grid;gap:12px}
+.projectProviderResults>div{border:1px solid var(--gc-outline);border-radius:8px;padding:10px;display:grid;gap:7px;min-width:0}
+.projectProviderResults strong{font-size:12px}
+.projectProviderResults small{color:var(--gc-text-soft);font-size:11px}
+.projectProviderResults ul{margin:0;padding-left:19px;font-size:12px;line-height:1.5;max-height:240px;overflow:auto;overflow-wrap:anywhere}
+.projectWorkflowPreview summary{cursor:pointer;font-size:12px;font-weight:650}
+.projectWorkflowPreview ol{margin:10px 0;padding-left:20px;display:grid;gap:9px}
+.projectWorkflowPreview li{font-size:12px}
+.projectWorkflowPreview li small{display:block;margin-top:4px;color:var(--gc-text-soft)}
