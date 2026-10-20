@@ -6,9 +6,10 @@ const SUPPORTED_EXTENSIONS=new Set(['txt','md','markdown','csv','tsv','json','ya
 export const linkedFileId=(sourceId,path)=>sourceId+':'+path
 export function validateLinkedSource(value){
  if(!value||typeof value!=='object'||typeof value.id!=='string'||!/^[a-z0-9-]{1,90}$/i.test(value.id)||
-  !['file','directory','dropbox-file','dropbox-directory'].includes(value.kind)||typeof value.name!=='string'||!value.name.trim()||value.name.length>100)throw Error('Invalid linked source metadata.')
+  !['file','directory','dropbox-file','dropbox-directory','google-drive-file'].includes(value.kind)||typeof value.name!=='string'||!value.name.trim()||value.name.length>100)throw Error('Invalid linked source metadata.')
  if(['dropbox-file','dropbox-directory'].includes(value.kind)&&(typeof value.path!=='string'||!value.path.startsWith('/')||value.path.length>1024||value.path.includes(String.fromCharCode(0))))throw Error('Invalid Dropbox source path.')
- return {id:value.id,kind:value.kind,name:value.name.slice(0,100),linkedAt:Number.isFinite(value.linkedAt)?value.linkedAt:0,...(['dropbox-file','dropbox-directory'].includes(value.kind)?{path:value.path}:{})}
+ if(value.kind==='google-drive-file'&&(typeof value.fileId!=='string'||!/^[a-zA-Z0-9_-]{10,160}$/.test(value.fileId)))throw Error('Invalid Google Drive file identifier.')
+ return {id:value.id,kind:value.kind,name:value.name.slice(0,100),linkedAt:Number.isFinite(value.linkedAt)?value.linkedAt:0,...(['dropbox-file','dropbox-directory'].includes(value.kind)?{path:value.path}:{}),...(value.kind==='google-drive-file'?{fileId:value.fileId}:{})}
 }
 const validPath=(path)=>typeof path==='string'&&path.length<=110&&!path.includes('..')&&!path.includes('\\')&&!path.includes('\0')
 const suitable=(name,size)=>{
@@ -100,6 +101,22 @@ export async function fetchDropboxSnapshot(source,fetcher=fetch){
   typeof data.content!=='string'||new TextEncoder().encode(data.content).length>65536||data.content.includes(String.fromCharCode(0)))
   throw Error('Linked Dropbox file is unsupported or too large.')
  return [{id:source.id+':'+data.name,name:data.name,content:data.content,source:'linked-dropbox',
+  linkId:source.id,relativePath:data.name,createdAt:Date.now()}]
+}
+
+export async function fetchDriveFileSnapshot(source,fetcher=fetch){
+ validateLinkedSource(source)
+ if(source.kind!=='google-drive-file')throw Error('Not a linked Google Drive file.')
+ const response=await fetcher('/api/google/drive/read',{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:source.fileId})
+ })
+ const data=await response.json()
+ if(!response.ok)throw Error('Google Drive read unavailable. Check connection and file authorization.')
+ const size=typeof data.content==='string'?new TextEncoder().encode(data.content).length:-1
+ if(data.readOnly!==true||data.id!==source.fileId||typeof data.name!=='string'||data.name.length>110||
+  !suitable(data.name,size)||data.content.includes(String.fromCharCode(0)))
+  throw Error('Google Drive returned an invalid or unsupported text snapshot.')
+ return [{id:source.id+':'+data.name,name:data.name,content:data.content,source:'linked-google-drive',
   linkId:source.id,relativePath:data.name,createdAt:Date.now()}]
 }
 

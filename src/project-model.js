@@ -40,8 +40,8 @@ export function normalizeProject(project) {
    new TextEncoder().encode(f.content).length>PROJECT_FILE_MAX_BYTES) throw Error('Invalid project file')
   if(ids.has(f.id))throw Error('Duplicate project file')
   ids.add(f.id)
-  return {id:f.id,name:f.name,content:f.content,source:['local','dropbox','linked-local','linked-dropbox'].includes(f.source)?f.source:'local',
-   ...(['linked-local','linked-dropbox'].includes(f.source)&&typeof f.linkId==='string'&&data.linkedSources.some(s=>s.id===f.linkId)?{linkId:f.linkId,relativePath:text(f.relativePath,110)}:{}),
+  return {id:f.id,name:f.name,content:f.content,source:['local','dropbox','linked-local','linked-dropbox','linked-google-drive'].includes(f.source)?f.source:'local',
+   ...(['linked-local','linked-dropbox','linked-google-drive'].includes(f.source)&&typeof f.linkId==='string'&&data.linkedSources.some(s=>s.id===f.linkId)?{linkId:f.linkId,relativePath:text(f.relativePath,110)}:{}),
    createdAt:Number.isFinite(f.createdAt)?f.createdAt:0}
  })
  return data
