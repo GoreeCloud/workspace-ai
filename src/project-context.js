@@ -59,11 +59,11 @@ export function projectContext(workspace,projectId,query='') {
   if(body)chunks.push(label+'\n'+body)
  }
  add('Current project instructions ('+safeText(target.name,90)+'):',target.instructions,3200)
- add('Current project memory notes (manually approved):',target.memory,1500)
+ if(target.memoryEnabled===true)add('Current project memory notes (manually approved):',target.memory,1500)
  let sharedNotesBudget=800
  for(const p of projects){
   if(sharedNotesBudget<=0)break
-  if(p.id!==projectId&&Array.isArray(p.shareMemoryWith)&&p.shareMemoryWith.includes(projectId)){
+  if(target.memoryEnabled===true&&p.id!==projectId&&p.memoryEnabled===true&&Array.isArray(p.shareMemoryWith)&&p.shareMemoryWith.includes(projectId)){
    const note=safeText(p.memory,Math.min(400,sharedNotesBudget))
    if(note.trim()){add('Explicitly shared memory notes from '+safeText(p.name,90)+':',note,400);sharedNotesBudget-=note.length}
   }

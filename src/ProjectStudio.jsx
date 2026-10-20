@@ -71,12 +71,13 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
     <p className="projectHint">Project instructions are supplied to the AI when you send a message inside this project. They do not apply to other projects.</p>
    </section>
    <section className="projectPanel"><h3>Memory & boundaries</h3>
+    <label><input type="checkbox" checked={project.memoryEnabled===true} onChange={e=>update({memoryEnabled:e.target.checked})}/> Enable project memory</label>
     <label htmlFor="project-memory">Project memory notes</label>
-    <textarea id="project-memory" rows={5} maxLength={4000} value={project.memory||''} onChange={e=>update({memory:e.target.value})} placeholder="Facts and preferences you want retained in this project."/>
+    <textarea id="project-memory" disabled={!project.memoryEnabled} rows={5} maxLength={4000} value={project.memory||''} onChange={e=>update({memory:e.target.value})} placeholder="Facts and preferences you want retained in this project."/>
     <p className="projectHint">Manually maintained notes, not automatically generated long-term memory. Projects are isolated unless you grant sharing below.</p>
     {projects.filter(p=>p.id!==project.id).length>0&&<><h4>Share this project's data with</h4>
      {projects.filter(p=>p.id!==project.id).map(p=><div key={p.id} className="projectShareRow"><span><ProjectGlyph icon={p.icon} size={15}/>{p.name}</span>
-      <label><input type="checkbox" checked={(project.shareMemoryWith||[]).includes(p.id)} onChange={()=>toggle('shareMemoryWith',p.id)}/> Memory notes</label>
+      <label><input type="checkbox" checked={(project.shareMemoryWith||[]).includes(p.id)} disabled={!project.memoryEnabled} onChange={()=>toggle('shareMemoryWith',p.id)}/> Memory notes</label>
       <label><input type="checkbox" checked={(project.shareFilesWith||[]).includes(p.id)} onChange={()=>toggle('shareFilesWith',p.id)}/> Reference files</label>
      </div>)}
      <p className="projectHint">One-way consent: selecting a destination allows its new AI requests to read the chosen notes or file text from this project. Sharing is off by default.</p></>}
