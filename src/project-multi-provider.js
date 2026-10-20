@@ -6,7 +6,7 @@ export const PROJECT_READ_ADAPTERS=Object.freeze([
 ])
 export const PROJECT_WORKFLOW_STEPS=Object.freeze([
  {id:'gmail-search',provider:'gmail',label:'Search Gmail',mode:'read',risk:'high',implemented:false},
- {id:'github-read',provider:'github',label:'Read GitHub source files',mode:'read',risk:'medium',implemented:false},
+ {id:'github-read',provider:'github',label:'Read GitHub source files',mode:'read',risk:'medium',implemented:true},
  {id:'todoist-create',provider:'todoist',label:'Create Todoist task',mode:'write',risk:'medium',implemented:false},
  {id:'drive-update',provider:'google-drive',label:'Update Google Drive file',mode:'write',risk:'high',implemented:false}
 ])
@@ -30,7 +30,7 @@ export function plannedWorkflowReadiness(project,services){
   return {...step,configured,connected:connection?.connected===true,
    executable:false,reason:!configured?'Provider not enabled for this project':
     !step.implemented?'Standalone adapter / authorization not implemented':
-    connection?.connected!==true?'Provider not connected':'Read-only preview available; no workflow forwarding'}
+    connection?.connected!==true?'Provider not connected':'Standalone read-only file preview available; automated workflow forwarding is disabled'}
  })
 }
 export async function readSelectedProviders({project,services,fetcher=fetch,signal}){

@@ -56,7 +56,7 @@ test('four-step Gmail/GitHub/Todoist/Drive plan does not claim write or OAuth av
  assert.deepEqual(steps.map(s=>s.provider),['gmail','github','todoist','google-drive'])
  assert.deepEqual(steps.map(s=>s.mode),['read','read','write','write'])
  assert.equal(steps.every(s=>s.executable===false),true)
- assert.equal(steps.every(s=>s.implemented===false),true)
+ assert.deepEqual(steps.map(s=>s.implemented),[false,true,false,false])
  assert.match(steps[0].reason,/not implemented/)
  assert.match(steps[2].reason,/not implemented/)
  assert.match(steps[3].reason,/not implemented/)

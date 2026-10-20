@@ -6,6 +6,7 @@ import {readTodoistPage} from './todoist-reader.mjs'
 import {attachTodoistReadRoute} from './todoist-routes.mjs'
 import {readGitHubPage} from './github-reader.mjs'
 import {attachGitHubReadRoute} from './github-routes.mjs'
+import {attachGitHubSourceRoute} from './github-source-routes.mjs'
 import {readDropboxFolder} from './dropbox-reader.mjs'
 import {attachDropboxReadRoute} from './dropbox-routes.mjs'
 const envKey=id=>'WORKSPACE_MCP_'+id.toUpperCase().replace(/-/g,'_')+'_URL'
@@ -61,6 +62,10 @@ export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderTok
   origins,getToken:()=>tokens.get('github'),getRevision:()=>revisions.get('github')||0,
   invalidate:()=>{tokens.delete('github');states.set('github',{status:'invalid',message:'GitHub rejected this credential.'});bump('github')}
  },readGitHub)
+ attachGitHubSourceRoute(app,{
+  origins,getToken:()=>tokens.get('github'),getRevision:()=>revisions.get('github')||0,
+  invalidate:()=>{tokens.delete('github');states.set('github',{status:'invalid',message:'GitHub rejected this credential.'});bump('github')}
+ })
  attachDropboxReadRoute(app,{
   origins,getToken:()=>tokens.get('dropbox'),getRevision:()=>revisions.get('dropbox')||0,
   invalidate:()=>{tokens.delete('dropbox');states.set('dropbox',{status:'invalid',message:'Dropbox rejected this credential.'});bump('dropbox')}
