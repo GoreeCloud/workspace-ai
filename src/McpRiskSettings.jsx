@@ -3,6 +3,7 @@ import {defaultMcpPolicy,MCP_RISK_TIERS,normalizeMcpPolicies,trustedMcpClassific
 import McpApprovalStudio from './McpApprovalStudio.jsx'
 const labels={'remote-desktop-commander':'Remote Desktop Commander',firecrawl:'Firecrawl'}
 const title=value=>value.charAt(0).toUpperCase()+value.slice(1)
+import {useState,useEffect} from 'react'
 export default function McpRiskSettings({project,onUpdate}){
  const [services,setServices]=useState([])
  const [error,setError]=useState('')

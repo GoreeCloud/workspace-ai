@@ -5,6 +5,7 @@ import McpRiskSettings from './McpRiskSettings.jsx'
 import ProjectLiveSources from './ProjectLiveSources.jsx'
 import ProjectMultiProvider from './ProjectMultiProvider.jsx'
 import {ACCEPT_TEXT_FILES,PROJECT_GLYPHS,PROJECT_API_SERVICES,PROJECT_MCP_SERVICES,PROJECT_FILE_MAX_COUNT,canImportFile,importTextFile,importLocalTextFile} from './project-model.js'
+import {useState} from 'react'
 const GLYPHS={folder:Folder,sparkles:Sparkles,code:Code2,book:BookOpen,briefcase:BriefcaseBusiness,flask:FlaskConical,rocket:Rocket,globe:Globe,heart:Heart,shield:Shield,palette:Palette,database:Database}
 const SERVICE_LABELS={'google-drive':'Google Drive',gmail:'Gmail',dropbox:'Dropbox',github:'GitHub',todoist:'Todoist',linear:'Linear',cloudflare:'Cloudflare Pages','remote-desktop-commander':'Remote Desktop Commander',firecrawl:'Firecrawl'}
 export function ProjectGlyph({icon='folder',size=18}){const Component=GLYPHS[icon]||Folder;return <Component size={size}/>}
