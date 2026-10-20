@@ -6,7 +6,9 @@ A local-first, open-source AI chat workspace with **Sign in with ChatGPT** plan 
 
 - Responsive desktop/mobile chat interface, streaming replies, conversation history, Markdown rendering, and export.
 - GC UI collapsible sidebar with MCP, API, Projects, Pinned, All Chats, and Settings; compact mode and expanded groups persist locally.
-- Browser-local projects, chat-to-project assignment, pinned conversations, and searchable conversation history.
+- Browser-local projects, chat-to-project assignment, pinned conversations, searchable and renameable conversation history.
+- Versioned JSON backup and validated restore for conversations, projects, and pins; supports merge or explicit replacement, with credential-free archives and storage-failure rollback attempts.
+- Keyboard shortcuts: **Ctrl/Cmd+K** to focus All Chats search and **Ctrl/Cmd+Shift+N** to start a new conversation.
 - Ten-service integration catalog with optional token verification and administrator-configured MCP tool discovery. Connected Todoist sessions can browse projects and tasks through the current Todoist API v1 without writing or modifying data. **External tool execution is disabled**; this does not inherit ChatGPT-connected apps.
 - ChatGPT open-source OAuth registration with PKCE, ID-token validation against OpenAI's JWKS, and explicit `chatgpt.tokens.use.direct` permission checks.
 - Eligible per-account model selection via OpenAI's model catalog.
@@ -47,6 +49,14 @@ CHROMIUM_EXECUTABLE=/path/to/chromium npm run browser:smoke
 ```
 
 Override the target with `WORKSPACE_AI_BASE_URL=http://127.0.0.1:3031` if needed. The smoke test uses a temporary browser profile and synthetic local project data, and covers desktop/sidebar/mobile navigation. It should be run against an isolated local test server rather than an active personal session.
+
+## Browser-local backup and shortcuts
+
+Open **Settings & connections → Privacy** to download a JSON backup or choose an existing Workspace AI JSON backup for restore. Imported archives are validated before changes. **Merge** preserves existing conversations when their IDs conflict; **Replace** asks for confirmation and replaces the browser-local conversations, projects, and pins. An import respects the application's 50-conversation limit; the UI reports conversations skipped during a merge. If browser storage is full, restoration reports an error and attempts to roll back both local storage keys.
+
+The archive includes conversation content (possibly sensitive), project metadata, and pins. It does **not** include ChatGPT OAuth credentials, API keys, service tokens, provider session state, or server-side settings. Keep backup files in private storage. Import applies only to the browser/profile where you open Workspace AI; it does not synchronize devices or import ChatGPT cloud data.
+
+In **All Chats**, use the pencil action to rename a conversation. **Ctrl/Cmd+K** opens and focuses chat search, and **Ctrl/Cmd+Shift+N** opens a new conversation, unless a modal is open. Shortcuts do not trigger model inference.
 
 ## UI foundation and appearance
 
