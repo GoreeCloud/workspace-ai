@@ -7,7 +7,8 @@ import WorkspaceViews from './WorkspaceViews.jsx';
 import WorkspaceBackup from './WorkspaceBackup.jsx';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
-import {projectContext} from './project-model.js';
+import {projectContext,inferenceMessages} from './project-model.js';
+import {memoryCandidateFromMessage,appendReviewedMemory} from './project-memory.js';
 import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound} from 'lucide-react';
 const KEY='workspace-ai-history-v1';
 const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}};
@@ -17,6 +18,7 @@ export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
 const [settingsTab,setSettingsTab]=useState('connections');
+const [memoryDraft,setMemoryDraft]=useState(null);
 const [workspace,setWorkspace]=useState(readWorkspace),[view,setView]=useState('chat'),[selectedProject,setSelectedProject]=useState(null),[searchRequest,setSearchRequest]=useState(0);
 const [appearance,setAppearance]=useState(()=>{try{const saved=localStorage.getItem('workspace-ai-theme');return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
@@ -68,10 +70,10 @@ useEffect(()=>{
 },[settings,busy]);
 async function refresh(){try{const s=await api('/api/status');setStatus(s);if(s.planEnabled){const m=await api('/api/models');setModels(m.planModels||[]);setPlanModel(old=>(m.planModels||[]).some(v=>v.slug===old)?old:(m.planModels?.[0]?.slug||''));if(m.error)setError(m.error)}}catch(e){setError(report(e))}}
 useEffect(()=>{refresh();const auth=new URLSearchParams(location.search).get('auth');if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}},[]);
-function newChat(projectId){if(busy)return;setCurrent(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setMobile(false);setError('');prompt.current?.focus()}
+function newChat(projectId){if(busy)return;setCurrent(null);setMemoryDraft(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setMobile(false);setError('');prompt.current?.focus()}
 function remove(id){if(busy||!confirm('Delete this chat locally?'))return;setChats(v=>v.filter(c=>c.id!==id));setWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id)setCurrent(null)}
-function openChat(id){if(busy)return;setCurrent(id);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
-function assignChat(id,projectId){if(busy)return;const safeId=workspace.projects.some(p=>p.id===projectId)?projectId:null;setChats(v=>v.map(c=>c.id===id?{...c,projectId:safeId,updatedAt:Date.now()}:c));if(current===id)setSelectedProject(safeId)}
+function openChat(id){if(busy)return;setCurrent(id);setMemoryDraft(null);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
+function assignChat(id,projectId){if(busy)return;const safeId=workspace.projects.some(p=>p.id===projectId)?projectId:null;setChats(v=>v.map(c=>c.id===id?{...c,projectId:safeId,updatedAt:Date.now()}:c));if(current===id){setSelectedProject(safeId);setMemoryDraft(null)}}
 function renameChat(id,title){const clean=title.trim().slice(0,90);if(clean)setChats(v=>v.map(c=>c.id===id?{...c,title:clean,updatedAt:Date.now()}:c))}
 function navigate(id){setView(id);setMobile(false)}
 function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
@@ -81,7 +83,7 @@ async function send(value=draft){
   const text=value.trim();
   if(!text||!ready||busy)return;
   const id=chat?.id||crypto.randomUUID();
-  const context=projectContext(workspace,activeProjectId);
+  const context=projectContext(workspace,activeProjectId,text);
   const history=[...(chat?.messages||[]).filter(m=>!m.error&&m.content?.trim()),{id:crypto.randomUUID(),role:'user',content:text}];
   const answer={id:crypto.randomUUID(),role:'assistant',content:''};
   setChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:activeProjectId||null,updatedAt:Date.now()},...v]);
@@ -89,7 +91,7 @@ async function send(value=draft){
   const stop=new AbortController();controller.current=stop;
   try{
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
-      messages:[...(context?[{role:'user',content:context}]:[]),...history.slice(-58).map(m=>({role:m.role,content:m.content}))],preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
+      messages:inferenceMessages(history,context),preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
     if(!response.body)throw Error('The server returned no stream');
@@ -119,11 +121,20 @@ async function send(value=draft){
     setError(message);
   }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
 }
+function saveReviewedMemory(){
+ if(!memoryDraft||busy||!activeProject||!chat||memoryDraft.projectId!==activeProject.id||memoryDraft.chatId!==chat.id)return;
+ try{
+  const nextMemory=appendReviewedMemory(activeProject.memory||'',memoryDraft.text,chat.title);
+  setWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===activeProject.id?{...p,memory:nextMemory}:p)}));
+  setMemoryDraft(null);
+  setError('');
+ }catch(e){setError(report(e))}
+}
 function restoreWorkspace(archive,mode){
  if(busy)throw Error('Stop the current response before restoring conversations');
  const restored=prepareWorkspaceRestore(chats,workspace,archive,mode);
  persistWorkspaceRestore(localStorage,KEY,WORKSPACE_KEY,restored);
- setChats(restored.chats);setWorkspace(restored.workspace);setCurrent(null);setSelectedProject(null);setView('chats');
+ setChats(restored.chats);setWorkspace(restored.workspace);setCurrent(null);setMemoryDraft(null);setSelectedProject(null);setView('chats');
  return restored;
 }
 function exportChat(){if(!chat)return;const md='# '+chat.title+'\n\n'+chat.messages.map(m=>'## '+m.role+'\n\n'+m.content).join('\n\n---\n\n');const url=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=url;a.download='workspace-ai-chat.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),0)}
@@ -145,7 +156,14 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  {m.role==='assistant'&&<div className="avatar"><Sparkles size={16}/></div>}
  <div className="msgContent">{m.role==='assistant'&&<strong className="byline">Workspace AI <small>{m.provider==='plan'?'· ChatGPT plan':m.provider==='api'?'· OpenAI API':''}</small></strong>}
  {m.role==='user'?<div className="userBubble">{m.content}</div>:<div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div>}
- {m.role==='assistant'&&!!m.content&&<button className="copy" onClick={()=>navigator.clipboard.writeText(m.content).catch(()=>setError('Could not copy text'))}><Copy size={14}/>Copy</button>}
+ {m.role==='assistant'&&!!m.content&&<div className="messageTools"><button className="copy" onClick={()=>navigator.clipboard.writeText(m.content).catch(()=>setError('Could not copy text'))}><Copy size={14}/>Copy</button>
+ {activeProject&&!m.error&&<button className="copy" disabled={busy} onClick={()=>setMemoryDraft({projectId:activeProject.id,chatId:chat.id,messageId:m.id,text:memoryCandidateFromMessage(m.content)})}><Sparkles size={14}/>Review for project memory</button>}</div>}
+ {memoryDraft?.chatId===chat.id&&memoryDraft?.messageId===m.id&&memoryDraft?.projectId===activeProject?.id&&<div className="memoryReview">
+ <label htmlFor={'review-'+m.id}>Review and edit the memory saved to {activeProject.name}</label>
+ <textarea id={'review-'+m.id} rows={4} maxLength={1200} value={memoryDraft.text} onChange={e=>setMemoryDraft(v=>({...v,text:e.target.value}))}/>
+ <p>This text is not saved until you approve it. Existing sharing settings may make saved notes available to other projects.</p>
+ <div className="actions"><button className="primary" onClick={saveReviewedMemory} disabled={!memoryDraft.text.trim()||busy}>Save reviewed memory</button>
+ <button className="outline" onClick={()=>setMemoryDraft(null)}>Cancel</button></div></div>}
  </div></article>)}<div ref={bottom}/></section>}</div>
  {view==='chat'&&<div className="composerArea">{activeProject&&<div className="workspaceScope">Project: {activeProject.name} · {activeProject.files?.length||0} files · Project instructions active {chat?<button title="Move chat to no project" aria-label="Move chat out of project" disabled={busy} onClick={()=>assignChat(chat.id,null)}>Remove from project</button>:<button title="New chat outside project" aria-label="Start a chat outside this project" onClick={()=>setSelectedProject(null)}>×</button>}</div>}{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  {!ready&&<div className="notice"><span>Connect ChatGPT or configure a separately billed OpenAI API connection.</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}

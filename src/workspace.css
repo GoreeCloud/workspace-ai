@@ -123,3 +123,16 @@
 .projectAlert,.projectSuccess{padding:10px 12px;border-radius:9px;font-size:12px;margin-top:10px}
 .projectAlert{background:#ffeff0;color:#aa5161}.projectSuccess{background:var(--gc-surface-raised);color:var(--gc-text-soft)}
 @media(max-width:680px){.projectStudioHeader .primary,.projectStudioHeader .outline{flex:1;justify-content:center}.projectStudioGrid{grid-template-columns:1fr}}
+
+/* Reviewed project memories and inspectable local text references. */
+.messageTools{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.memoryReview{margin:10px 0;border:1px solid var(--gc-outline);border-radius:12px;padding:14px;background:var(--gc-surface-raised)}
+.memoryReview label{display:block;font-size:12px;font-weight:700;margin:0 0 8px}
+.memoryReview textarea{width:100%;min-height:90px;border:1px solid var(--gc-outline);border-radius:9px;padding:10px;resize:vertical;color:var(--gc-text);background:var(--gc-surface)}
+.memoryReview p{font-size:11px;color:var(--gc-text-soft);line-height:1.5}
+.projectFileItem{display:block!important}
+.projectFileTop{display:flex;align-items:center;gap:8px;width:100%}
+.projectFileTop>span{display:flex;align-items:center;gap:7px;flex:1;min-width:0;flex-wrap:wrap}
+.projectFilePreview{margin-top:9px}
+.projectFilePreview summary{cursor:pointer;font-size:11px;color:var(--gc-text-soft);font-weight:650}
+.projectFilePreview pre{white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;margin:8px 0;padding:10px;border-radius:8px;background:var(--gc-surface);font-size:11px;line-height:1.5}
