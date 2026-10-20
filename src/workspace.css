@@ -212,3 +212,15 @@
 .projectGithubPreview{border:1px solid var(--gc-outline);padding:10px;border-radius:8px;min-width:0}
 .projectGithubPreview summary{font-size:12px;cursor:pointer;overflow-wrap:anywhere}
 .projectGithubPreview pre{white-space:pre-wrap;word-break:break-word;font-size:11px;max-height:360px;overflow:auto}
+
+/* Google Workspace standalone, read-only connect UI. */
+.projectGoogleConnections{border:1px solid var(--gc-outline);border-radius:11px;padding:12px;display:grid;gap:10px;margin:10px 0}
+.projectGoogleConnections h4{margin:0;font-size:13px}
+.projectGoogleService{display:grid;gap:8px;padding:10px;border:1px solid var(--gc-outline);border-radius:9px;min-width:0}
+.projectGoogleService strong{font-size:12px}
+.projectGoogleService small{font-size:11px;color:var(--gc-text-soft)}
+.projectGoogleService label{display:grid;gap:7px;font-size:12px}
+.projectGoogleService input{width:100%;min-width:0}
+.projectGoogleService ul{padding-left:18px;max-height:260px;overflow:auto;display:grid;gap:7px;margin:0}
+.projectGoogleService li{font-size:12px;overflow-wrap:anywhere}
+.projectGoogleService li p{font-size:11px;color:var(--gc-text-soft);margin:4px 0}

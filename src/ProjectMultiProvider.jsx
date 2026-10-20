@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react'
 import {RefreshCw} from 'lucide-react'
 import {projectProviderReadiness,plannedWorkflowReadiness,readSelectedProviders} from './project-multi-provider.js'
 import ProjectGitHubSource from './ProjectGitHubSource.jsx'
+import ProjectGoogleConnections from './ProjectGoogleConnections.jsx'
 
 export default function ProjectMultiProvider({project}){
  const [connections,setConnections]=useState([])
@@ -55,6 +56,7 @@ export default function ProjectMultiProvider({project}){
    </div>)}
   </div>}
   <ProjectGitHubSource key={project.id} projectId={project.id} enabled={readiness.some(s=>s.id==='github'&&s.ready)}/>
+  <ProjectGoogleConnections key={"google-"+project.id} project={project}/>
   <details className="projectWorkflowPreview">
    <summary>Gmail → GitHub → Todoist → Google Drive workflow readiness</summary>
    <p className="projectHint">The full multi-app write workflow is not enabled. Each step below requires a separately authorized adapter, the correct provider scopes, per-step project permission, and a reviewed action approval before it can run.</p>
