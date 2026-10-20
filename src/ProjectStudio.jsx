@@ -1,12 +1,12 @@
 import React,{useState} from 'react'
 import {Folder,FolderKanban,Sparkles,Code2,BookOpen,BriefcaseBusiness,FlaskConical,Rocket,Globe,Heart,Shield,Palette,Database,Trash2,Plus,Upload,CloudDownload,FileText} from 'lucide-react'
 import DropboxBrowser from './DropboxBrowser.jsx'
-import {ACCEPT_TEXT_FILES,PROJECT_GLYPHS,PROJECT_API_SERVICES,PROJECT_MCP_SERVICES,PROJECT_FILE_MAX_COUNT,canImportFile,importTextFile} from './project-model.js'
+import {ACCEPT_TEXT_FILES,PROJECT_GLYPHS,PROJECT_API_SERVICES,PROJECT_MCP_SERVICES,PROJECT_FILE_MAX_COUNT,canImportFile,importTextFile,importLocalTextFile} from './project-model.js'
 const GLYPHS={folder:Folder,sparkles:Sparkles,code:Code2,book:BookOpen,briefcase:BriefcaseBusiness,flask:FlaskConical,rocket:Rocket,globe:Globe,heart:Heart,shield:Shield,palette:Palette,database:Database}
 const SERVICE_LABELS={'google-drive':'Google Drive',gmail:'Gmail',dropbox:'Dropbox',github:'GitHub',todoist:'Todoist',linear:'Linear',cloudflare:'Cloudflare Pages','remote-desktop-commander':'Remote Desktop Commander',firecrawl:'Firecrawl'}
 export function ProjectGlyph({icon='folder',size=18}){const Component=GLYPHS[icon]||Folder;return <Component size={size}/>}
 export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDelete,chatCount=0,busy=false}){
- const [error,setError]=useState(''),[notice,setNotice]=useState(''),[dropboxPath,setDropboxPath]=useState(''),[cloudBusy,setCloudBusy]=useState(false),[browseDropbox,setBrowseDropbox]=useState(false)
+ const [error,setError]=useState(''),[notice,setNotice]=useState(''),[dropboxPath,setDropboxPath]=useState(''),[cloudBusy,setCloudBusy]=useState(false),[browseDropbox,setBrowseDropbox]=useState(false),[fileQuery,setFileQuery]=useState('')
  const update=patch=>onUpdate(project.id,patch)
  const toggle=(field,id)=>{
   const old=Array.isArray(project[field])?project[field]:[]
@@ -22,7 +22,7 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
    for(const file of files){
     const problem=canImportFile(file.name,file.size)
     if(problem)throw Error(file.name+': '+problem)
-    items.push(importTextFile(file,await file.text()))
+    items.push(await importLocalTextFile(file))
    }
    update({files:[...(project.files||[]),...items]})
    setNotice('Added '+items.length+' local text '+(items.length===1?'file':'files')+' to this project.')
@@ -43,6 +43,19 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
    setNotice('Copied a read-only Dropbox text snapshot into this browser-local project.')
   }catch(e){setError(e.message||'Unable to import Dropbox text.')}finally{setCloudBusy(false)}
  }
+ function downloadFile(file){
+  const blob=new Blob([file.content],{type:'text/plain;charset=utf-8'})
+  const href=URL.createObjectURL(blob)
+  const link=document.createElement('a')
+  link.href=href
+  link.download=file.name.replace(/[\\/]/g,'_')
+  document.body.append(link);link.click();link.remove()
+  window.setTimeout(()=>URL.revokeObjectURL(href),1000)
+ }
+ const visibleFiles=(project.files||[]).filter(file=>{
+  const search=fileQuery.trim().toLocaleLowerCase()
+  return !search||file.name.toLocaleLowerCase().includes(search)||file.content.toLocaleLowerCase().includes(search)
+ })
  return <section className="projectStudio" aria-label={'Project '+project.name}>
   <div className="projectStudioHeader"><span className="projectStudioGlyph"><ProjectGlyph icon={project.icon} size={27}/></span><div><h2>{project.name}</h2><p>{chatCount} chats · Private by default · Browser-local</p></div>
   <button className="primary" disabled={busy} onClick={()=>onNewChat(project.id)}><Plus size={16}/> New project chat</button>
@@ -75,8 +88,13 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
     <button className="outline" type="button" aria-expanded={browseDropbox} onClick={()=>setBrowseDropbox(v=>!v)}>{browseDropbox?'Close Dropbox browser':'Browse Dropbox files'}</button>
     {browseDropbox&&<DropboxBrowser importing={cloudBusy} onSelectFile={item=>importDropbox(item.path)}/>}
     <p className="projectHint">Requires an already-connected Dropbox session in API integrations. Copies a read-only text snapshot. Google Drive requires its own OAuth integration and is not yet supported for import.</p>
-    {(project.files||[]).length>0?<ul className="projectFileList">{project.files.map(file=><li key={file.id}><span><FileText size={16}/><strong>{file.name}</strong><small>{file.source==='dropbox'?'Dropbox snapshot':'Local'}</small></span>
-    <button className="iconAction" aria-label={'Remove '+file.name} onClick={()=>update({files:project.files.filter(f=>f.id!==file.id)})}><Trash2 size={16}/></button></li>)}</ul>:<p className="projectHint">No reference files in this project yet.</p>}
+    {(project.files||[]).length>0&&<><label htmlFor="project-file-search">Search project files</label><input id="project-file-search" value={fileQuery} onChange={e=>setFileQuery(e.target.value)} placeholder="Search file names and contents"/></>}
+    {visibleFiles.length>0?<ul className="projectFileList">{visibleFiles.map(file=><li key={file.id} className="projectFileItem">
+    <div className="projectFileTop"><span><FileText size={16}/><strong>{file.name}</strong><small>{file.source==='dropbox'?'Dropbox snapshot':'Local'}</small></span>
+    <button className="iconAction" aria-label={'Download '+file.name} title="Download file" onClick={()=>downloadFile(file)}><CloudDownload size={16}/></button>
+    <button className="iconAction" aria-label={'Remove '+file.name} onClick={()=>update({files:project.files.filter(f=>f.id!==file.id)})}><Trash2 size={16}/></button></div>
+    <details className="projectFilePreview"><summary>Preview text</summary><pre>{file.content.slice(0,8000)}{file.content.length>8000?'\n[Preview truncated; download for full text]':''}</pre></details>
+    </li>)}</ul>:<p className="projectHint">{(project.files||[]).length?'No files match this search.':'No reference files in this project yet.'}</p>}
    </section>
    <section className="projectPanel"><h3>Plugins & MCP access profiles</h3><p className="projectHint">Choose which integrations belong to this project. These are local configuration preferences, not active permissions. Existing provider connections are separate; tool execution remains disabled pending authorization and provider implementations.</p>
     <h4>API integrations</h4><div className="projectToggles">{PROJECT_API_SERVICES.map(id=><label key={id}><input type="checkbox" checked={(project.api||[]).includes(id)} onChange={()=>toggle('api',id)}/>{SERVICE_LABELS[id]}</label>)}</div>
