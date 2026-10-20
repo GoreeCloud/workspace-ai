@@ -1,6 +1,8 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react'
+
 import {FolderOpen,FilePlus2,RefreshCw,Unlink2} from 'lucide-react'
-import {MAX_LINKED_SOURCES,REFRESH_INTERVAL_MS,scanSource,replaceLinkedSnapshot,savedHandle,fetchDropboxSnapshot,fetchDropboxFolderSnapshot} from './project-linked-source.js'
+import ProjectDriveLinks from './ProjectDriveLinks.jsx'
+import {MAX_LINKED_SOURCES,REFRESH_INTERVAL_MS,scanSource,replaceLinkedSnapshot,savedHandle,fetchDropboxSnapshot,fetchDropboxFolderSnapshot,fetchDriveFileSnapshot} from './project-linked-source.js'
 
 // Browser-selected File System Access handles; refresh is READ ONLY and only while the UI is open.
 export default function ProjectLiveSources({project,onUpdate,busy=false}){
@@ -17,6 +19,7 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
   let snapshot
   if(source.kind==='dropbox-file')snapshot=await fetchDropboxSnapshot(source)
   else if(source.kind==='dropbox-directory')snapshot=await fetchDropboxFolderSnapshot(source)
+  else if(source.kind==='google-drive-file')snapshot=await fetchDriveFileSnapshot(source)
   else{
    const handle=await savedHandle('get',source.id)
    if(!handle){report(source.id,'Reconnect required');return}
@@ -105,7 +108,7 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
   try{
    updateRef.current(p=>({files:(p.files||[]).filter(f=>f.linkId!==source.id),
     linkedSources:(p.linkedSources||[]).filter(s=>s.id!==source.id)}))
-   if(!source.kind.startsWith('dropbox-'))await savedHandle('delete',source.id)
+   if(!source.kind.startsWith('dropbox-')&&source.kind!=='google-drive-file')await savedHandle('delete',source.id)
    report(source.id,'Unlinked')
   }catch(e){setError('Source unlink failed: '+(e.message||'Unknown error'))}
   finally{setWorking('')}
@@ -124,10 +127,11 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
    <button type="button" className="outline" disabled={busy||!!working||connected.length>=MAX_LINKED_SOURCES||!dropboxPath.trim()} onClick={()=>linkDropbox(dropboxPath)}>Link Dropbox file</button>
    <button type="button" className="outline" disabled={busy||!!working||connected.length>=MAX_LINKED_SOURCES||!dropboxPath.trim()} onClick={()=>linkDropbox(dropboxPath,null,'dropbox-directory')}>Link Dropbox folder</button>
   </div>
+  <ProjectDriveLinks key={project.id} project={project} onUpdate={onUpdate} busy={busy||!!working}/>
   {!!connected.length&&<ul className="projectLinkedList">{connected.map(s=><li key={s.id}>
    <strong>{s.name}</strong> <small>{s.kind} · {states[s.id]||'Awaiting refresh'}</small>
    <div className="actions">
-    <button type="button" className="outline" disabled={busy||!!working} onClick={()=>s.kind.startsWith('dropbox-')?linkDropbox(s.path,s,s.kind):link(s.kind,s)}>Reconnect</button>
+    <button type="button" className="outline" disabled={busy||!!working} onClick={()=>s.kind==='google-drive-file'?syncOne(s):s.kind.startsWith('dropbox-')?linkDropbox(s.path,s,s.kind):link(s.kind,s)}>Reconnect</button>
     <button type="button" className="outline" disabled={busy||!!working} onClick={()=>unlink(s)}><Unlink2 size={14}/> Unlink</button>
    </div></li>)}</ul>}
   {notice&&<p role="status" className="projectHint">{notice}</p>}
