@@ -2,6 +2,7 @@ import React,{useCallback,useEffect,useRef,useState} from 'react'
 
 import {FolderOpen,FilePlus2,RefreshCw,Unlink2} from 'lucide-react'
 import ProjectDriveLinks from './ProjectDriveLinks.jsx'
+import {canApplyLinkedRefresh} from './project-source-isolation.js'
 import {MAX_LINKED_SOURCES,REFRESH_INTERVAL_MS,scanSource,replaceLinkedSnapshot,savedHandle,fetchDropboxSnapshot,fetchDropboxFolderSnapshot,fetchDriveFileSnapshot} from './project-linked-source.js'
 
 // Browser-selected File System Access handles; refresh is READ ONLY and only while the UI is open.
@@ -11,11 +12,14 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
  const [notice,setNotice]=useState('')
  const [error,setError]=useState('')
  const [dropboxPath,setDropboxPath]=useState('')
- const projectRef=useRef(project),updateRef=useRef(onUpdate),active=useRef(false)
+ const projectRef=useRef(project),updateRef=useRef(onUpdate),active=useRef(new Set()),scopeEpoch=useRef(0)
  projectRef.current=project;updateRef.current=onUpdate
  const connected=Array.isArray(project.linkedSources)?project.linkedSources:[]
  const report=(id,value)=>setStates(s=>({...s,[id]:value}))
  const syncOne=useCallback(async(source)=>{
+  const startedProjectId=projectRef.current.id
+  const startedScopeEpoch=scopeEpoch.current
+  const applyUpdate=updateRef.current
   let snapshot
   if(source.kind==='dropbox-file')snapshot=await fetchDropboxSnapshot(source)
   else if(source.kind==='dropbox-directory')snapshot=await fetchDropboxFolderSnapshot(source)
@@ -26,27 +30,30 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
    snapshot=await scanSource(handle,source)
   }
   // Functional patch avoids overwriting another source's concurrent scan or user edits.
-  updateRef.current(current=>{
-   if(!(current.linkedSources||[]).some(s=>s.id===source.id))return {}
+  if(scopeEpoch.current!==startedScopeEpoch||!canApplyLinkedRefresh(projectRef.current.id,startedProjectId,projectRef.current,source))return
+  applyUpdate(current=>{
+   if(scopeEpoch.current!==startedScopeEpoch||!canApplyLinkedRefresh(projectRef.current.id,startedProjectId,current,source))return {}
    return {files:replaceLinkedSnapshot(current.files,source.id,snapshot)}
   })
   report(source.id,'Synced '+new Date().toLocaleTimeString())
  },[])
  const syncAll=useCallback(async()=>{
-  if(active.current||document.visibilityState==='hidden')return
-  active.current=true
+  const startedProjectId=projectRef.current.id
+  if(active.current.has(startedProjectId)||document.visibilityState==='hidden')return
+  active.current.add(startedProjectId)
   try{
-   for(const source of projectRef.current.linkedSources||[]){
+   for(const source of [...(projectRef.current.linkedSources||[])]){
+    if(projectRef.current.id!==startedProjectId)break
     try{await syncOne(source)}catch(e){report(source.id,'Refresh failed: '+(e.message||'Permission unavailable'))}
    }
-  }finally{active.current=false}
+  }finally{active.current.delete(startedProjectId)}
  },[syncOne])
  useEffect(()=>{
   const timer=setInterval(()=>{void syncAll()},REFRESH_INTERVAL_MS)
   const onVisible=()=>{if(document.visibilityState==='visible')void syncAll()}
   document.addEventListener('visibilitychange',onVisible)
   void syncAll()
-  return()=>{clearInterval(timer);document.removeEventListener('visibilitychange',onVisible)}
+  return()=>{scopeEpoch.current++;clearInterval(timer);document.removeEventListener('visibilitychange',onVisible)}
  },[project.id,syncAll])
  const pick=async(kind)=>{
   if(kind==='file'){
@@ -58,6 +65,9 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
  }
  const link=async(kind,existing=null)=>{
   if(busy||working)return
+  const startedScopeEpoch=scopeEpoch.current
+  const startedProjectId=projectRef.current.id
+  const applyUpdate=updateRef.current
   setError('');setNotice('');setWorking(existing?.id||kind)
   try{
    if(!existing&&connected.length>=MAX_LINKED_SOURCES)throw Error('Each project supports at most five linked sources.')
@@ -71,9 +81,10 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
    const id=existing?.id||crypto.randomUUID()
    const source={id,kind,name:String(handle.name).slice(0,100),linkedAt:Date.now()}
    const items=await scanSource(handle,source)
+   if(projectRef.current.id!==startedProjectId||scopeEpoch.current!==startedScopeEpoch)throw Error('Project changed while selecting a file. Retry in the intended Project.')
    replaceLinkedSnapshot(projectRef.current.files,source.id,items)
    await savedHandle('put',id,handle)
-   updateRef.current(p=>({
+   applyUpdate(p=>scopeEpoch.current!==startedScopeEpoch||p.id!==startedProjectId?{}:({
     files:replaceLinkedSnapshot(p.files,source.id,items),
     linkedSources:existing?(p.linkedSources||[]).map(s=>s.id===id?source:s):[...(p.linkedSources||[]),source]
    }))
@@ -84,6 +95,9 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
  }
  const linkDropbox=async(path,existing=null,kind='dropbox-file')=>{
   if(busy||working)return
+  const startedScopeEpoch=scopeEpoch.current
+  const startedProjectId=projectRef.current.id
+  const applyUpdate=updateRef.current
   setError('');setNotice('');setWorking('dropbox')
   try{
    if(!existing&&connected.length>=MAX_LINKED_SOURCES)throw Error('Each project supports at most five linked sources.')
@@ -92,8 +106,9 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
    const name=location.split('/').pop().slice(0,100)
    const source={id:existing?.id||crypto.randomUUID(),kind,name,path:location,linkedAt:Date.now()}
    const items=kind==='dropbox-directory'?await fetchDropboxFolderSnapshot(source):await fetchDropboxSnapshot(source)
+   if(projectRef.current.id!==startedProjectId||scopeEpoch.current!==startedScopeEpoch)throw Error('Project changed during the Dropbox read. Retry in the intended Project.')
    replaceLinkedSnapshot(projectRef.current.files,source.id,items)
-   updateRef.current(p=>({
+   applyUpdate(p=>scopeEpoch.current!==startedScopeEpoch||p.id!==startedProjectId?{}:({
     files:replaceLinkedSnapshot(p.files,source.id,items),
     linkedSources:existing?(p.linkedSources||[]).map(s=>s.id===source.id?source:s):[...(p.linkedSources||[]),source]
    }))
