@@ -93,3 +93,5 @@ Settings separates **Connections**, **Models & billing**, **Appearance**, and **
 ## License
 
 AGPL-3.0-or-later — see [LICENSE](LICENSE). Copyright (c) 2026 GoreeCloud.
+
+Google Workspace integrations can be optionally connected through [standalone read-only OAuth](docs/GOOGLE_OAUTH_READ_ONLY.md) when configured on the local server. This does not use ChatGPT connectors and does not enable automated cross-provider writes.

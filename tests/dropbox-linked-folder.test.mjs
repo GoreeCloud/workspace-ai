@@ -72,17 +72,18 @@ test('linked folder frontend filters invalid response and stores valid files und
  await assert.rejects(()=>fetchDropboxFolderSnapshot(src,async()=>({ok:true,json:async()=>({path:'/Docs',readOnly:true,fullyScanned:true,files:[{relativePath:'../escape.md',size:5,content:'Hello'}]})})),/invalid text/)
 })
 test('Dropbox folder HTTP route enforces origin and rejects changed session revisions',async()=>{
- let revision=1,credential=token,release
+ let revision=1,credential=token,release,markStarted
  const pending=new Promise(resolve=>{release=resolve})
+ const started=new Promise(resolve=>{markStarted=resolve})
  const app=express();app.use(express.json())
- attachDropboxReadRoute(app,{origins:new Set(['http://127.0.0.1:3031']),getToken:()=>credential,getRevision:()=>revision,invalidate:()=>{credential=null;revision++}},undefined,async()=>pending)
+ attachDropboxReadRoute(app,{origins:new Set(['http://127.0.0.1:3031']),getToken:()=>credential,getRevision:()=>revision,invalidate:()=>{credential=null;revision++}},undefined,async()=>{markStarted();return pending})
  const server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s))})
  const url='http://127.0.0.1:'+server.address().port+'/api/integrations/dropbox/read-folder-text'
  const make=(origin)=>fetch(url,{method:'POST',headers:{Origin:origin,'Content-Type':'application/json'},body:JSON.stringify({path:'/Docs'})})
  try{
   assert.equal((await make('https://other.example')).status,403)
   const original=make('http://127.0.0.1:3031')
-  await new Promise(resolve=>setTimeout(resolve,10))
+  await started
   revision++
   release({path:'/Docs',files:[],readOnly:true,fullyScanned:true})
   assert.equal((await original).status,409)

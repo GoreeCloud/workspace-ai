@@ -13,7 +13,7 @@ Workspace AI Projects now provide a **concurrent, user-initiated, read-only** ov
 
 ## Unsupported until authorized integration
 
-- Gmail and Google Drive require separate standalone OAuth app registration and least-privilege scopes. A ChatGPT connector does not automatically authorize this independent web app.
+- Gmail and Google Drive now have an **optional standalone, read-only OAuth connection panel** on the Project page. A separately registered Google Cloud OAuth client and approved scopes are still required. Gmail search and per-file Drive listing/preview are standalone reads only, not automated workflow steps. A ChatGPT connector does not automatically authorize this independent web app.
 - Todoist task creation is a write and requires a reviewed server-side write adapter, idempotency, explicit per-operation consent and audit. The currently connected Todoist route is read-only.
 - Google Drive updates require an authenticated, narrowly scoped file selector, version/conflict management, identity checks, action review and undo/recovery.
 - Cross-provider data forwarding requires a clear source-to-destination data-flow consent, data-minimization rules, user preview and separate approval per write. No automatic forwarding or multi-stage execution exists yet.
