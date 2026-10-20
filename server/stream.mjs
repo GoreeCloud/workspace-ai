@@ -66,7 +66,7 @@ export async function streamResponse(upstream, onEvent) {
       if (buffer.length > maxFrameChars) throw new Error('OpenAI response frame exceeded the safety limit.')
       if (failure || completed) break
     }
-    if (buffer) parse(buffer)
+    if (buffer && !completed && !failure) parse(buffer)
   } finally { await reader.cancel().catch(() => {}) }
   if (failure) throw new Error('OpenAI request failed: ' + failure)
   if (!completed) throw new Error('OpenAI stream ended before response.completed.')
