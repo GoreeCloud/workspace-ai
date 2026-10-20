@@ -8,6 +8,12 @@ The sidebar is ordered MCP, API, Projects, Pinned, All Chats, Settings. It is co
 
 Projects support local create/delete and assignment of conversations. Pins and chat search are browser-local. Project files, integration permissions and cloud synchronization are **not yet implemented**. Chat data remains subject to the existing history limit and storage policy.
 
+## Local data portability (implemented)
+
+Privacy settings now provide a versioned JSON archive with chats, local projects, and pins. Restore parses and validates the format and bounds (up to 50 conversations, 100 projects, 500 messages per conversation, and 12 MB JSON), supports nondestructive merge with ID conflict preservation, or explicit full replacement with a confirmation dialog. The app saves both browser keys before updating React state and attempts rollback on storage failure. Browser localStorage is not a transactional database; failures during rollback remain possible and should be handled by keeping an external backup.
+
+OAuth credentials, API keys, MCP configuration, and integration sessions are explicitly excluded. The exported conversation text itself is user data and may contain sensitive information. No cloud sync is implied. All Chats supports conversation renaming; Ctrl/Cmd+K focuses search and Ctrl/Cmd+Shift+N begins a new conversation when settings are not open.
+
 ## Service catalog
 
 | Service | Current connection path | Implemented now |

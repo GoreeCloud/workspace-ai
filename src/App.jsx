@@ -4,6 +4,8 @@ import remarkGfm from 'remark-gfm';
 import ConnectionField from './ConnectionField.jsx';
 import WorkspaceNavigation from './WorkspaceNavigation.jsx';
 import WorkspaceViews from './WorkspaceViews.jsx';
+import WorkspaceBackup from './WorkspaceBackup.jsx';
+import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound} from 'lucide-react';
 const KEY='workspace-ai-history-v1';
@@ -14,7 +16,7 @@ export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
 const [settingsTab,setSettingsTab]=useState('connections');
-const [workspace,setWorkspace]=useState(readWorkspace),[view,setView]=useState('chat'),[selectedProject,setSelectedProject]=useState(null);
+const [workspace,setWorkspace]=useState(readWorkspace),[view,setView]=useState('chat'),[selectedProject,setSelectedProject]=useState(null),[searchRequest,setSearchRequest]=useState(0);
 const [appearance,setAppearance]=useState(()=>{try{const saved=localStorage.getItem('workspace-ai-theme');return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
 const dialogRef=useRef(null);
@@ -49,12 +51,25 @@ useEffect(()=>{
  document.addEventListener('keydown',onKey);
  return ()=>{document.removeEventListener('keydown',onKey);if(previous instanceof HTMLElement)previous.focus()};
 },[settings]);
+useEffect(()=>{
+ const onKey=event=>{
+  if(event.defaultPrevented||event.isComposing||settings||event.altKey||(!event.metaKey&&!event.ctrlKey))return;
+  if(!event.shiftKey&&event.key.toLowerCase()==='k'){
+   event.preventDefault();setView('chats');setMobile(false);setSearchRequest(n=>n+1);
+  }else if(event.shiftKey&&event.key.toLowerCase()==='n'){
+   event.preventDefault();newChat();
+  }
+ };
+ document.addEventListener('keydown',onKey);
+ return ()=>document.removeEventListener('keydown',onKey);
+},[settings,busy]);
 async function refresh(){try{const s=await api('/api/status');setStatus(s);if(s.planEnabled){const m=await api('/api/models');setModels(m.planModels||[]);setPlanModel(old=>(m.planModels||[]).some(v=>v.slug===old)?old:(m.planModels?.[0]?.slug||''));if(m.error)setError(m.error)}}catch(e){setError(report(e))}}
 useEffect(()=>{refresh();const auth=new URLSearchParams(location.search).get('auth');if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}},[]);
 function newChat(projectId){if(busy)return;setCurrent(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setMobile(false);setError('');prompt.current?.focus()}
 function remove(id){if(busy||!confirm('Delete this chat locally?'))return;setChats(v=>v.filter(c=>c.id!==id));setWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id)setCurrent(null)}
 function openChat(id){if(busy)return;setCurrent(id);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
 function assignChat(id,projectId){setChats(v=>v.map(c=>c.id===id?{...c,projectId}:c))}
+function renameChat(id,title){const clean=title.trim().slice(0,90);if(clean)setChats(v=>v.map(c=>c.id===id?{...c,title:clean,updatedAt:Date.now()}:c))}
 function navigate(id){setView(id);setMobile(false)}
 function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
 async function signIn(){try{const r=await api('/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
@@ -100,6 +115,13 @@ async function send(value=draft){
     setError(message);
   }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
 }
+function restoreWorkspace(archive,mode){
+ if(busy)throw Error('Stop the current response before restoring conversations');
+ const restored=prepareWorkspaceRestore(chats,workspace,archive,mode);
+ persistWorkspaceRestore(localStorage,KEY,WORKSPACE_KEY,restored);
+ setChats(restored.chats);setWorkspace(restored.workspace);setCurrent(null);setSelectedProject(null);setView('chats');
+ return restored;
+}
 function exportChat(){if(!chat)return;const md='# '+chat.title+'\n\n'+chat.messages.map(m=>'## '+m.role+'\n\n'+m.content).join('\n\n---\n\n');const url=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=url;a.download='workspace-ai-chat.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),0)}
 return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed":"")}>
 <WorkspaceNavigation workspace={workspace} onWorkspace={setWorkspace} view={view} onNavigate={navigate}
@@ -109,8 +131,8 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{view==='chat'?'Workspace AI':{mcp:'MCP',api:'API',projects:'Projects',pinned:'Pinned',chats:'All Chats',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></div>
  <div><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
  <div className="viewport">{view!=='chat'?<WorkspaceViews view={view} chats={chats} workspace={workspace} onWorkspace={setWorkspace}
- onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat}
- selectedProject={selectedProject} onProject={setSelectedProject} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
+ onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat} onRenameChat={renameChat}
+ selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
  <p className="eyebrow">✦ YOUR SPACE TO THINK BIGGER</p><div className="bigIcon"><Sparkles size={38}/></div>
  <h1>Good ideas start <em>here.</em></h1><p>Ask anything, create something, or follow your curiosity.<br/>Your AI workspace, your way.</p>
  <div className="ideas">{[['Explore an idea','Turn curiosity into clarity','Help me turn a new idea into a concrete project.'],['Write code','Build, debug and create','Help me plan and build a useful application.'],['Create content','Find the right words','Help me draft a clear and thoughtful article.'],['Learn something','Go beyond the surface','Explain an interesting concept with examples.']].map(([title,sub,idea],i)=><button key={title} className="idea" onClick={()=>{setDraft(idea);prompt.current?.focus()}}><span className={'ideaIcon icon'+i}>{i===0?<Sparkles size={19}/>:i===1?'⌘':i===2?'✎':'◇'}</span><span><strong>{title}</strong><small>{sub}</small></span><span className="ideaArrow">→</span></button>)}</div></section>:
@@ -162,7 +184,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
 </section>
 <section className="settingsPanel" hidden={settingsTab!=='privacy'}>
 <h3>04 · DATA & PRIVACY</h3><p className="privacyInfo">Chat history is saved in browser local storage. OAuth credentials remain outside the repository in a protected local file. Requests use store: false.</p>
-<div className="actions"><button className="outline" disabled={!chat} onClick={exportChat}><Download size={15}/>Export conversation</button><button className="outline" onClick={refresh}>Refresh status</button></div>
+<WorkspaceBackup chats={chats} workspace={workspace} onRestore={restoreWorkspace} busy={busy}/><div className="actions"><button className="outline" disabled={!chat} onClick={exportChat}><Download size={15}/>Export conversation</button><button className="outline" onClick={refresh}>Refresh status</button></div>
 </section></div>
 <footer className="dialogFooter"><small>LOCAL FIRST · PUBLIC SOURCE</small><button className="primary" onClick={()=>setSettings(false)}>Done</button></footer>
 </section></div>}
