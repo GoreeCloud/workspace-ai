@@ -11,7 +11,7 @@ export default function McpRiskSettings({project,onUpdate}){
   fetch('/api/integrations').then(async r=>{
    if(!r.ok)throw Error('Could not load MCP tool metadata.')
    return r.json()
-  }).then(data=>{if(active)setServices((data.services||[]).filter(s=>s.kind==='mcp'&&s.id!=='tinyfish'))})
+  }).then(data=>{if(active)setServices((data.services||[]).filter(s=>s.kind==='mcp'))})
    .catch(e=>{if(active)setError(e.message)})
   return ()=>{active=false}
  },[])

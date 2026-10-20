@@ -27,7 +27,7 @@ test('integration endpoints are local-origin gated, secret-free and ignore stale
  const wait=async()=>{for(let i=0;i<60&&!pending.length;i++)await sleep(20);assert.ok(pending.length,'provider verification never started')}
  try{
   const services=await (await actualFetch(base+'/api/integrations')).json()
-  assert.equal(services.services.length,10)
+  assert.equal(services.services.length,9)
   assert.equal(services.executionEnabled,false)
   assert.ok(services.services.every(s=>s.tools.every(t=>t.executable===false)))
   const outsider=await post('github/connect',{token:'synthetic-token-for-testing'},{Origin:'https://attacker.example','Content-Type':'application/json'})
