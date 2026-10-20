@@ -7,6 +7,7 @@ import WorkspaceViews from './WorkspaceViews.jsx';
 import WorkspaceBackup from './WorkspaceBackup.jsx';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
+import {projectContext} from './project-model.js';
 import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound} from 'lucide-react';
 const KEY='workspace-ai-history-v1';
 const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}};
@@ -21,9 +22,11 @@ const [appearance,setAppearance]=useState(()=>{try{const saved=localStorage.getI
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
 const dialogRef=useRef(null);
 const chat=chats.find(c=>c.id===current);
+const activeProjectId=chat?.projectId||(!chat?selectedProject:null);
+const activeProject=workspace.projects.find(p=>p.id===activeProjectId);
 const ready=provider==='api'?status.apiConfigured:provider==='plan'?status.planEnabled&&!!planModel:(status.planEnabled&&!!planModel)||(status.apiConfigured&&fallback);
 useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(chats.slice(0,50)))}catch{}},[chats]);
-useEffect(()=>{try{localStorage.setItem(WORKSPACE_KEY,JSON.stringify(workspace))}catch{}},[workspace]);
+useEffect(()=>{try{localStorage.setItem(WORKSPACE_KEY,JSON.stringify(workspace))}catch{setError('Project changes could not be saved in browser storage. Export your data and free some space.')}},[workspace]);
 useEffect(()=>{bottom.current?.scrollIntoView({behavior:'smooth'})},[chats,busy]);
 useEffect(()=>{
  const system=window.matchMedia('(prefers-color-scheme: dark)');
@@ -68,7 +71,7 @@ useEffect(()=>{refresh();const auth=new URLSearchParams(location.search).get('au
 function newChat(projectId){if(busy)return;setCurrent(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setMobile(false);setError('');prompt.current?.focus()}
 function remove(id){if(busy||!confirm('Delete this chat locally?'))return;setChats(v=>v.filter(c=>c.id!==id));setWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id)setCurrent(null)}
 function openChat(id){if(busy)return;setCurrent(id);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
-function assignChat(id,projectId){setChats(v=>v.map(c=>c.id===id?{...c,projectId}:c))}
+function assignChat(id,projectId){if(busy)return;const safeId=workspace.projects.some(p=>p.id===projectId)?projectId:null;setChats(v=>v.map(c=>c.id===id?{...c,projectId:safeId,updatedAt:Date.now()}:c));if(current===id)setSelectedProject(safeId)}
 function renameChat(id,title){const clean=title.trim().slice(0,90);if(clean)setChats(v=>v.map(c=>c.id===id?{...c,title:clean,updatedAt:Date.now()}:c))}
 function navigate(id){setView(id);setMobile(false)}
 function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
@@ -78,14 +81,15 @@ async function send(value=draft){
   const text=value.trim();
   if(!text||!ready||busy)return;
   const id=chat?.id||crypto.randomUUID();
+  const context=projectContext(workspace,activeProjectId);
   const history=[...(chat?.messages||[]).filter(m=>!m.error&&m.content?.trim()),{id:crypto.randomUUID(),role:'user',content:text}];
   const answer={id:crypto.randomUUID(),role:'assistant',content:''};
-  setChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:selectedProject||null,updatedAt:Date.now()},...v]);
+  setChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:activeProjectId||null,updatedAt:Date.now()},...v]);
   setCurrent(id);setDraft('');setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
   try{
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
-      messages:history.map(m=>({role:m.role,content:m.content})),preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
+      messages:[...(context?[{role:'user',content:context}]:[]),...history.slice(-58).map(m=>({role:m.role,content:m.content}))],preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
     if(!response.body)throw Error('The server returned no stream');
@@ -130,9 +134,10 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
 <main className="main">
  <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{view==='chat'?'Workspace AI':{mcp:'MCP',api:'API',projects:'Projects',pinned:'Pinned',chats:'All Chats',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></div>
  <div><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
+ {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  <div className="viewport">{view!=='chat'?<WorkspaceViews view={view} chats={chats} workspace={workspace} onWorkspace={setWorkspace}
  onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat} onRenameChat={renameChat}
- selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
+ selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} busy={busy} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
  <p className="eyebrow">✦ YOUR SPACE TO THINK BIGGER</p><div className="bigIcon"><Sparkles size={38}/></div>
  <h1>Good ideas start <em>here.</em></h1><p>Ask anything, create something, or follow your curiosity.<br/>Your AI workspace, your way.</p>
  <div className="ideas">{[['Explore an idea','Turn curiosity into clarity','Help me turn a new idea into a concrete project.'],['Write code','Build, debug and create','Help me plan and build a useful application.'],['Create content','Find the right words','Help me draft a clear and thoughtful article.'],['Learn something','Go beyond the surface','Explain an interesting concept with examples.']].map(([title,sub,idea],i)=><button key={title} className="idea" onClick={()=>{setDraft(idea);prompt.current?.focus()}}><span className={'ideaIcon icon'+i}>{i===0?<Sparkles size={19}/>:i===1?'⌘':i===2?'✎':'◇'}</span><span><strong>{title}</strong><small>{sub}</small></span><span className="ideaArrow">→</span></button>)}</div></section>:
@@ -142,7 +147,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  {m.role==='user'?<div className="userBubble">{m.content}</div>:<div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div>}
  {m.role==='assistant'&&!!m.content&&<button className="copy" onClick={()=>navigator.clipboard.writeText(m.content).catch(()=>setError('Could not copy text'))}><Copy size={14}/>Copy</button>}
  </div></article>)}<div ref={bottom}/></section>}</div>
- {view==='chat'&&<div className="composerArea">{selectedProject&&workspace.projects.some(p=>p.id===selectedProject)&&<div className="workspaceScope">Project: {workspace.projects.find(p=>p.id===selectedProject)?.name}<button title="Remove project context" aria-label="Remove project context" onClick={()=>setSelectedProject(null)}>×</button></div>}{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
+ {view==='chat'&&<div className="composerArea">{activeProject&&<div className="workspaceScope">Project: {activeProject.name} · {activeProject.files?.length||0} files · Project instructions active {chat?<button title="Move chat to no project" aria-label="Move chat out of project" disabled={busy} onClick={()=>assignChat(chat.id,null)}>Remove from project</button>:<button title="New chat outside project" aria-label="Start a chat outside this project" onClick={()=>setSelectedProject(null)}>×</button>}</div>}{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  {!ready&&<div className="notice"><span>Connect ChatGPT or configure a separately billed OpenAI API connection.</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}
  <div className="composer"><textarea ref={prompt} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={12000} rows={2} placeholder="Ask anything…" aria-label="Message to Workspace AI" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}}/>
  <div className="composerBottom"><button className="sourceButton" onClick={()=>{setSettingsTab('routing');setSettings(true)}}><Sparkles size={15}/>{provider==='auto'?'Automatic':provider==='api'?'OpenAI API':'ChatGPT plan'}<ChevronDown size={14}/></button><small>{provider==='plan'?planModel||'Choose a model':provider==='api'?status.model:'Smart routing'}</small>

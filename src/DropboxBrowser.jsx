@@ -3,7 +3,7 @@ import React, {useEffect,useRef,useState} from 'react'
 import {Folder,File,ArrowLeft,RefreshCw,Cloud} from 'lucide-react'
 
 // Read-only folder metadata; no file transfers or changes.
-export default function DropboxBrowser(){
+export default function DropboxBrowser({onSelectFile=null,importing=false}){
  const [folder,setFolder]=useState(''),[history,setHistory]=useState([]),[entries,setEntries]=useState([]),
        [cursor,setCursor]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false)
  const sequence=useRef(0)
@@ -41,6 +41,7 @@ export default function DropboxBrowser(){
   <ul className="dropboxEntries">{entries.map(item=><li key={item.path}>
    {item.type==='folder'?<button onClick={()=>open(item)}><Folder size={17}/>{item.name}</button>:
       <span className="dropboxFile"><File size={17}/>{item.name}</span>}
+   {item.type==='file'&&onSelectFile&&<button className="outline" disabled={importing||!item.name.match(/\.(txt|md|markdown|csv|tsv|json|yaml|yml|log|js|jsx|ts|tsx|py|html|css|xml|sql)$/i)||item.size>65536} onClick={()=>onSelectFile(item)}>Import text</button>}
    <small>{item.type==='folder'?'Folder':typeof item.size==='number'?Math.ceil(item.size/1024)+' KB':'File'}</small>
   </li>)}</ul>
   {!busy&&!error&&entries.length===0&&<p>No files or folders on this page.</p>}

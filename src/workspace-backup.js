@@ -1,3 +1,4 @@
+import {normalizeProject,normalizeProjects} from './project-model.js'
 // A versioned, portable, local-only archive. Credentials and service sessions never enter this format.
 export const BACKUP_KIND = 'goreecloud.workspace-ai.backup'
 export const BACKUP_VERSION = 1
@@ -30,11 +31,11 @@ function validateWorkspace(value) {
   const name = requiredString(p.name, 'project name', 90)
   if (ids.has(id)) throw Error('Duplicate project ID')
   ids.add(id)
-  return { id, name, createdAt: timestamp(p.createdAt ?? 0, 'project timestamp') }
+  return normalizeProject({ ...p, id, name, createdAt: timestamp(p.createdAt ?? 0, 'project timestamp') })
  })
  const pinned = value.pinned.map(id => requiredString(id, 'pinned chat ID', 160))
  return {
-  projects,
+  projects:normalizeProjects(projects),
   pinned: [...new Set(pinned)],
   collapsed: value.collapsed === true,
   expanded: {
@@ -114,10 +115,11 @@ export function prepareWorkspaceRestore(existingChats, existingWorkspace, archiv
  const added = incoming.slice(0, room)
  const projects = Array.isArray(oldWorkspace.projects) ? oldWorkspace.projects : []
  const projectIds = new Set(projects.map(p => p.id))
- const mergedProjects = [...projects, ...imported.workspace.projects.filter(p => !projectIds.has(p.id))].slice(0, MAX_PROJECTS)
- const validProjects = new Set(mergedProjects.map(p => p.id))
+ const additions = imported.workspace.projects.filter(p => !projectIds.has(p.id)).map(p => ({...p,shareMemoryWith:p.shareMemoryWith.filter(id=>!projectIds.has(id)),shareFilesWith:p.shareFilesWith.filter(id=>!projectIds.has(id))}))
+ const mergedProjects = [...projects, ...additions].slice(0, MAX_PROJECTS)
+ const newProjectIds = new Set(mergedProjects.filter(p => !projectIds.has(p.id)).map(p => p.id))
  const newChats = [...oldChats, ...added.map(c => ({
-  ...c, projectId: validProjects.has(c.projectId) ? c.projectId : null
+  ...c, projectId: newProjectIds.has(c.projectId) ? c.projectId : null
  }))]
  const chatIds = new Set(newChats.map(c => c.id))
  const pins = [...(Array.isArray(oldWorkspace.pinned) ? oldWorkspace.pinned : []), ...imported.workspace.pinned]
