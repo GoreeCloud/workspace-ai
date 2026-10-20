@@ -33,12 +33,18 @@ export async function streamResponse(upstream, onEvent) {
   let buffer = ''
   let completed = false
   let failure = null
+  let outputChars = 0
+  const maxFrameChars = 256 * 1024
+  const maxOutputChars = 1_000_000
   const parse = (frame) => {
+    if (frame.length > maxFrameChars) throw new Error('OpenAI response frame exceeded the safety limit.')
     const data = frame.split(/\r?\n/).filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
     if (!data || data === '[DONE]') return
     let event
     try { event = JSON.parse(data) } catch { return }
     if (event.type === 'response.output_text.delta' && typeof event.delta === 'string') {
+      outputChars += event.delta.length
+      if (outputChars > maxOutputChars) throw new Error('OpenAI response exceeded the output safety limit.')
       onEvent({ type: 'delta', text: event.delta })
     } else if (event.type === 'response.completed') {
       completed = true
@@ -53,7 +59,11 @@ export async function streamResponse(upstream, onEvent) {
       buffer += decoder.decode(value, { stream: true })
       const parts = buffer.split(/\r?\n\r?\n/)
       buffer = parts.pop() || ''
-      for (const part of parts) parse(part)
+      for (const part of parts) {
+        if (failure || completed) break
+        parse(part)
+      }
+      if (buffer.length > maxFrameChars) throw new Error('OpenAI response frame exceeded the safety limit.')
       if (failure || completed) break
     }
     if (buffer) parse(buffer)
