@@ -6,6 +6,7 @@ import GitHubBrowser from './GitHubBrowser.jsx'
 import DropboxBrowser from './DropboxBrowser.jsx'
 import ProjectStudio,{ProjectGlyph} from './ProjectStudio.jsx'
 import {newProject,normalizeProject} from './project-model.js'
+import PromptsView from './PromptsView.jsx'
 async function post(url,body){
  const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})})
  const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed');return result
@@ -61,7 +62,7 @@ function ChatRow({chat,pinned,onSelect,onPin,onDelete,onAssign,onRename,projects
  <button className="iconAction" title={pinned?'Unpin':'Pin'} aria-label={pinned?'Unpin chat':'Pin chat'} onClick={()=>onPin(chat.id)}>{pinned?<PinOff size={16}/>:<Pin size={16}/>}</button>
  <button className="iconAction" title="Delete" aria-label="Delete chat" onClick={()=>onDelete(chat.id)}><Trash2 size={16}/></button></div>
 }
-export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelectChat,onNewChat,onDeleteChat,onAssignChat,onRenameChat,selectedProject,onProject,onOpenSettings,focusSearchRequest=0,busy=false}){
+export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelectChat,onNewChat,onDeleteChat,onAssignChat,onRenameChat,selectedProject,onProject,onOpenSettings,focusSearchRequest=0,busy=false,onUsePrompt}){
  const [query,setQuery]=useState(''),[name,setName]=useState(''),[createMemory,setCreateMemory]=useState(false)
  const searchRef=useRef(null)
  useEffect(()=>{if(view==='chats'&&focusSearchRequest>0)searchRef.current?.focus()},[focusSearchRequest,view])
@@ -70,7 +71,8 @@ export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelec
  const shown=searchChats(view==='pinned'?chats.filter(c=>workspace.pinned.includes(c.id)):chats,query,view==='projects'?selectedProject:null)
  const create=()=>{const title=name.trim().slice(0,90);if(!title||workspace.projects.length>=100)return;const id=crypto.randomUUID();onWorkspace(w=>({...w,projects:[...w.projects,{...newProject(id,title),memoryEnabled:createMemory}]}));onProject(id);setName('');setCreateMemory(false)}
  const updateProject=(id,patch)=>onWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===id?normalizeProject({...p,...(typeof patch==='function'?patch(p):patch)}):p)}))
- const removeProject=()=>{if(busy||!project||!confirm('Delete project '+project.name+'? Chats will be kept.'))return;onWorkspace(w=>({...w,projects:w.projects.filter(p=>p.id!==project.id).map(p=>({...p,shareMemoryWith:(p.shareMemoryWith||[]).filter(id=>id!==project.id),shareFilesWith:(p.shareFilesWith||[]).filter(id=>id!==project.id)}))}));onProject(null);chats.filter(c=>c.projectId===project.id).forEach(c=>onAssignChat(c.id,null))}
+ const removeProject=()=>{if(busy||!project||!confirm('Delete project '+project.name+'? Chats will be kept.'))return;onWorkspace(w=>({...w,prompts:(w.prompts||[]).filter(p=>p.projectId!==project.id),projects:w.projects.filter(p=>p.id!==project.id).map(p=>({...p,shareMemoryWith:(p.shareMemoryWith||[]).filter(id=>id!==project.id),shareFilesWith:(p.shareFilesWith||[]).filter(id=>id!==project.id)}))}));onProject(null);chats.filter(c=>c.projectId===project.id).forEach(c=>onAssignChat(c.id,null))}
+ if(view==='prompts')return <PromptsView workspace={workspace} onWorkspace={onWorkspace} onUsePrompt={onUsePrompt} defaultProjectId={selectedProject} busy={busy}/>
  if(view==='mcp'||view==='api')return <IntegrationsView key={view} kind={view}/>
  if(view==='settings')return <div className="workspacePage"><div className="workspacePageTop"><h1>Settings</h1></div><div className="workspaceCard"><h2>Workspace preferences</h2><p>Manage authentication, appearance, routing and privacy in Settings & connections.</p><button className="primary" onClick={onOpenSettings}><Settings2 size={16}/> Open settings</button></div></div>
  return <div className="workspacePage">

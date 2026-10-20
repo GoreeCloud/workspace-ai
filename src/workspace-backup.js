@@ -1,4 +1,5 @@
 import {normalizeProject,normalizeProjects} from './project-model.js'
+import {normalizePrompts} from './prompt-library.js'
 // A versioned, portable, local-only archive. Credentials and service sessions never enter this format.
 export const BACKUP_KIND = 'goreecloud.workspace-ai.backup'
 export const BACKUP_VERSION = 1
@@ -36,10 +37,12 @@ function validateWorkspace(value) {
  const pinned = value.pinned.map(id => requiredString(id, 'pinned chat ID', 160))
  return {
   projects:normalizeProjects(projects),
+  prompts:normalizePrompts(value.prompts??[],[...ids],true),
   pinned: [...new Set(pinned)],
   collapsed: value.collapsed === true,
   expanded: {
    projects: value.expanded?.projects !== false,
+   prompts: value.expanded?.prompts !== false,
    pinned: value.expanded?.pinned !== false,
    chats: value.expanded?.chats !== false
   }
@@ -121,6 +124,10 @@ export function prepareWorkspaceRestore(existingChats, existingWorkspace, archiv
  const newChats = [...oldChats, ...added.map(c => ({
   ...c, projectId: newProjectIds.has(c.projectId) ? c.projectId : null
  }))]
+ const existingPrompts=Array.isArray(oldWorkspace.prompts)?oldWorkspace.prompts:[]
+ const promptIds=new Set(existingPrompts.map(p=>p.id))
+ const additionPrompts=imported.workspace.prompts.filter(p=>!promptIds.has(p.id)&&(!p.projectId||newProjectIds.has(p.projectId)))
+ const mergedPrompts=normalizePrompts([...existingPrompts,...additionPrompts].slice(0,100),mergedProjects.map(p=>p.id))
  const chatIds = new Set(newChats.map(c => c.id))
  const pins = [...(Array.isArray(oldWorkspace.pinned) ? oldWorkspace.pinned : []), ...imported.workspace.pinned]
  return {
@@ -128,6 +135,7 @@ export function prepareWorkspaceRestore(existingChats, existingWorkspace, archiv
   workspace: {
    ...oldWorkspace,
    projects: mergedProjects,
+   prompts: mergedPrompts,
    pinned: [...new Set(pins)].filter(id => chatIds.has(id)).slice(0, 200)
   },
   addedChats: added.length,
