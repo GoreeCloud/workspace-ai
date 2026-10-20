@@ -122,4 +122,9 @@ export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderTok
   tokens.delete(s.id);states.delete(s.id);discovered.delete(s.id)
   res.json({service:s.id,connected:false,status:'setup-required'})
  })
+ return {
+  isMcpReady:(id,name)=>byId(id)?.kind==='mcp'&&states.get(id)?.status==='connected'&&Array.isArray(discovered.get(id))&&discovered.get(id).some(t=>t.name===name)&&!!endpoint(id),
+  endpointFor:id=>byId(id)?.kind==='mcp'?endpoint(id):null,
+  tokenFor:id=>byId(id)?.kind==='mcp'?process.env[tokenKey(id)]||'':''
+ }
 }

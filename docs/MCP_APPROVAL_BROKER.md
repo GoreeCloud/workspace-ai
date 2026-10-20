@@ -2,7 +2,7 @@
 
 The standalone Workspace AI application now has an **opt-in server-held MCP policy and approval preview** that builds on the four-tier risk settings.
 
-This work is an authorization control-plane milestone, **not a tool execution feature**. No MCP tools/call endpoint is exposed, no remote provider read or write happens, and project browser preferences do not grant server authorization by themselves. User-provided arguments are validated and briefly held in local server memory only to bind the action digest.
+The approval broker continues to support non-executing policy validation. A **separate, opt-in** live MCP execution route is now available in source code, but is **off by default**; see [Live MCP execution](MCP_LIVE_EXECUTION.md). A project preference never grants execution by itself. User-provided arguments are validated and briefly held in local server memory only to bind the action digest.
 
 ## Operator opt-in
 
