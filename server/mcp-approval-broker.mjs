@@ -121,6 +121,28 @@ export function createMcpApprovalBroker({ownerSecret='',now=Date.now,ttlMs=30000
   pending.delete(id);log('dry-run-consumed',p)
   return {id:p.id,projectId:p.projectId,provider:p.provider,toolName:p.toolName,risk:p.risk,policyValidated:true,providerAuthorizationVerified:false,executed:false,reason:'Only project policy was validated. Provider execution remains disabled.'}
  }
+ const peekLive=({id,digest})=>{
+  const p=lookup(id,digest)
+  if(p.risk!=='low'&&!p.approved)throw Error('Operation has not been approved.')
+  return {id:p.id,projectId:p.projectId,provider:p.provider,toolName:p.toolName,mode:p.mode,risk:p.risk,args:JSON.parse(p.payload)}
+ }
+ const claimLive=({id,digest})=>{
+  const p=lookup(id,digest)
+  if(p.risk!=='low'&&!p.approved)throw Error('Operation has not been approved.')
+  pending.delete(id);log('execution-claimed',p)
+  return {id:p.id,projectId:p.projectId,provider:p.provider,toolName:p.toolName,mode:p.mode,risk:p.risk,revision:p.revision,args:JSON.parse(p.payload)}
+ }
+ const isClaimValid=claim=>{
+  try{
+   const item=get(claim.projectId)
+   if(!item||item.revision!==claim.revision)return false
+   return check(claim).classification.risk===claim.risk
+  }catch{return false}
+ }
+ const auditExecution=(event,claim)=>{
+  if(!['executed','execution-failed'].includes(event))throw Error('Invalid execution audit event.')
+  log(event,claim)
+ }
  const status=()=>({ownerConfigured:configured,executionEnabled:false,pending:pending.size})
- return {configured,authenticate,savePolicy,revokeProject,revokeProvider,stage,approve,consume,status,history:()=>audit.map(x=>({...x}))}
+ return {configured,authenticate,savePolicy,revokeProject,revokeProvider,stage,approve,consume,peekLive,claimLive,isClaimValid,auditExecution,status,history:()=>audit.map(x=>({...x}))}
 }

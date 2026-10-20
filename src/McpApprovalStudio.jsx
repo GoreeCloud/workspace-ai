@@ -5,6 +5,7 @@ import {trustedMcpClassification} from './mcp-risk-policy.js'
 export default function McpApprovalStudio({project}){
  const [ownerKey,setOwnerKey]=useState('')
  const [available,setAvailable]=useState(false)
+ const [liveExecution,setLiveExecution]=useState({executionEnabled:false,writeExecutionEnabled:false})
  const [service,setService]=useState('')
  const [tool,setTool]=useState('')
  const [argumentsText,setArgumentsText]=useState('{}')
@@ -15,9 +16,11 @@ export default function McpApprovalStudio({project}){
  const [error,setError]=useState('')
  const [notice,setNotice]=useState('')
  const [audit,setAudit]=useState([])
+ const [lastResult,setLastResult]=useState(null)
  useEffect(()=>{
   let alive=true
   fetch('/api/mcp-approval/status').then(r=>r.json()).then(r=>{if(alive)setAvailable(r.ownerConfigured===true)}).catch(()=>{if(alive)setAvailable(false)})
+  fetch('/api/mcp-live/status').then(r=>r.json()).then(r=>{if(alive)setLiveExecution({executionEnabled:r.executionEnabled===true,writeExecutionEnabled:r.writeExecutionEnabled===true})}).catch(()=>{})
   return()=>{alive=false}
  },[])
  useEffect(()=>{setStaged(null);setApproval('');setCritical('')},[project.mcp,project.mcpPolicies])
@@ -67,6 +70,14 @@ export default function McpApprovalStudio({project}){
   setStaged(v=>v?{...v,approved:true}:v)
   setNotice('Approval recorded for this exact short-lived dry-run request.')
  })
+ const execute=()=>run(async()=>{
+  if(!staged||!liveExecution.executionEnabled)throw Error('Live MCP execution is disabled.')
+  const response=await fetch('/api/mcp-live/execute',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+ownerKey},body:JSON.stringify({id:staged.id,digest:staged.digest})})
+  const result=await response.json()
+  if(!response.ok){setStaged(null);throw Error(result.error||'Execution failed.')}
+  setStaged(null);setLastResult(result.result||null)
+  setNotice('MCP result received. Verify any side effects in the provider.')
+ })
  const consume=()=>run(async()=>{
   if(!staged)throw Error('No pending request.')
   const result=await request('consume-dry-run',{id:staged.id,digest:staged.digest})
@@ -98,11 +109,13 @@ export default function McpApprovalStudio({project}){
      {staged.criticalConfirmationRequired&&<><label htmlFor="mcp-preflight-critical">Separately type CONFIRM CRITICAL</label><input id="mcp-preflight-critical" placeholder="CONFIRM CRITICAL" value={critical} onChange={e=>setCritical(e.target.value)}/></>}
      <button type="button" className="outline" disabled={busy||approval!=='APPROVE'||(staged.criticalConfirmationRequired&&critical!=='CONFIRM CRITICAL')} onClick={approve}>Record one-time approval</button></>}
     <button type="button" className="outline" disabled={busy||(staged.approvalRequired&&!staged.approved)} onClick={consume}>Validate and consume (no execution)</button>
+    {liveExecution.executionEnabled&&<button type="button" className="outline" disabled={busy||(staged.approvalRequired&&!staged.approved)||(staged.mode==='write'&&!liveExecution.writeExecutionEnabled)} onClick={execute}>Execute approved MCP action (live)</button>}
    </div>}
    <button type="button" className="outline" disabled={busy||ownerKey.length<32} onClick={history}>Show redacted audit</button>
    {audit.length>0&&<ul className="projectMcpAudit">{audit.map((a,i)=><li key={a.time+'-'+i}>{a.event} · {a.provider||a.projectId} · {new Date(a.time).toLocaleTimeString()}</li>)}</ul>}
   </>}
   {error&&<p className="projectAlert" role="alert">{error}</p>}
   {notice&&<p className="projectSuccess" role="status">{notice}</p>}
+  {lastResult&&<details className="projectMcpPending"><summary>Latest MCP result (untrusted provider data)</summary><pre style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere"}}>{JSON.stringify(lastResult,null,2)}</pre></details>}
  </div>
 }
