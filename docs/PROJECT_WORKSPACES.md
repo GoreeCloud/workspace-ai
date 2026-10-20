@@ -32,7 +32,7 @@ Browser storage limits can prevent saving large amounts of text. The app surface
 - Google Drive OAuth configuration with least-privilege file-picker and download flows, plus additional providers and permissions checks.
 - PDF/image/Office parsing in a bounded sandbox with malware protections, text extraction and citations.
 - Project memory extraction/review workflows with approval, version history, and deletion semantics.
-- Per-project, policy-enforced connector scopes, audit logging, execution approvals and end-to-end provider tests before actual plugin/MCP execution.
+- Per-project server-verified identity, connector scopes, durable audit logging, action-bound execution approvals, and end-to-end provider tests before actual plugin/MCP execution. The available owner-key approval broker is a local, in-memory dry run and cannot execute tools.
 - Strong context isolation, security and prompt-injection tests. The current context is model guidance, not an isolated model sandbox.
 
 No public deployment or production readiness is implied by source changes or passing unit tests.

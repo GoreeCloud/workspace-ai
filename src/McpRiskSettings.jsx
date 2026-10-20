@@ -1,5 +1,6 @@
 import React,{useEffect,useState} from 'react'
 import {defaultMcpPolicy,MCP_RISK_TIERS,normalizeMcpPolicies,trustedMcpClassification} from './mcp-risk-policy.js'
+import McpApprovalStudio from './McpApprovalStudio.jsx'
 const labels={'remote-desktop-commander':'Remote Desktop Commander',firecrawl:'Firecrawl'}
 const title=value=>value.charAt(0).toUpperCase()+value.slice(1)
 export default function McpRiskSettings({project,onUpdate}){
@@ -53,6 +54,7 @@ export default function McpRiskSettings({project,onUpdate}){
     </div>
    </div>
   })}
+  <McpApprovalStudio project={project}/>
   <p className="projectHint">Low: allowlisted operations only. Medium: per-operation approval. High: explicit confirmation each action. Critical: separate critical-risk confirmation. Unknown tools always require code-level review; tool-provided descriptions cannot lower risk.</p>
  </section>
 }
