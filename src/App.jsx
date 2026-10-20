@@ -9,6 +9,7 @@ import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backu
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {projectContext,inferenceMessages} from './project-model.js';
 import {memoryCandidateFromMessage,appendReviewedMemory} from './project-memory.js';
+import {appendPromptDraft,promptsForContext} from './prompt-library.js';
 import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound} from 'lucide-react';
 const KEY='workspace-ai-history-v1';
 const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}};
@@ -75,6 +76,15 @@ function remove(id){if(busy||!confirm('Delete this chat locally?'))return;setCha
 function openChat(id){if(busy)return;setCurrent(id);setMemoryDraft(null);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
 function assignChat(id,projectId){if(busy)return;const safeId=workspace.projects.some(p=>p.id===projectId)?projectId:null;setChats(v=>v.map(c=>c.id===id?{...c,projectId:safeId,updatedAt:Date.now()}:c));if(current===id){setSelectedProject(safeId);setMemoryDraft(null)}}
 function renameChat(id,title){const clean=title.trim().slice(0,90);if(clean)setChats(v=>v.map(c=>c.id===id?{...c,title:clean,updatedAt:Date.now()}:c))}
+function useSavedPrompt(item){
+ if(busy||!item||(workspace.prompts||[]).every(p=>p.id!==item.id))return
+ if(item.projectId&&!workspace.projects.some(p=>p.id===item.projectId))return
+ try{
+  if(view==='chat'&&(!item.projectId||item.projectId===activeProjectId))setDraft(old=>appendPromptDraft(old,item.content))
+  else{setCurrent(null);setSelectedProject(item.projectId||null);setDraft(item.content)}
+  setView('chat');setMobile(false);setError('');prompt.current?.focus()
+ }catch(e){setError(report(e))}
+}
 function navigate(id){setView(id);setMobile(false)}
 function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
 async function signIn(){try{const r=await api('/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
@@ -141,14 +151,14 @@ function exportChat(){if(!chat)return;const md='# '+chat.title+'\n\n'+chat.messa
 return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed":"")}>
 <WorkspaceNavigation workspace={workspace} onWorkspace={setWorkspace} view={view} onNavigate={navigate}
  chats={chats} current={current} onSelectChat={openChat} onNewChat={()=>newChat()}
- mobile={mobile} onMobile={setMobile} selectedProject={selectedProject} onProject={setSelectedProject}/>
+ mobile={mobile} onMobile={setMobile} selectedProject={selectedProject} onProject={setSelectedProject} onUsePrompt={useSavedPrompt}/>
 <main className="main">
- <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{view==='chat'?'Workspace AI':{mcp:'MCP',api:'API',projects:'Projects',pinned:'Pinned',chats:'All Chats',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></div>
+ <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{view==='chat'?'Workspace AI':{mcp:'MCP',api:'API',projects:'Projects',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></div>
  <div><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
  {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  <div className="viewport">{view!=='chat'?<WorkspaceViews view={view} chats={chats} workspace={workspace} onWorkspace={setWorkspace}
  onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat} onRenameChat={renameChat}
- selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} busy={busy} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
+ selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} busy={busy} onUsePrompt={useSavedPrompt} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
  <p className="eyebrow">✦ YOUR SPACE TO THINK BIGGER</p><div className="bigIcon"><Sparkles size={38}/></div>
  <h1>Good ideas start <em>here.</em></h1><p>Ask anything, create something, or follow your curiosity.<br/>Your AI workspace, your way.</p>
  <div className="ideas">{[['Explore an idea','Turn curiosity into clarity','Help me turn a new idea into a concrete project.'],['Write code','Build, debug and create','Help me plan and build a useful application.'],['Create content','Find the right words','Help me draft a clear and thoughtful article.'],['Learn something','Go beyond the surface','Explain an interesting concept with examples.']].map(([title,sub,idea],i)=><button key={title} className="idea" onClick={()=>{setDraft(idea);prompt.current?.focus()}}><span className={'ideaIcon icon'+i}>{i===0?<Sparkles size={19}/>:i===1?'⌘':i===2?'✎':'◇'}</span><span><strong>{title}</strong><small>{sub}</small></span><span className="ideaArrow">→</span></button>)}</div></section>:
@@ -168,7 +178,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  {view==='chat'&&<div className="composerArea">{activeProject&&<div className="workspaceScope">Project: {activeProject.name} · {activeProject.files?.length||0} files · Project instructions active {chat?<button title="Move chat to no project" aria-label="Move chat out of project" disabled={busy} onClick={()=>assignChat(chat.id,null)}>Remove from project</button>:<button title="New chat outside project" aria-label="Start a chat outside this project" onClick={()=>setSelectedProject(null)}>×</button>}</div>}{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  {!ready&&<div className="notice"><span>Connect ChatGPT or configure a separately billed OpenAI API connection.</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}
  <div className="composer"><textarea ref={prompt} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={12000} rows={2} placeholder="Ask anything…" aria-label="Message to Workspace AI" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}}/>
- <div className="composerBottom"><button className="sourceButton" onClick={()=>{setSettingsTab('routing');setSettings(true)}}><Sparkles size={15}/>{provider==='auto'?'Automatic':provider==='api'?'OpenAI API':'ChatGPT plan'}<ChevronDown size={14}/></button><small>{provider==='plan'?planModel||'Choose a model':provider==='api'?status.model:'Smart routing'}</small>
+ <div className="composerBottom"><select aria-label="Insert saved prompt" className="promptComposerSelect" defaultValue="" disabled={busy} onChange={e=>{const p=(workspace.prompts||[]).find(p=>p.id===e.target.value);if(p){try{setDraft(old=>appendPromptDraft(old,p.content))}catch(err){setError(report(err))}}e.target.value='';prompt.current?.focus()}}><option value="">Saved prompts…</option>{promptsForContext(workspace.prompts||[],activeProjectId).map(p=><option key={p.id} value={p.id}>{p.title}</option>)}</select><button className="sourceButton" onClick={()=>{setSettingsTab('routing');setSettings(true)}}><Sparkles size={15}/>{provider==='auto'?'Automatic':provider==='api'?'OpenAI API':'ChatGPT plan'}<ChevronDown size={14}/></button><small>{provider==='plan'?planModel||'Choose a model':provider==='api'?status.model:'Smart routing'}</small>
  <button className="send" disabled={!busy&&(!ready||!draft.trim())} onClick={()=>busy?controller.current?.abort():send()} aria-label={busy?'Stop generation':'Send message'}>{busy?<Square size={16} fill="currentColor"/>:<ArrowUp size={19}/>}</button></div></div>
  <p className="disclaimer">Workspace AI can make mistakes. Verify important information. <span>POWERED BY OPENAI</span></p></div>}
 </main>

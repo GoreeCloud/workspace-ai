@@ -224,3 +224,22 @@
 .projectGoogleService ul{padding-left:18px;max-height:260px;overflow:auto;display:grid;gap:7px;margin:0}
 .projectGoogleService li{font-size:12px;overflow-wrap:anywhere}
 .projectGoogleService li p{font-size:11px;color:var(--gc-text-soft);margin:4px 0}
+
+/* Browser-local saved prompt library */
+.promptGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,310px),1fr));gap:14px}
+.promptCard,.promptEditor{background:var(--gc-surface-raised);border:1px solid var(--gc-outline);border-radius:15px;padding:18px;min-width:0}
+.promptCard header{display:flex;align-items:flex-start;gap:10px}
+.promptCard header>svg{color:var(--gc-brand);flex:none}
+.promptCard header div{min-width:0}.promptCard strong,.promptCard small{display:block;overflow-wrap:anywhere}
+.promptCard strong{font-size:14px}.promptCard small{font-size:11px;color:var(--gc-text-soft);margin-top:5px}
+.promptCard p{font-size:12px;color:var(--gc-text-soft);white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;max-height:135px;overflow:auto;margin:15px 0}
+.promptCard .actions{display:flex;align-items:center;flex-wrap:wrap;gap:7px}
+.promptCard .actions button{min-height:36px;font-size:12px}
+.promptEditor{margin:0 0 18px;display:grid;gap:9px}
+.promptEditorTop,.promptEditorBottom{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.promptEditorTop strong{font-size:15px}
+.promptEditor label{font-size:12px;font-weight:700;margin-top:6px}
+.workspacePage .promptEditor textarea{border:1px solid var(--gc-outline);border-radius:10px;padding:12px;font:inherit;font-size:13px;line-height:1.5;color:var(--gc-text);background:var(--gc-surface);resize:vertical;min-height:145px;max-width:100%}
+.promptEditorBottom small{font-size:11px;color:var(--gc-text-soft)}
+.promptComposerSelect{min-width:115px;max-width:min(200px,40vw);font-size:12px;background:var(--gc-surface-raised);border:1px solid var(--gc-outline);border-radius:10px;padding:8px;color:var(--gc-text)}
+@media(max-width:550px){.promptEditorTop,.promptEditorBottom{align-items:stretch}.promptComposerSelect{max-width:135px}}
