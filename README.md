@@ -38,9 +38,9 @@ For optional API access, open **Settings & connections → OpenAI API**, paste y
 
 ## Workspace navigation and integration status
 
-The new sidebar supports project organization, pins, All Chats search, a seven-provider API dashboard, and a three-provider MCP dashboard. Connection badges are based on real server checks, not on whether a service appears in the catalog. Projects can import browser-local text files and read-only Dropbox text snapshots. Google Drive import and ChatGPT Projects import remain unsupported.
+The new sidebar supports project organization, pins, All Chats search, a seven-provider API dashboard, and a two-provider MCP dashboard. Connection badges are based on real server checks, not on whether a service appears in the catalog. Projects can import browser-local text files and read-only Dropbox text snapshots. Google Drive import and ChatGPT Projects import remain unsupported.
 
-Todoist supports **read-only API v1 project/task browsing** after connecting a token; Dropbox, Linear, GitHub (authorized GoreeCloud identity only), and Cloudflare currently support **read-only token verification**. Gmail and Google Drive still require provider OAuth app registration. Remote Desktop Commander, TinyFish, and Firecrawl require authorized administrator-configured MCP endpoints for discovering tool definitions. All tools are shown as **non-executable** pending granular permissions, approval flows, and provider-specific implementations. See [architecture and provider matrix](docs/WORKSPACE_NAVIGATION.md).
+Todoist supports **read-only API v1 project/task browsing** after connecting a token; Dropbox, Linear, GitHub (authorized GoreeCloud identity only), and Cloudflare currently support **read-only token verification**. Gmail and Google Drive still require provider OAuth app registration. Remote Desktop Commander and Firecrawl require authorized administrator-configured MCP endpoints for discovering tool definitions. All tools are shown as **non-executable** pending granular permissions, approval flows, and provider-specific implementations. See [architecture and provider matrix](docs/WORKSPACE_NAVIGATION.md).
 
 Run the optional browser navigation smoke check against a local running server using a locally installed Chromium binary:
 

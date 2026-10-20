@@ -4,7 +4,6 @@ export const SERVICES = [
   {id:'dropbox',name:'Dropbox',category:'Files',kind:'api',auth:'token',icon:'box'},
   {id:'linear',name:'Linear',category:'Development',kind:'api',auth:'token',icon:'workflow'},
   {id:'remote-desktop-commander',name:'Remote Desktop Commander',category:'Administration',kind:'mcp',auth:'mcp',icon:'monitor'},
-  {id:'tinyfish',name:'TinyFish',category:'Automation',kind:'mcp',auth:'mcp',icon:'fish'},
   {id:'gmail',name:'Gmail',category:'Communications',kind:'api',auth:'oauth',icon:'mail'},
   {id:'firecrawl',name:'Firecrawl',category:'Research',kind:'mcp',auth:'mcp',icon:'flame'},
   {id:'github',name:'GitHub',category:'Development',kind:'api',auth:'token',icon:'github'},

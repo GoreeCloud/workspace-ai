@@ -69,7 +69,7 @@ export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderTok
  const record=s=>({...s,authConfigured:!!(s.kind==='mcp'&&endpoint(s.id)),connected:states.get(s.id)?.status==='connected',hasSessionToken:tokens.has(s.id),status:states.get(s.id)?.status||(s.kind==='mcp'&&endpoint(s.id)?'ready-for-discovery':'setup-required'),message:states.get(s.id)?.message||'Requires its own authorized connection.',tools:(discovered.get(s.id)||serviceTools(s.id)).map(t=>annotateTool(s,t))})
  app.get('/api/integrations',(_req,res)=>res.json({services:SERVICES.map(record),executionEnabled:false}))
  app.get('/api/integrations/:id/tools',(req,res)=>{const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'});res.json({service:s.id,tools:record(s).tools,executionEnabled:false})})
- app.get('/api/integrations/:id/risk-policy',(req,res)=>{const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'});if(s.kind!=='mcp'||s.id==='tinyfish')return res.status(404).json({error:'Unavailable MCP service.'});res.json({service:s.id,riskTiers:MCP_RISK_TIERS,tools:record(s).tools,executionEnabled:false,source:'reviewed-server-registry'})})
+ app.get('/api/integrations/:id/risk-policy',(req,res)=>{const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'});if(s.kind!=='mcp')return res.status(404).json({error:'Unavailable MCP service.'});res.json({service:s.id,riskTiers:MCP_RISK_TIERS,tools:record(s).tools,executionEnabled:false,source:'reviewed-server-registry'})})
  app.post('/api/integrations/:id/connect',async(req,res)=>{
   if(!allow(req,res))return
   const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'})

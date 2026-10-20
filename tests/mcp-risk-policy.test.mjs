@@ -79,7 +79,7 @@ test('read-only risk metadata endpoint uses reviewed classifications and never e
   assert.deepEqual(data.riskTiers,MCP_RISK_TIERS)
   assert.equal(data.tools.find(t=>t.name==='process.execute').risk,'critical')
   assert.equal(data.tools.find(t=>t.name==='devices.list').mode,'read')
-  assert.equal((await fetch(base+'/api/integrations/tinyfish/risk-policy')).status,404)
+  assert.equal((await fetch(base+'/api/integrations/nonexistent/risk-policy')).status,404)
   assert.equal((await fetch(base+'/api/integrations/github/risk-policy')).status,404)
  }finally{await new Promise(resolve=>server.close(resolve))}
 })

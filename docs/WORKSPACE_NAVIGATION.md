@@ -23,7 +23,6 @@ OAuth credentials, API keys, MCP configuration, and integration sessions are exp
 | Dropbox | API token | Read-only credential check |
 | Linear | API token | Read-only credential check |
 | Remote Desktop Commander | Administrator-provided MCP HTTPS URL | Remote tool discovery only |
-| TinyFish | Administrator-provided MCP HTTPS URL | Remote tool discovery only |
 | Gmail | OAuth registration required | Catalog and advertised capabilities only |
 | Firecrawl | Administrator-provided MCP HTTPS URL | Remote tool discovery only |
 | GitHub | GoreeCloud-only token | Identity validation and read-only credential check |
