@@ -41,6 +41,15 @@ test('bounded context includes file source names while preserving default projec
  workspace.projects[1].shareMemoryWith=['a']
  assert.match(projectContext(workspace,'a','notes'),/Private financial notes/)
 })
+test('long project notes and shared memory cannot crowd out relevant file evidence',()=>{
+ const target={...newProject('p','Active'),instructions:'X'.repeat(4000),memory:'Y'.repeat(4000),files:[file('critical','critical.md','Release rollback checklist for payment integration')]}
+ const shared=Array.from({length:5},(_,i)=>({...newProject('share-'+i,'Notes '+i),memory:'Z'.repeat(4000),shareMemoryWith:['p']}))
+ const ctx=projectContext({projects:[target,...shared]},'p','payment rollback checklist')
+ assert.match(ctx,/critical\.md/)
+ assert.match(ctx,/Release rollback checklist/)
+ assert.ok(ctx.length<=PROJECT_CONTEXT_MAX)
+})
+
 test('inference history meets server limits and favors recent turns',()=>{
  const context='Context '.repeat(400)
  const history=Array.from({length:65},(_,i)=>({role:i%2===0?'user':'assistant',content:'Message '+i+' '+'.'.repeat(1000)}))
