@@ -2,6 +2,7 @@ import React,{useState} from 'react'
 import {Folder,FolderKanban,Sparkles,Code2,BookOpen,BriefcaseBusiness,FlaskConical,Rocket,Globe,Heart,Shield,Palette,Database,Trash2,Plus,Upload,CloudDownload,FileText} from 'lucide-react'
 import DropboxBrowser from './DropboxBrowser.jsx'
 import McpRiskSettings from './McpRiskSettings.jsx'
+import ProjectLiveSources from './ProjectLiveSources.jsx'
 import {ACCEPT_TEXT_FILES,PROJECT_GLYPHS,PROJECT_API_SERVICES,PROJECT_MCP_SERVICES,PROJECT_FILE_MAX_COUNT,canImportFile,importTextFile,importLocalTextFile} from './project-model.js'
 const GLYPHS={folder:Folder,sparkles:Sparkles,code:Code2,book:BookOpen,briefcase:BriefcaseBusiness,flask:FlaskConical,rocket:Rocket,globe:Globe,heart:Heart,shield:Shield,palette:Palette,database:Database}
 const SERVICE_LABELS={'google-drive':'Google Drive',gmail:'Gmail',dropbox:'Dropbox',github:'GitHub',todoist:'Todoist',linear:'Linear',cloudflare:'Cloudflare Pages','remote-desktop-commander':'Remote Desktop Commander',firecrawl:'Firecrawl'}
@@ -82,7 +83,8 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
      </div>)}
      <p className="projectHint">One-way consent: selecting a destination allows its new AI requests to read the chosen notes or file text from this project. Sharing is off by default.</p></>}
    </section>
-   <section className="projectPanel"><h3>Project files</h3><p className="projectHint">Text and source files are stored locally in this browser, then included as bounded reference context when chatting. Maximum {PROJECT_FILE_MAX_COUNT} files, 64 KB each. PDF, image and binary parsing are not supported yet.</p>
+   <section className="projectPanel"><h3>Project files</h3>
+    <ProjectLiveSources project={project} onUpdate={update} busy={busy}/><p className="projectHint">Text and source files are stored locally in this browser, then included as bounded reference context when chatting. Maximum {PROJECT_FILE_MAX_COUNT} files, 64 KB each. PDF, image and binary parsing are not supported yet.</p>
     <label className="projectUpload"><Upload size={16}/> Import from phone or laptop<input aria-label="Upload project text files" type="file" multiple accept={ACCEPT_TEXT_FILES} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void addFiles(files)}}/></label>
     <h4>Import a Dropbox text file</h4>
     <div className="projectCloudRow"><input aria-label="Dropbox file path" placeholder="/Documents/notes.md" value={dropboxPath} maxLength={1024} onChange={e=>setDropboxPath(e.target.value)}/>
@@ -92,7 +94,7 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
     <p className="projectHint">Requires an already-connected Dropbox session in API integrations. Copies a read-only text snapshot. Google Drive requires its own OAuth integration and is not yet supported for import.</p>
     {(project.files||[]).length>0&&<><label htmlFor="project-file-search">Search project files</label><input id="project-file-search" value={fileQuery} onChange={e=>setFileQuery(e.target.value)} placeholder="Search file names and contents"/></>}
     {visibleFiles.length>0?<ul className="projectFileList">{visibleFiles.map(file=><li key={file.id} className="projectFileItem">
-    <div className="projectFileTop"><span><FileText size={16}/><strong>{file.name}</strong><small>{file.source==='dropbox'?'Dropbox snapshot':'Local'}</small></span>
+    <div className="projectFileTop"><span><FileText size={16}/><strong>{file.name}</strong><small>{file.source==='dropbox'?'Dropbox snapshot':file.source==='linked-local'?'Linked local snapshot':file.source==='linked-dropbox'?'Linked Dropbox snapshot':'Local'}</small></span>
     <button className="iconAction" aria-label={'Download '+file.name} title="Download file" onClick={()=>downloadFile(file)}><CloudDownload size={16}/></button>
     <button className="iconAction" aria-label={'Remove '+file.name} onClick={()=>update({files:project.files.filter(f=>f.id!==file.id)})}><Trash2 size={16}/></button></div>
     <details className="projectFilePreview"><summary>Preview text</summary><pre>{file.content.slice(0,8000)}{file.content.length>8000?'\n[Preview truncated; download for full text]':''}</pre></details>

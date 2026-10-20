@@ -1,4 +1,5 @@
 import {normalizeMcpPolicies} from './mcp-risk-policy.js'
+import {validateLinkedSource,MAX_LINKED_SOURCES} from './project-linked-source.js'
 // Project workspaces: validated browser-local metadata and explicit sharing only.
 export const PROJECT_GLYPHS = ['folder','sparkles','code','book','briefcase','flask','rocket','globe','heart','shield','palette','database']
 export const PROJECT_API_SERVICES = ['todoist','github','dropbox','linear','google-drive','gmail','cloudflare']
@@ -11,7 +12,7 @@ const list = (a,n) => Array.isArray(a) ? a.filter(v=>typeof v==='string').slice(
 export const ACCEPT_TEXT_FILES = '.txt,.md,.markdown,.csv,.tsv,.json,.yaml,.yml,.log,.js,.jsx,.ts,.tsx,.py,.html,.css,.xml,.sql'
 const extensions = new Set(ACCEPT_TEXT_FILES.split(','))
 export function newProject(id,name,createdAt=Date.now()) {
- return {id,name,createdAt,icon:'folder',instructions:'',memoryEnabled:false,memory:'',shareMemoryWith:[],shareFilesWith:[],api:[],mcp:[],mcpPolicies:{},files:[]}
+ return {id,name,createdAt,icon:'folder',instructions:'',memoryEnabled:false,memory:'',shareMemoryWith:[],shareFilesWith:[],api:[],mcp:[],mcpPolicies:{},files:[],linkedSources:[]}
 }
 export function normalizeProject(project) {
  if (!project || typeof project !== 'object' || Array.isArray(project) || typeof project.id!=='string' || !project.id || project.id.length>160 ||
@@ -26,6 +27,10 @@ export function normalizeProject(project) {
  data.api = [...new Set(list(project.api,PROJECT_API_SERVICES.length))].filter(v=>PROJECT_API_SERVICES.includes(v))
  data.mcp = [...new Set(list(project.mcp,PROJECT_MCP_SERVICES.length))].filter(v=>PROJECT_MCP_SERVICES.includes(v))
  data.mcpPolicies = Object.fromEntries(Object.entries(normalizeMcpPolicies(project.mcpPolicies)).filter(([provider])=>data.mcp.includes(provider)))
+ const sources=Array.isArray(project.linkedSources)?project.linkedSources:[]
+ if(sources.length>MAX_LINKED_SOURCES)throw Error('Too many linked local sources.')
+ data.linkedSources=sources.map(validateLinkedSource)
+ if(new Set(data.linkedSources.map(s=>s.id)).size!==data.linkedSources.length)throw Error('Duplicate linked source ID.')
  const files = Array.isArray(project.files) ? project.files : []
  if(files.length>PROJECT_FILE_MAX_COUNT) throw Error('Project has too many files')
  const ids=new Set()
@@ -35,7 +40,8 @@ export function normalizeProject(project) {
    new TextEncoder().encode(f.content).length>PROJECT_FILE_MAX_BYTES) throw Error('Invalid project file')
   if(ids.has(f.id))throw Error('Duplicate project file')
   ids.add(f.id)
-  return {id:f.id,name:f.name,content:f.content,source:['local','dropbox'].includes(f.source)?f.source:'local',
+  return {id:f.id,name:f.name,content:f.content,source:['local','dropbox','linked-local','linked-dropbox'].includes(f.source)?f.source:'local',
+   ...(['linked-local','linked-dropbox'].includes(f.source)&&typeof f.linkId==='string'&&data.linkedSources.some(s=>s.id===f.linkId)?{linkId:f.linkId,relativePath:text(f.relativePath,110)}:{}),
    createdAt:Number.isFinite(f.createdAt)?f.createdAt:0}
  })
  return data

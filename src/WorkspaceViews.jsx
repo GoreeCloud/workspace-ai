@@ -69,7 +69,7 @@ export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelec
  const project=workspace.projects.find(p=>p.id===selectedProject)
  const shown=searchChats(view==='pinned'?chats.filter(c=>workspace.pinned.includes(c.id)):chats,query,view==='projects'?selectedProject:null)
  const create=()=>{const title=name.trim().slice(0,90);if(!title||workspace.projects.length>=100)return;const id=crypto.randomUUID();onWorkspace(w=>({...w,projects:[...w.projects,{...newProject(id,title),memoryEnabled:createMemory}]}));onProject(id);setName('');setCreateMemory(false)}
- const updateProject=(id,patch)=>onWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===id?normalizeProject({...p,...patch}):p)}))
+ const updateProject=(id,patch)=>onWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===id?normalizeProject({...p,...(typeof patch==='function'?patch(p):patch)}):p)}))
  const removeProject=()=>{if(busy||!project||!confirm('Delete project '+project.name+'? Chats will be kept.'))return;onWorkspace(w=>({...w,projects:w.projects.filter(p=>p.id!==project.id).map(p=>({...p,shareMemoryWith:(p.shareMemoryWith||[]).filter(id=>id!==project.id),shareFilesWith:(p.shareFilesWith||[]).filter(id=>id!==project.id)}))}));onProject(null);chats.filter(c=>c.projectId===project.id).forEach(c=>onAssignChat(c.id,null))}
  if(view==='mcp'||view==='api')return <IntegrationsView key={view} kind={view}/>
  if(view==='settings')return <div className="workspacePage"><div className="workspacePageTop"><h1>Settings</h1></div><div className="workspaceCard"><h2>Workspace preferences</h2><p>Manage authentication, appearance, routing and privacy in Settings & connections.</p><button className="primary" onClick={onOpenSettings}><Settings2 size={16}/> Open settings</button></div></div>
