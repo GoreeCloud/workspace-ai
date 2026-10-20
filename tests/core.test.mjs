@@ -31,3 +31,22 @@ test('usage-limit errors fail the stream',async()=>{
  const frame='data: {"type":"response.failed","response":{"error":{"code":"subscription_sharing_usage_limit_exceeded"}}}\n\n'
  await assert.rejects(()=>streamResponse(new Response(frame),()=>{}),/subscription_sharing_usage_limit_exceeded/)
 })
+
+
+test('stream stops delivering deltas after the completion frame',async()=>{
+ const seen=[]
+ const frames='data: {"type":"response.output_text.delta","delta":"Hello"}\r\n\r\n'
+  +'data: {"type":"response.completed"}\r\n\r\n'
+  +'data: {"type":"response.output_text.delta","delta":"unexpected"}\r\n\r\n'
+ await streamResponse(new Response(frames),event=>seen.push(event))
+ assert.deepEqual(seen,[{type:'delta',text:'Hello'},{type:'complete'}])
+})
+test('stream refuses unbounded unterminated provider frames',async()=>{
+ const oversized='data: '+ 'x'.repeat(256*1024)
+ await assert.rejects(()=>streamResponse(new Response(oversized),()=>{}),/frame exceeded the safety limit/)
+})
+test('stream enforces a maximum accumulated output size',async()=>{
+ const chunk='x'.repeat(200000)
+ const frame='data: '+JSON.stringify({type:'response.output_text.delta',delta:chunk})+'\n\n'
+ await assert.rejects(()=>streamResponse(new Response(frame.repeat(6)+'data: {"type":"response.completed"}\n\n'),()=>{}),/output safety limit/)
+})
