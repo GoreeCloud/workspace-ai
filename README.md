@@ -6,7 +6,7 @@ A local-first, open-source AI chat workspace with **Sign in with ChatGPT** plan 
 
 - Responsive desktop/mobile chat interface, streaming replies, conversation history, Markdown rendering, and export.
 - GC UI collapsible sidebar with MCP, API, Projects, Pinned, All Chats, and Settings; compact mode and expanded groups persist locally.
-- Browser-local projects, chat-to-project assignment, pinned conversations, searchable and renameable conversation history.
+- Project workspaces with independent instructions, glyphs, editable memory notes, opt-in cross-project sharing, text references, integration profiles and movable conversations.
 - Versioned JSON backup and validated restore for conversations, projects, and pins; supports merge or explicit replacement, with credential-free archives and storage-failure rollback attempts.
 - Keyboard shortcuts: **Ctrl/Cmd+K** to focus All Chats search and **Ctrl/Cmd+Shift+N** to start a new conversation.
 - Ten-service integration catalog with optional token verification and administrator-configured MCP tool discovery. Connected Todoist sessions can browse projects and tasks through the current Todoist API v1 without writing or modifying data. **External tool execution is disabled**; this does not inherit ChatGPT-connected apps.
@@ -38,7 +38,7 @@ For optional API access, open **Settings & connections → OpenAI API**, paste y
 
 ## Workspace navigation and integration status
 
-The new sidebar supports project organization, pins, All Chats search, a seven-provider API dashboard, and a three-provider MCP dashboard. Connection badges are based on real server checks, not on whether a service appears in the catalog. Local project records do not automatically include uploaded files or imported ChatGPT Projects.
+The new sidebar supports project organization, pins, All Chats search, a seven-provider API dashboard, and a three-provider MCP dashboard. Connection badges are based on real server checks, not on whether a service appears in the catalog. Projects can import browser-local text files and read-only Dropbox text snapshots. Google Drive import and ChatGPT Projects import remain unsupported.
 
 Todoist supports **read-only API v1 project/task browsing** after connecting a token; Dropbox, Linear, GitHub (authorized GoreeCloud identity only), and Cloudflare currently support **read-only token verification**. Gmail and Google Drive still require provider OAuth app registration. Remote Desktop Commander, TinyFish, and Firecrawl require authorized administrator-configured MCP endpoints for discovering tool definitions. All tools are shown as **non-executable** pending granular permissions, approval flows, and provider-specific implementations. See [architecture and provider matrix](docs/WORKSPACE_NAVIGATION.md).
 
@@ -49,6 +49,14 @@ CHROMIUM_EXECUTABLE=/path/to/chromium npm run browser:smoke
 ```
 
 Override the target with `WORKSPACE_AI_BASE_URL=http://127.0.0.1:3031` if needed. The smoke test uses a temporary browser profile and synthetic local project data, and covers desktop/sidebar/mobile navigation. It should be run against an isolated local test server rather than an active personal session.
+
+## Project workspaces
+
+Open **Projects** to create a project, select its glyph, set custom instructions, edit memory notes, and manage project files and chats. Project-to-project sharing is disabled until you opt into one-way sharing of notes or reference files. Chat movement changes project context for future messages, without rewriting prior responses.
+
+Supported local imports are UTF-8 text and source files selected from your device's file picker, up to 10 files of 64 KiB per project. An already-connected Dropbox session with file-content read permission can provide a read-only text snapshot via the project browser or path field. Google Drive OAuth, binary files, PDF/image parsing, cloud synchronization and automatic memory are not yet implemented. Project API/MCP selections are configuration preferences only; executable tools are still disabled. A bounded project context is sent to the selected AI provider during relevant chat requests.
+
+See [Project workspaces: capabilities and boundaries](docs/PROJECT_WORKSPACES.md) for the security model, limitations, remaining work and privacy/backup implications.
 
 ## Browser-local backup and shortcuts
 

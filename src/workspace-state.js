@@ -1,3 +1,4 @@
+import {normalizeProject,normalizeProjects} from './project-model.js'
 export const WORKSPACE_KEY='workspace-ai-workspace-v1'
 export const NAV_SECTIONS=[
  {id:'mcp',label:'MCP',icon:'plug'},
@@ -13,7 +14,7 @@ export function readWorkspace(){
   const raw=JSON.parse(localStorage.getItem(WORKSPACE_KEY)||'null')
   if(!raw || typeof raw!=='object')return BLANK_WORKSPACE
   return {
-   projects:Array.isArray(raw.projects)?raw.projects.filter(v=>typeof v.id==='string'&&typeof v.name==='string').slice(0,100):[],
+   projects:Array.isArray(raw.projects)?normalizeProjects(raw.projects.slice(0,100).flatMap(p=>{try{return [normalizeProject(p)]}catch{return []}})):[],
    pinned:Array.isArray(raw.pinned)?raw.pinned.filter(v=>typeof v==='string').slice(0,200):[],
    collapsed:raw.collapsed===true,
    expanded:{...BLANK_WORKSPACE.expanded,...(raw.expanded||{})}

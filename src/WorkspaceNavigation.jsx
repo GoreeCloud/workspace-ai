@@ -1,6 +1,7 @@
 import React from 'react'
 import {Sparkles,Plus,Plug,Waypoints,FolderKanban,Pin,MessagesSquare,Settings2,PanelLeftClose,PanelLeftOpen,ChevronDown,ChevronRight,ShieldCheck,X} from 'lucide-react'
 import {NAV_SECTIONS,searchChats} from './workspace-state.js'
+import {ProjectGlyph} from './ProjectStudio.jsx'
 const ICONS={mcp:Plug,api:Waypoints,projects:FolderKanban,pinned:Pin,chats:MessagesSquare,settings:Settings2}
 export default function WorkspaceNavigation({workspace,onWorkspace,view,onNavigate,chats,current,onSelectChat,onNewChat,mobile,onMobile,selectedProject,onProject}){
  const compact=workspace.collapsed&&!mobile
@@ -18,7 +19,7 @@ export default function WorkspaceNavigation({workspace,onWorkspace,view,onNaviga
  <div className={'workspaceNavRow '+(active?'active':'')}>
  <button className="workspaceNavLink" title={item.label} aria-label={item.label} aria-current={active?'page':undefined} onClick={()=>{if(item.id==='projects')onProject(null);pick(item.id)}}><Icon size={18}/>{!compact&&<span>{item.label}</span>}</button>
  {!compact&&['projects','pinned','chats'].includes(item.id)&&<button className="workspaceNavExpand" onClick={()=>toggle(item.id)} aria-expanded={Boolean(open)} aria-label={(open?'Collapse ':'Expand ')+item.label}>{open?<ChevronDown size={15}/>:<ChevronRight size={15}/>}</button>}</div>
- {!compact&&open&&item.id==='projects'&&<div className="workspaceNavChildren">{workspace.projects.slice(0,8).map(p=><button key={p.id} title={p.name} aria-current={selectedProject===p.id&&active?'page':undefined} onClick={()=>{onProject(p.id);pick('projects')}}>{p.name}</button>)}<button onClick={()=>pick('projects')}><Plus size={13}/> Manage projects</button></div>}
+ {!compact&&open&&item.id==='projects'&&<div className="workspaceNavChildren">{workspace.projects.slice(0,8).map(p=><button key={p.id} title={p.name} aria-current={selectedProject===p.id&&active?'page':undefined} onClick={()=>{onProject(p.id);pick('projects')}}><ProjectGlyph icon={p.icon} size={14}/>{p.name}</button>)}<button onClick={()=>pick('projects')}><Plus size={13}/> Manage projects</button></div>}
  {!compact&&open&&['chats','pinned'].includes(item.id)&&<div className="workspaceNavChildren">{(item.id==='pinned'?pinned:searchChats(chats,'')).slice(0,8).map(c=><button key={c.id} title={c.title} aria-current={current===c.id&&view==='chat'?'page':undefined} onClick={()=>onSelectChat(c.id)}>{c.title}</button>)}{(item.id==='pinned'?pinned:chats).length===0&&<small>{item.id==='pinned'?'Pin chats to find them here':'No conversations yet'}</small>}</div>}
  </div>})}
  </nav><footer className="sideFoot">{!compact&&<div className="private"><ShieldCheck size={18}/><div><b>Private by design</b><small>History stored in browser</small></div></div>}<small className="sig">{compact?'GC':'GOREECLOUD · WORKSPACE AI'}</small></footer>

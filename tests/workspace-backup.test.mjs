@@ -74,6 +74,15 @@ test('merge removes imported project links when project capacity is exhausted',(
  assert.equal(result.chats[0].projectId,null)
 })
 
+test('merging conflicting project IDs never reassigns imported chats or shares private notes',()=>{
+ const local={...workspace,projects:[{id:'project1',name:'Local identity',createdAt:1}],pinned:[]}
+ const incoming={...backup(),chats:[chat('imported','project1')],workspace:{...workspace,projects:[{...workspace.projects[0],shareMemoryWith:['project2']},{id:'project2',name:'New project',createdAt:2,shareMemoryWith:['project1']}],pinned:[]}}
+ const merged=prepareWorkspaceRestore([],local,incoming,'merge')
+ assert.equal(merged.chats[0].projectId,null)
+ assert.equal(merged.workspace.projects[0].name,'Local identity')
+ assert.deepEqual(merged.workspace.projects.find(p=>p.id==='project2').shareMemoryWith,[])
+})
+
 test('failed storage writes attempt rollback and do not trigger app state changes',()=>{
  const state=new Map([['chat','before'],['workspace','metadata']])
  let fail=true

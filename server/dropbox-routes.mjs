@@ -1,7 +1,25 @@
 import {readDropboxFolder, DropboxReadError} from './dropbox-reader.mjs'
+import {readDropboxText} from './dropbox-text.mjs'
 
 // Reuse only the existing, verified local Dropbox token. Requests never supply remote URLs.
 export function attachDropboxReadRoute(app, {origins,getToken,getRevision,invalidate}, reader=readDropboxFolder) {
+  app.post('/api/integrations/dropbox/import-text', async (req,res)=>{
+    if (!origins.has(req.headers.origin) || req.headers['sec-fetch-site']==='cross-site')
+      return res.status(403).json({error:'Origin not allowed.'})
+    const token=getToken()
+    if(!token)return res.status(409).json({error:'Connect Dropbox before importing files.'})
+    const revision=getRevision()
+    try{
+      const data=await readDropboxText(token,{path:req.body?.path})
+      if(revision!==getRevision())return res.status(409).json({error:'Dropbox connection changed while importing.'})
+      return res.json(data)
+    }catch(error){
+      if(revision!==getRevision())return res.status(409).json({error:'Dropbox connection changed while importing.'})
+      const code=error instanceof DropboxReadError?error.status:503
+      if(code===401)invalidate()
+      return res.status(code).json({error:error instanceof DropboxReadError?error.message:'Unable to import Dropbox text.'})
+    }
+  })
   app.get('/api/integrations/dropbox/data', async (req,res)=>{
     if ((req.headers.origin && !origins.has(req.headers.origin)) || req.headers['sec-fetch-site']==='cross-site')
       return res.status(403).json({error:'Origin not allowed.'})

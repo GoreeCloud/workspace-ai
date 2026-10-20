@@ -4,6 +4,8 @@ import {searchChats} from './workspace-state.js'
 import TodoistBrowser from './TodoistBrowser.jsx'
 import GitHubBrowser from './GitHubBrowser.jsx'
 import DropboxBrowser from './DropboxBrowser.jsx'
+import ProjectStudio,{ProjectGlyph} from './ProjectStudio.jsx'
+import {newProject,normalizeProject} from './project-model.js'
 async function post(url,body){
  const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})})
  const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed');return result
@@ -59,21 +61,22 @@ function ChatRow({chat,pinned,onSelect,onPin,onDelete,onAssign,onRename,projects
  <button className="iconAction" title={pinned?'Unpin':'Pin'} aria-label={pinned?'Unpin chat':'Pin chat'} onClick={()=>onPin(chat.id)}>{pinned?<PinOff size={16}/>:<Pin size={16}/>}</button>
  <button className="iconAction" title="Delete" aria-label="Delete chat" onClick={()=>onDelete(chat.id)}><Trash2 size={16}/></button></div>
 }
-export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelectChat,onNewChat,onDeleteChat,onAssignChat,onRenameChat,selectedProject,onProject,onOpenSettings,focusSearchRequest=0}){
+export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelectChat,onNewChat,onDeleteChat,onAssignChat,onRenameChat,selectedProject,onProject,onOpenSettings,focusSearchRequest=0,busy=false}){
  const [query,setQuery]=useState(''),[name,setName]=useState('')
  const searchRef=useRef(null)
  useEffect(()=>{if(view==='chats'&&focusSearchRequest>0)searchRef.current?.focus()},[focusSearchRequest,view])
  const pin=id=>onWorkspace(w=>({...w,pinned:w.pinned.includes(id)?w.pinned.filter(v=>v!==id):[...w.pinned,id]}))
  const project=workspace.projects.find(p=>p.id===selectedProject)
  const shown=searchChats(view==='pinned'?chats.filter(c=>workspace.pinned.includes(c.id)):chats,query,view==='projects'?selectedProject:null)
- const create=()=>{const title=name.trim().slice(0,90);if(!title)return;const id=crypto.randomUUID();onWorkspace(w=>({...w,projects:[...w.projects,{id,name:title,createdAt:Date.now()}]}));onProject(id);setName('')}
- const removeProject=()=>{if(!project||!confirm('Delete project '+project.name+'? Chats will be kept.'))return;onWorkspace(w=>({...w,projects:w.projects.filter(p=>p.id!==project.id)}));onProject(null);chats.filter(c=>c.projectId===project.id).forEach(c=>onAssignChat(c.id,null))}
+ const create=()=>{const title=name.trim().slice(0,90);if(!title||workspace.projects.length>=100)return;const id=crypto.randomUUID();onWorkspace(w=>({...w,projects:[...w.projects,newProject(id,title)]}));onProject(id);setName('')}
+ const updateProject=(id,patch)=>onWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===id?normalizeProject({...p,...patch}):p)}))
+ const removeProject=()=>{if(busy||!project||!confirm('Delete project '+project.name+'? Chats will be kept.'))return;onWorkspace(w=>({...w,projects:w.projects.filter(p=>p.id!==project.id).map(p=>({...p,shareMemoryWith:(p.shareMemoryWith||[]).filter(id=>id!==project.id),shareFilesWith:(p.shareFilesWith||[]).filter(id=>id!==project.id)}))}));onProject(null);chats.filter(c=>c.projectId===project.id).forEach(c=>onAssignChat(c.id,null))}
  if(view==='mcp'||view==='api')return <IntegrationsView key={view} kind={view}/>
  if(view==='settings')return <div className="workspacePage"><div className="workspacePageTop"><h1>Settings</h1></div><div className="workspaceCard"><h2>Workspace preferences</h2><p>Manage authentication, appearance, routing and privacy in Settings & connections.</p><button className="primary" onClick={onOpenSettings}><Settings2 size={16}/> Open settings</button></div></div>
  return <div className="workspacePage">
  <div className="workspacePageTop"><div><h1>{view==='projects'?'Projects':view==='pinned'?'Pinned':'All Chats'}</h1><p>{view==='projects'?'Organize chats into projects stored in this browser.':view==='pinned'?'Your important conversations.':'Search and organize your conversation history.'}</p></div>{view!=='projects'&&<button className="primary" onClick={()=>onNewChat()}><Plus size={16}/> New chat</button>}</div>
- {view==='projects'&&<><form className="workspaceProjectActions" onSubmit={e=>{e.preventDefault();create()}}><input aria-label="Project name" value={name} maxLength={90} onChange={e=>setName(e.target.value)} placeholder="New project name"/><button className="primary" type="submit" disabled={!name.trim()}><Plus size={16}/> Create project</button></form>
- <div className="workspaceProjectActions">{workspace.projects.map(p=><button className={selectedProject===p.id?'primary':'outline'} key={p.id} onClick={()=>onProject(p.id)}><FolderKanban size={16}/>{p.name}</button>)}{selectedProject&&<button className="outline" onClick={()=>onProject(null)}>All projects</button>}</div>{project&&<div className="workspacePageTop"><h2>{project.name}</h2><div className="actions"><button className="primary" onClick={()=>onNewChat(project.id)}>Chat in project</button><button className="outline" onClick={removeProject}><Trash2 size={15}/> Delete project</button></div></div>}</>}
+ {view==='projects'&&<><form className="workspaceProjectActions" onSubmit={e=>{e.preventDefault();create()}}><input aria-label="Project name" value={name} maxLength={90} onChange={e=>setName(e.target.value)} placeholder="New project name"/><button className="primary" type="submit" disabled={!name.trim()||workspace.projects.length>=100}><Plus size={16}/> Create project</button></form>
+ <div className="workspaceProjectActions">{workspace.projects.map(p=><button className={selectedProject===p.id?'primary':'outline'} key={p.id} onClick={()=>onProject(p.id)}><ProjectGlyph icon={p.icon} size={16}/>{p.name}</button>)}{selectedProject&&<button className="outline" onClick={()=>onProject(null)}>All projects</button>}</div>{project&&<ProjectStudio project={project} projects={workspace.projects} onUpdate={updateProject} onNewChat={onNewChat} onDelete={removeProject} chatCount={chats.filter(c=>c.projectId===project.id).length} busy={busy}/>} </>}
  <div className="workspaceSearch"><Search size={17}/><input ref={searchRef} aria-label="Search conversations" placeholder="Search chats and messages" value={query} onChange={e=>setQuery(e.target.value)}/></div>
  {shown.length?shown.map(c=><ChatRow key={c.id} chat={c} pinned={workspace.pinned.includes(c.id)} onSelect={onSelectChat} onPin={pin} onDelete={onDeleteChat} onAssign={onAssignChat} onRename={onRenameChat} projects={workspace.projects}/>):<div className="workspaceEmpty">No matching conversations yet.</div>}</div>
 }
