@@ -7,6 +7,7 @@ import { checkMessages, chooseRoute, validModel, streamResponse } from './stream
 import { attachCredentialSettings } from './credential-settings.mjs'
 import { verifyApiKey } from './api-key-verification.mjs'
 import { attachIntegrationRoutes } from './integration-routes.mjs'
+import {attachMcpApprovalRoutes} from './mcp-approval-routes.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
@@ -38,7 +39,9 @@ app.use((req, res, next) => {
   next()
 })
 app.use(express.json({ limit: '90kb' }))
-attachIntegrationRoutes(app,new Set([clientOrigin,'http://127.0.0.1:5173']))
+const localOrigins=new Set([clientOrigin,'http://127.0.0.1:5173'])
+const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
+attachIntegrationRoutes(app,localOrigins,{onMcpChange:provider=>mcpApproval.revokeProvider(provider)})
 const credentialSettings = attachCredentialSettings(app, {
   allowedOrigins: new Set([clientOrigin, 'http://127.0.0.1:5173']),
   getCredential: () => apiKey,

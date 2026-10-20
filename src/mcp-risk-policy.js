@@ -41,8 +41,7 @@ export const MCP_APPROVALS=Object.freeze({
  high:'per-operation-explicit-confirmation',
  critical:'separate-critical-confirmation'
 })
-export function assessMcpTool({project,provider,toolName,connected=false,serverAuthorized=false,approved=false,
- criticalConfirmed=false,executionEnabled=false}={}){
+export function assessMcpConfiguredGrant({project,provider,toolName}={}){
  if(!MCP_PROVIDERS.includes(provider)||typeof toolName!=='string'||!toolName||toolName.length>120)
   return {allowed:false,reason:'Invalid MCP tool or provider'}
  const classification=trustedMcpClassification(provider,toolName)
@@ -54,10 +53,16 @@ export function assessMcpTool({project,provider,toolName,connected=false,serverA
  if(index[risk]>index[policy[mode].maxRisk])return {...result,reason:'Risk exceeds '+mode+' ceiling'}
  if(policy.tools[toolName]!==true)return {...result,reason:'Tool is not individually permitted'}
  if(!classification.reviewed)return {...result,reason:'Unknown tool needs trusted server review'}
- if(!connected)return {...result,reason:'Provider connection not verified'}
- if(!executionEnabled)return {...result,reason:'MCP execution disabled'}
- if(!serverAuthorized)return {...result,reason:'Server-held authorization missing'}
- if(risk!=='low'&&!approved)return {...result,reason:'Per-operation approval required'}
- if(risk==='critical'&&!criticalConfirmed)return {...result,reason:'Separate critical confirmation required'}
+ return {...result,allowed:true,reason:'Configured project policy permits this tool; this is not an execution grant'}
+}
+export function assessMcpTool({project,provider,toolName,connected=false,serverAuthorized=false,approved=false,
+ criticalConfirmed=false,executionEnabled=false}={}){
+ const result=assessMcpConfiguredGrant({project,provider,toolName})
+ if(!result.allowed)return result
+ if(!connected)return {...result,allowed:false,reason:'Provider connection not verified'}
+ if(!executionEnabled)return {...result,allowed:false,reason:'MCP execution disabled'}
+ if(!serverAuthorized)return {...result,allowed:false,reason:'Server-held authorization missing'}
+ if(result.risk!=='low'&&!approved)return {...result,allowed:false,reason:'Per-operation approval required'}
+ if(result.risk==='critical'&&!criticalConfirmed)return {...result,allowed:false,reason:'Separate critical confirmation required'}
  return {...result,allowed:true,reason:'Approved by policy'}
 }

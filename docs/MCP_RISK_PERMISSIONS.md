@@ -25,7 +25,7 @@ Read operations can carry High or Critical risks (for example, exfiltration of s
 
 The shared policy function evaluates project provider membership, independent read/write switches, the risk ceiling, exact tool allowlist, reviewed server-side classification, provider connection, server authorization, supported execution, per-operation approval and (for Critical) distinct confirmation.
 
-Actual Workspace AI MCP discovery and metadata routes continue returning executionEnabled=false. There is no authorized tool invocation route.
+Actual Workspace AI MCP discovery and metadata routes continue returning executionEnabled=false. There is no authorized tool invocation route. The opt-in [Local MCP Approval Broker](MCP_APPROVAL_BROKER.md) adds 15-minute owner-registered server policies, short-lived, single-use approval dry runs, and redacted in-memory audit; its response always reports executed=false.
 
 Local project and backup metadata is untrusted preference data, not a server grant. A future authenticated execution server must store and enforce authoritative permissions independently, bind approvals to single-use action digests, expire/revoke approvals on disconnect/policy change, and keep an audit trail with safe redaction. It must handle idempotency, cancellation, service/provider scope enforcement and real device tests before enabling tool calls.
 

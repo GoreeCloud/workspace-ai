@@ -49,7 +49,7 @@ export async function discoverMcp(id,fetchImpl=fetch){
   return {status:'connected',message:'MCP tools discovered. Execution remains disabled pending approvals.',tools}
  }catch{return {status:'unavailable',message:'MCP discovery failed; check server authorization and transport.',tools:[]}}
 }
-export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderToken,discover=discoverMcp,readTodoist=readTodoistPage,readGitHub=readGitHubPage,readDropbox=readDropboxFolder}={}){
+export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderToken,discover=discoverMcp,readTodoist=readTodoistPage,readGitHub=readGitHubPage,readDropbox=readDropboxFolder,onMcpChange=()=>{}}={}){
  const tokens=new Map(),states=new Map(),discovered=new Map(),revisions=new Map()
  const bump=id=>{const value=(revisions.get(id)||0)+1;revisions.set(id,value);return value}
  const allow=(req,res)=>{if(origins.has(req.headers.origin))return true;res.status(403).json({error:'Origin not allowed.'});return false}
@@ -101,6 +101,7 @@ export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderTok
   if(!allow(req,res))return
   const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'})
   if(s.kind!=='mcp')return res.status(409).json({error:'Not an MCP provider.'})
+  onMcpChange(s.id)
   const revision=bump(s.id)
   states.set(s.id,{status:'discovering',message:'Discovering available tools.'});discovered.delete(s.id)
   const result=await discover(s.id)
@@ -116,6 +117,7 @@ export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderTok
  app.post('/api/integrations/:id/disconnect',(req,res)=>{
   if(!allow(req,res))return
   const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'})
+  if(s.kind==='mcp')onMcpChange(s.id)
   bump(s.id)
   tokens.delete(s.id);states.delete(s.id);discovered.delete(s.id)
   res.json({service:s.id,connected:false,status:'setup-required'})

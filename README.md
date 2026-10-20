@@ -56,7 +56,7 @@ Open **Projects** to create a project, select its glyph, set custom instructions
 
 Supported local imports are UTF-8 text and source files selected from your device's file picker, up to 10 files of 64 KiB per project. An already-connected Dropbox session with file-content read permission can provide a read-only text snapshot via the project browser or path field. Google Drive OAuth, binary files, PDF/image parsing, cloud synchronization and automatic memory are not yet implemented. Project API/MCP selections are configuration preferences only; executable tools are still disabled. Each selected MCP provider now has independent Read and Write switches, four maximum-risk levels (Low, Medium, High, Critical), and per-tool allowlisting. New grants are disabled by default. See [MCP risk permissions](docs/MCP_RISK_PERMISSIONS.md). A bounded, question-ranked project context with labeled file excerpts is sent to the selected AI provider during relevant chat requests. This is not semantic search or a trust boundary; source text can be truncated.
 
-See [Project workspaces: capabilities and boundaries](docs/PROJECT_WORKSPACES.md) for the security model, limitations, remaining work and privacy/backup implications.
+See [Project workspaces: capabilities and boundaries](docs/PROJECT_WORKSPACES.md) for the security model, limitations, remaining work and privacy/backup implications. An optional [local MCP approval broker](docs/MCP_APPROVAL_BROKER.md) can validate time-limited server-side project grants and single-use approvals in dry-run mode; real MCP execution remains disabled.
 
 ## Browser-local backup and shortcuts
 
