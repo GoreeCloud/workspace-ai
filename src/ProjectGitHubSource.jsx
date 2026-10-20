@@ -1,7 +1,6 @@
 import React,{useState} from 'react'
 
 // Explicit, bounded GitHub source preview. Never forwarded to other providers.
-import {useState} from 'react'
 export default function ProjectGitHubSource({enabled=false,projectId}){
  const [repo,setRepo]=useState('')
  const [path,setPath]=useState('')
