@@ -122,7 +122,7 @@ async function send(value=draft){
   }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
 }
 function saveReviewedMemory(){
- if(!memoryDraft||busy||!activeProject||!chat||memoryDraft.projectId!==activeProject.id||memoryDraft.chatId!==chat.id)return;
+ if(!memoryDraft||busy||!activeProject?.memoryEnabled||!chat||memoryDraft.projectId!==activeProject.id||memoryDraft.chatId!==chat.id)return;
  try{
   const nextMemory=appendReviewedMemory(activeProject.memory||'',memoryDraft.text,chat.title);
   setWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===activeProject.id?{...p,memory:nextMemory}:p)}));
@@ -157,7 +157,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <div className="msgContent">{m.role==='assistant'&&<strong className="byline">Workspace AI <small>{m.provider==='plan'?'· ChatGPT plan':m.provider==='api'?'· OpenAI API':''}</small></strong>}
  {m.role==='user'?<div className="userBubble">{m.content}</div>:<div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div>}
  {m.role==='assistant'&&!!m.content&&<div className="messageTools"><button className="copy" onClick={()=>navigator.clipboard.writeText(m.content).catch(()=>setError('Could not copy text'))}><Copy size={14}/>Copy</button>
- {activeProject&&!m.error&&<button className="copy" disabled={busy} onClick={()=>setMemoryDraft({projectId:activeProject.id,chatId:chat.id,messageId:m.id,text:memoryCandidateFromMessage(m.content)})}><Sparkles size={14}/>Review for project memory</button>}</div>}
+ {activeProject?.memoryEnabled&&!m.error&&<button className="copy" disabled={busy} onClick={()=>setMemoryDraft({projectId:activeProject.id,chatId:chat.id,messageId:m.id,text:memoryCandidateFromMessage(m.content)})}><Sparkles size={14}/>Review for project memory</button>}</div>}
  {memoryDraft?.chatId===chat.id&&memoryDraft?.messageId===m.id&&memoryDraft?.projectId===activeProject?.id&&<div className="memoryReview">
  <label htmlFor={'review-'+m.id}>Review and edit the memory saved to {activeProject.name}</label>
  <textarea id={'review-'+m.id} rows={4} maxLength={1200} value={memoryDraft.text} onChange={e=>setMemoryDraft(v=>({...v,text:e.target.value}))}/>

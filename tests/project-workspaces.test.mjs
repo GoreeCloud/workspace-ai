@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {newProject,normalizeProject,normalizeProjects,projectContext,canImportFile,PROJECT_TEXT_BUDGET} from '../src/project-model.js'
 import {createWorkspaceBackup,parseWorkspaceBackup} from '../src/workspace-backup.js'
 
-const main=()=>({...newProject('main','Main'),instructions:'Answer in bullet points',memory:'Private roadmap',files:[{id:'f',name:'notes.md',content:'Private spec',source:'local',createdAt:1}]})
+const main=()=>({...newProject('main','Main'),instructions:'Answer in bullet points',memoryEnabled:true,memory:'Private roadmap',files:[{id:'f',name:'notes.md',content:'Private spec',source:'local',createdAt:1}]})
 test('legacy projects gain safe defaults and private-by-default isolation',()=>{
  const p=normalizeProject({id:'p',name:'Legacy',createdAt:1})
  assert.equal(p.icon,'folder')
@@ -17,7 +17,7 @@ test('legacy projects gain safe defaults and private-by-default isolation',()=>{
  assert.match(projectContext({projects},'main'),/Answer in bullet points/)
 })
 test('explicit outbound sharing copies only selected classes of context',()=>{
- const source=main(),target=newProject('other','Other')
+ const source=main(),target={...newProject('other','Other'),memoryEnabled:true}
  const projects=[source,target]
  assert.doesNotMatch(projectContext({projects},'other'),/Private/)
  source.shareMemoryWith=['other']

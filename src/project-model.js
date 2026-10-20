@@ -11,7 +11,7 @@ const list = (a,n) => Array.isArray(a) ? a.filter(v=>typeof v==='string').slice(
 export const ACCEPT_TEXT_FILES = '.txt,.md,.markdown,.csv,.tsv,.json,.yaml,.yml,.log,.js,.jsx,.ts,.tsx,.py,.html,.css,.xml,.sql'
 const extensions = new Set(ACCEPT_TEXT_FILES.split(','))
 export function newProject(id,name,createdAt=Date.now()) {
- return {id,name,createdAt,icon:'folder',instructions:'',memory:'',shareMemoryWith:[],shareFilesWith:[],api:[],mcp:[],mcpPolicies:{},files:[]}
+ return {id,name,createdAt,icon:'folder',instructions:'',memoryEnabled:false,memory:'',shareMemoryWith:[],shareFilesWith:[],api:[],mcp:[],mcpPolicies:{},files:[]}
 }
 export function normalizeProject(project) {
  if (!project || typeof project !== 'object' || Array.isArray(project) || typeof project.id!=='string' || !project.id || project.id.length>160 ||
@@ -19,6 +19,7 @@ export function normalizeProject(project) {
  const data = newProject(project.id,project.name,Number.isFinite(project.createdAt) ? project.createdAt : 0)
  data.icon = PROJECT_GLYPHS.includes(project.icon) ? project.icon : 'folder'
  data.instructions = text(project.instructions,4000)
+ data.memoryEnabled = project.memoryEnabled === true
  data.memory = text(project.memory,4000)
  data.shareMemoryWith = [...new Set(list(project.shareMemoryWith,100))]
  data.shareFilesWith = [...new Set(list(project.shareFilesWith,100))]

@@ -7,9 +7,9 @@ import {checkMessages} from '../server/stream.mjs'
 
 const file=(id,name,content)=>({id,name,content,source:'local',createdAt:1})
 const fixture=()=>{
- const a={...newProject('a','Development'),instructions:'Give practical coding answers',memory:'Use the stable branch only',
+ const a={...newProject('a','Development'),instructions:'Give practical coding answers',memoryEnabled:true,memory:'Use the stable branch only',
   files:[file('1','general.md','General information on the app'),file('2','deploy.md','Unrelated first paragraph.\n'.repeat(110)+' Deployment needs health checks and a rollback. \n'.repeat(5))]}
- const b={...newProject('b','Finance'),memory:'Private financial notes',
+ const b={...newProject('b','Finance'),memoryEnabled:true,memory:'Private financial notes',
   files:[file('3','costs.csv','Costs are private unless sharing is enabled')]}
  return {projects:[a,b]}
 }

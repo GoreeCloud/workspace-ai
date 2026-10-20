@@ -13,7 +13,7 @@
 
 ## Sharing and effective AI context
 
-Each project starts isolated. The project owner may enable **share my memory notes with** and/or **share my reference files with** individual destination projects. This is **one-way sharing**. Instructions themselves are not inherited or shared. In the destination project's subsequent AI requests, the explicitly allowed source notes or source file contents may be included as reference context; the source project must grant consent. Sharing can be revoked. Deleting a project clears its outgoing and inbound share links.
+Each project starts isolated. The project owner may enable **share my memory notes with** and/or **share my reference files with** individual destination projects. This is **one-way sharing**. Memory notes are included only when both source and destination projects have explicitly enabled memory. Instructions themselves are not inherited or shared. In the destination project's subsequent AI requests, the explicitly allowed source notes or source file contents may be included as reference context; the source project must grant consent. Sharing can be revoked. Deleting a project clears its outgoing and inbound share links.
 
 A request in a project includes a bounded text context: its instructions, memory notes, question-ranked file excerpts (selected using local keyword matching), and data shared to it from other projects. Relevant file text is selected from near the matching terms and carries a file-name/source-ID label; only bounded excerpts are sent, not complete documents. Long instructions, memory notes, and files can be truncated to fit the request budget. It is included as a **user-role context prefix** in the outgoing request, not as a protected system/developer message. This is guidance to the model, not a security boundary; untrusted imported file content could contain adversarial instructions. Tool execution remains disabled regardless of these notes. A maximum of about 7,000 context characters is used, so long data may be truncated, and this is **not** full-document retrieval, vector search, or automatic memory management.
 
@@ -32,7 +32,7 @@ Browser storage limits can prevent saving large amounts of text. The app surface
 - Google Drive OAuth configuration with least-privilege file-picker and download flows, plus additional providers and permissions checks.
 - PDF/image/Office parsing in a bounded sandbox with malware protections, text extraction and citations.
 - Project memory extraction/review workflows with approval, version history, and deletion semantics.
-- Per-project server-verified identity, connector scopes, durable audit logging, action-bound execution approvals, and end-to-end provider tests before actual plugin/MCP execution. The available owner-key approval broker is a local, in-memory dry run and cannot execute tools.
+- Per-project server-verified identity, connector scopes, durable audit logging, action-bound execution approvals, and end-to-end provider tests before actual plugin/MCP execution. The owner-key approval broker also supports a separately guarded live execution route, disabled by default; production-quality identity, authorization, audit and real-provider acceptance remain outstanding.
 - Strong context isolation, security and prompt-injection tests. The current context is model guidance, not an isolated model sandbox.
 
 No public deployment or production readiness is implied by source changes or passing unit tests.
