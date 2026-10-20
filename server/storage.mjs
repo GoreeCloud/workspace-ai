@@ -29,19 +29,28 @@ export async function saveProfile(value) {
   }
 }
 
-export async function getHostId() {
-  const record = await readProfile()
-  if (typeof record.host_id === 'string' && /^urn:uuid:/.test(record.host_id)) return record.host_id
-  const host_id = 'urn:uuid:' + randomUUID()
-  await saveProfile({ ...record, host_id })
-  return host_id
+// Serialize in-process profile read/modify/write transactions. Atomic rename
+// protects file integrity but cannot prevent concurrent readers losing updates.
+let profileWrites = Promise.resolve()
+
+export function updateProfile(transform) {
+  const operation = profileWrites.then(async () => {
+    const old = await readProfile()
+    const next = transform(old)
+    if (next !== old) await saveProfile(next)
+    return next
+  })
+  // One failed transaction must not block subsequent authorized updates.
+  profileWrites = operation.then(() => undefined, () => undefined)
+  return operation
 }
 
-export async function updateProfile(transform) {
-  const old = await readProfile()
-  const next = transform(old)
-  await saveProfile(next)
-  return next
+export async function getHostId() {
+  const profile = await updateProfile(record => {
+    if (typeof record.host_id === 'string' && /^urn:uuid:/.test(record.host_id)) return record
+    return { ...record, host_id: 'urn:uuid:' + randomUUID() }
+  })
+  return profile.host_id
 }
 
 export function publicStatus(profile, apiConfigured = false) {
