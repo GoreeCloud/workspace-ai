@@ -50,3 +50,12 @@ test('stream enforces a maximum accumulated output size',async()=>{
  const frame='data: '+JSON.stringify({type:'response.output_text.delta',delta:chunk})+'\n\n'
  await assert.rejects(()=>streamResponse(new Response(frame.repeat(6)+'data: {"type":"response.completed"}\n\n'),()=>{}),/output safety limit/)
 })
+
+
+test('stream discards a trailing incomplete frame after response completion',async()=>{
+ const seen=[]
+ const events='data: {"type":"response.completed"}\n\n'
+  +'data: {"type":"response.output_text.delta","delta":"late"}'
+ await streamResponse(new Response(events),event=>seen.push(event))
+ assert.deepEqual(seen,[{type:'complete'}])
+})
