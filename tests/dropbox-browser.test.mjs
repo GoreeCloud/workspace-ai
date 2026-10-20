@@ -54,7 +54,7 @@ test('Dropbox blocks malformed inputs and handles rejected tokens',async()=>{
 test('Dropbox local route rejects foreign origins and stale disconnects',async()=>{
  let handler
  let token=null,revision=0,revoked=false,finish
- const app={get(path,fn){assert.equal(path,'/api/integrations/dropbox/data');handler=fn},post(path,fn){assert.equal(path,'/api/integrations/dropbox/import-text');assert.equal(typeof fn,'function')}}
+ const app={get(path,fn){assert.equal(path,'/api/integrations/dropbox/data');handler=fn},post(path,fn){assert.ok(['/api/integrations/dropbox/import-text','/api/integrations/dropbox/read-folder-text'].includes(path));assert.equal(typeof fn,'function')}}
  let reader=()=>new Promise(resolve=>{finish=resolve})
  const config={origins:new Set(['http://127.0.0.1:3031']),getToken:()=>token,getRevision:()=>revision,invalidate:()=>{revoked=true;token=null;revision++}}
  attachDropboxReadRoute(app,config,(...args)=>reader(...args))

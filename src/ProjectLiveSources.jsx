@@ -1,6 +1,6 @@
 import React,{useCallback,useEffect,useRef,useState} from 'react'
 import {FolderOpen,FilePlus2,RefreshCw,Unlink2} from 'lucide-react'
-import {MAX_LINKED_SOURCES,REFRESH_INTERVAL_MS,scanSource,replaceLinkedSnapshot,savedHandle,fetchDropboxSnapshot} from './project-linked-source.js'
+import {MAX_LINKED_SOURCES,REFRESH_INTERVAL_MS,scanSource,replaceLinkedSnapshot,savedHandle,fetchDropboxSnapshot,fetchDropboxFolderSnapshot} from './project-linked-source.js'
 
 // Browser-selected File System Access handles; refresh is READ ONLY and only while the UI is open.
 export default function ProjectLiveSources({project,onUpdate,busy=false}){
@@ -16,6 +16,7 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
  const syncOne=useCallback(async(source)=>{
   let snapshot
   if(source.kind==='dropbox-file')snapshot=await fetchDropboxSnapshot(source)
+  else if(source.kind==='dropbox-directory')snapshot=await fetchDropboxFolderSnapshot(source)
   else{
    const handle=await savedHandle('get',source.id)
    if(!handle){report(source.id,'Reconnect required');return}
@@ -78,7 +79,7 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
   }catch(e){if(e.name!=='AbortError')setError(e.message||'Could not link source.')}
   finally{setWorking('')}
  }
- const linkDropbox=async(path,existing=null)=>{
+ const linkDropbox=async(path,existing=null,kind='dropbox-file')=>{
   if(busy||working)return
   setError('');setNotice('');setWorking('dropbox')
   try{
@@ -86,8 +87,8 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
    const location=String(path||'').trim()
    if(!location.startsWith('/')||location.length>1024)throw Error('Enter an absolute Dropbox file path.')
    const name=location.split('/').pop().slice(0,100)
-   const source={id:existing?.id||crypto.randomUUID(),kind:'dropbox-file',name,path:location,linkedAt:Date.now()}
-   const items=await fetchDropboxSnapshot(source)
+   const source={id:existing?.id||crypto.randomUUID(),kind,name,path:location,linkedAt:Date.now()}
+   const items=kind==='dropbox-directory'?await fetchDropboxFolderSnapshot(source):await fetchDropboxSnapshot(source)
    replaceLinkedSnapshot(projectRef.current.files,source.id,items)
    updateRef.current(p=>({
     files:replaceLinkedSnapshot(p.files,source.id,items),
@@ -95,7 +96,7 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
    }))
    report(source.id,'Synced '+new Date().toLocaleTimeString())
    setDropboxPath('')
-   setNotice('Linked Dropbox text file '+source.name+'. Refreshes while this page is open.')
+   setNotice('Linked Dropbox '+(kind==='dropbox-directory'?'folder':'file')+' '+source.name+'. Refreshes while this page is open.')
   }catch(e){setError(e.message||'Dropbox file could not be linked.')}
   finally{setWorking('')}
  }
@@ -104,7 +105,7 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
   try{
    updateRef.current(p=>({files:(p.files||[]).filter(f=>f.linkId!==source.id),
     linkedSources:(p.linkedSources||[]).filter(s=>s.id!==source.id)}))
-   if(source.kind!=='dropbox-file')await savedHandle('delete',source.id)
+   if(!source.kind.startsWith('dropbox-'))await savedHandle('delete',source.id)
    report(source.id,'Unlinked')
   }catch(e){setError('Source unlink failed: '+(e.message||'Unknown error'))}
   finally{setWorking('')}
@@ -121,11 +122,12 @@ export default function ProjectLiveSources({project,onUpdate,busy=false}){
   <div className="projectCloudRow">
    <input id="linked-dropbox-path" placeholder="/Documents/notes.md" value={dropboxPath} maxLength={1024} onChange={e=>setDropboxPath(e.target.value)}/>
    <button type="button" className="outline" disabled={busy||!!working||connected.length>=MAX_LINKED_SOURCES||!dropboxPath.trim()} onClick={()=>linkDropbox(dropboxPath)}>Link Dropbox file</button>
+   <button type="button" className="outline" disabled={busy||!!working||connected.length>=MAX_LINKED_SOURCES||!dropboxPath.trim()} onClick={()=>linkDropbox(dropboxPath,null,'dropbox-directory')}>Link Dropbox folder</button>
   </div>
   {!!connected.length&&<ul className="projectLinkedList">{connected.map(s=><li key={s.id}>
    <strong>{s.name}</strong> <small>{s.kind} · {states[s.id]||'Awaiting refresh'}</small>
    <div className="actions">
-    <button type="button" className="outline" disabled={busy||!!working} onClick={()=>s.kind==='dropbox-file'?linkDropbox(s.path,s):link(s.kind,s)}>Reconnect</button>
+    <button type="button" className="outline" disabled={busy||!!working} onClick={()=>s.kind.startsWith('dropbox-')?linkDropbox(s.path,s,s.kind):link(s.kind,s)}>Reconnect</button>
     <button type="button" className="outline" disabled={busy||!!working} onClick={()=>unlink(s)}><Unlink2 size={14}/> Unlink</button>
    </div></li>)}</ul>}
   {notice&&<p role="status" className="projectHint">{notice}</p>}
