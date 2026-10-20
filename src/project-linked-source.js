@@ -6,9 +6,9 @@ const SUPPORTED_EXTENSIONS=new Set(['txt','md','markdown','csv','tsv','json','ya
 export const linkedFileId=(sourceId,path)=>sourceId+':'+path
 export function validateLinkedSource(value){
  if(!value||typeof value!=='object'||typeof value.id!=='string'||!/^[a-z0-9-]{1,90}$/i.test(value.id)||
-  !['file','directory','dropbox-file'].includes(value.kind)||typeof value.name!=='string'||!value.name.trim()||value.name.length>100)throw Error('Invalid linked source metadata.')
- if(value.kind==='dropbox-file'&&(typeof value.path!=='string'||!value.path.startsWith('/')||value.path.length>1024||value.path.includes(String.fromCharCode(0))))throw Error('Invalid Dropbox source path.')
- return {id:value.id,kind:value.kind,name:value.name.slice(0,100),linkedAt:Number.isFinite(value.linkedAt)?value.linkedAt:0,...(value.kind==='dropbox-file'?{path:value.path}:{})}
+  !['file','directory','dropbox-file','dropbox-directory'].includes(value.kind)||typeof value.name!=='string'||!value.name.trim()||value.name.length>100)throw Error('Invalid linked source metadata.')
+ if(['dropbox-file','dropbox-directory'].includes(value.kind)&&(typeof value.path!=='string'||!value.path.startsWith('/')||value.path.length>1024||value.path.includes(String.fromCharCode(0))))throw Error('Invalid Dropbox source path.')
+ return {id:value.id,kind:value.kind,name:value.name.slice(0,100),linkedAt:Number.isFinite(value.linkedAt)?value.linkedAt:0,...(['dropbox-file','dropbox-directory'].includes(value.kind)?{path:value.path}:{})}
 }
 const validPath=(path)=>typeof path==='string'&&path.length<=110&&!path.includes('..')&&!path.includes('\\')&&!path.includes('\0')
 const suitable=(name,size)=>{
@@ -101,4 +101,28 @@ export async function fetchDropboxSnapshot(source,fetcher=fetch){
   throw Error('Linked Dropbox file is unsupported or too large.')
  return [{id:source.id+':'+data.name,name:data.name,content:data.content,source:'linked-dropbox',
   linkId:source.id,relativePath:data.name,createdAt:Date.now()}]
+}
+
+export async function fetchDropboxFolderSnapshot(source,fetcher=fetch){
+ validateLinkedSource(source)
+ if(source.kind!=='dropbox-directory')throw Error('Not a Dropbox directory source.')
+ const response=await fetcher('/api/integrations/dropbox/read-folder-text',{
+  method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:source.path})
+ })
+ const data=await response.json()
+ if(!response.ok)throw Error(data.error||'Dropbox folder-read permission unavailable.')
+ if(data.readOnly!==true||data.fullyScanned!==true||data.path!==source.path||!Array.isArray(data.files)||
+  data.files.length>10)throw Error('Dropbox returned incomplete folder snapshot.')
+ const seen=new Set()
+ return data.files.map(item=>{
+  const path=item?.relativePath
+  if(typeof path!=='string'||path.length>110||path.startsWith('/')||path.includes('\\')||
+   path.split('/').some(part=>!part||part==='.'||part==='..'||part.startsWith('.'))||
+   seen.has(path.toLowerCase())||!suitable(path,item.size)||typeof item.content!=='string'||
+   new TextEncoder().encode(item.content).length!==item.size||item.content.includes(String.fromCharCode(0)))
+   throw Error('Dropbox folder returned an invalid text file.')
+  seen.add(path.toLowerCase())
+  return {id:source.id+':'+path,name:path,content:item.content,source:'linked-dropbox',
+   linkId:source.id,relativePath:path,createdAt:Date.now()}
+ })
 }
