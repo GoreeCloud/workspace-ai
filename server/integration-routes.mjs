@@ -1,3 +1,4 @@
+import {trustedMcpClassification,MCP_RISK_TIERS} from '../src/mcp-risk-policy.js'
 import {SERVICES,byId} from './services.mjs'
 import {serviceTools} from './service-capabilities.mjs'
 import {checkProviderToken,TOKEN_PROVIDERS} from './service-validation.mjs'
@@ -64,9 +65,11 @@ export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderTok
   origins,getToken:()=>tokens.get('dropbox'),getRevision:()=>revisions.get('dropbox')||0,
   invalidate:()=>{tokens.delete('dropbox');states.set('dropbox',{status:'invalid',message:'Dropbox rejected this credential.'});bump('dropbox')}
  },readDropbox)
- const record=s=>({...s,authConfigured:!!(s.kind==='mcp'&&endpoint(s.id)),connected:states.get(s.id)?.status==='connected',hasSessionToken:tokens.has(s.id),status:states.get(s.id)?.status||(s.kind==='mcp'&&endpoint(s.id)?'ready-for-discovery':'setup-required'),message:states.get(s.id)?.message||'Requires its own authorized connection.',tools:discovered.get(s.id)||serviceTools(s.id)})
+ const annotateTool=(service,t)=>service.kind==='mcp'?{...t,...trustedMcpClassification(service.id,t.name),executable:false}:t
+ const record=s=>({...s,authConfigured:!!(s.kind==='mcp'&&endpoint(s.id)),connected:states.get(s.id)?.status==='connected',hasSessionToken:tokens.has(s.id),status:states.get(s.id)?.status||(s.kind==='mcp'&&endpoint(s.id)?'ready-for-discovery':'setup-required'),message:states.get(s.id)?.message||'Requires its own authorized connection.',tools:(discovered.get(s.id)||serviceTools(s.id)).map(t=>annotateTool(s,t))})
  app.get('/api/integrations',(_req,res)=>res.json({services:SERVICES.map(record),executionEnabled:false}))
  app.get('/api/integrations/:id/tools',(req,res)=>{const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'});res.json({service:s.id,tools:record(s).tools,executionEnabled:false})})
+ app.get('/api/integrations/:id/risk-policy',(req,res)=>{const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'});if(s.kind!=='mcp'||s.id==='tinyfish')return res.status(404).json({error:'Unavailable MCP service.'});res.json({service:s.id,riskTiers:MCP_RISK_TIERS,tools:record(s).tools,executionEnabled:false,source:'reviewed-server-registry'})})
  app.post('/api/integrations/:id/connect',async(req,res)=>{
   if(!allow(req,res))return
   const s=byId(req.params.id);if(!s)return res.status(404).json({error:'Unknown service.'})
@@ -108,7 +111,7 @@ export function attachIntegrationRoutes(app,origins,{checkToken=checkProviderTok
   const safeMessage=String(result.message||'').slice(0,300)
   states.set(s.id,{status:result.status,message:safeMessage})
   if(result.status==='connected')discovered.set(s.id,safeTools);else discovered.delete(s.id)
-  res.json({status:result.status,message:safeMessage,tools:safeTools,service:s.id,executionEnabled:false})
+  res.json({status:result.status,message:safeMessage,tools:safeTools.map(t=>annotateTool(s,t)),service:s.id,executionEnabled:false})
  })
  app.post('/api/integrations/:id/disconnect',(req,res)=>{
   if(!allow(req,res))return

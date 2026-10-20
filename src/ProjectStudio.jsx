@@ -1,6 +1,7 @@
 import React,{useState} from 'react'
 import {Folder,FolderKanban,Sparkles,Code2,BookOpen,BriefcaseBusiness,FlaskConical,Rocket,Globe,Heart,Shield,Palette,Database,Trash2,Plus,Upload,CloudDownload,FileText} from 'lucide-react'
 import DropboxBrowser from './DropboxBrowser.jsx'
+import McpRiskSettings from './McpRiskSettings.jsx'
 import {ACCEPT_TEXT_FILES,PROJECT_GLYPHS,PROJECT_API_SERVICES,PROJECT_MCP_SERVICES,PROJECT_FILE_MAX_COUNT,canImportFile,importTextFile,importLocalTextFile} from './project-model.js'
 const GLYPHS={folder:Folder,sparkles:Sparkles,code:Code2,book:BookOpen,briefcase:BriefcaseBusiness,flask:FlaskConical,rocket:Rocket,globe:Globe,heart:Heart,shield:Shield,palette:Palette,database:Database}
 const SERVICE_LABELS={'google-drive':'Google Drive',gmail:'Gmail',dropbox:'Dropbox',github:'GitHub',todoist:'Todoist',linear:'Linear',cloudflare:'Cloudflare Pages','remote-desktop-commander':'Remote Desktop Commander',firecrawl:'Firecrawl'}
@@ -99,6 +100,7 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
    <section className="projectPanel"><h3>Plugins & MCP access profiles</h3><p className="projectHint">Choose which integrations belong to this project. These are local configuration preferences, not active permissions. Existing provider connections are separate; tool execution remains disabled pending authorization and provider implementations.</p>
     <h4>API integrations</h4><div className="projectToggles">{PROJECT_API_SERVICES.map(id=><label key={id}><input type="checkbox" checked={(project.api||[]).includes(id)} onChange={()=>toggle('api',id)}/>{SERVICE_LABELS[id]}</label>)}</div>
     <h4>MCP services</h4><div className="projectToggles">{PROJECT_MCP_SERVICES.map(id=><label key={id}><input type="checkbox" checked={(project.mcp||[]).includes(id)} onChange={()=>toggle('mcp',id)}/>{SERVICE_LABELS[id]}</label>)}</div>
+    <McpRiskSettings project={project} onUpdate={update}/>
    </section>
   </div>
   {error&&<p className="projectAlert" role="alert">{error}</p>}{notice&&<p className="projectSuccess" role="status">{notice}</p>}

@@ -1,3 +1,4 @@
+import {normalizeMcpPolicies} from './mcp-risk-policy.js'
 // Project workspaces: validated browser-local metadata and explicit sharing only.
 export const PROJECT_GLYPHS = ['folder','sparkles','code','book','briefcase','flask','rocket','globe','heart','shield','palette','database']
 export const PROJECT_API_SERVICES = ['todoist','github','dropbox','linear','google-drive','gmail','cloudflare']
@@ -10,7 +11,7 @@ const list = (a,n) => Array.isArray(a) ? a.filter(v=>typeof v==='string').slice(
 export const ACCEPT_TEXT_FILES = '.txt,.md,.markdown,.csv,.tsv,.json,.yaml,.yml,.log,.js,.jsx,.ts,.tsx,.py,.html,.css,.xml,.sql'
 const extensions = new Set(ACCEPT_TEXT_FILES.split(','))
 export function newProject(id,name,createdAt=Date.now()) {
- return {id,name,createdAt,icon:'folder',instructions:'',memory:'',shareMemoryWith:[],shareFilesWith:[],api:[],mcp:[],files:[]}
+ return {id,name,createdAt,icon:'folder',instructions:'',memory:'',shareMemoryWith:[],shareFilesWith:[],api:[],mcp:[],mcpPolicies:{},files:[]}
 }
 export function normalizeProject(project) {
  if (!project || typeof project !== 'object' || Array.isArray(project) || typeof project.id!=='string' || !project.id || project.id.length>160 ||
@@ -23,6 +24,7 @@ export function normalizeProject(project) {
  data.shareFilesWith = [...new Set(list(project.shareFilesWith,100))]
  data.api = [...new Set(list(project.api,PROJECT_API_SERVICES.length))].filter(v=>PROJECT_API_SERVICES.includes(v))
  data.mcp = [...new Set(list(project.mcp,PROJECT_MCP_SERVICES.length))].filter(v=>PROJECT_MCP_SERVICES.includes(v))
+ data.mcpPolicies = Object.fromEntries(Object.entries(normalizeMcpPolicies(project.mcpPolicies)).filter(([provider])=>data.mcp.includes(provider)))
  const files = Array.isArray(project.files) ? project.files : []
  if(files.length>PROJECT_FILE_MAX_COUNT) throw Error('Project has too many files')
  const ids=new Set()

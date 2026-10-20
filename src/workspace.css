@@ -136,3 +136,18 @@
 .projectFilePreview{margin-top:9px}
 .projectFilePreview summary{cursor:pointer;font-size:11px;color:var(--gc-text-soft);font-weight:650}
 .projectFilePreview pre{white-space:pre-wrap;word-break:break-word;max-height:320px;overflow:auto;margin:8px 0;padding:10px;border-radius:8px;background:var(--gc-surface);font-size:11px;line-height:1.5}
+
+/* Risk-tier permission editor: explicitly local-only preferences. */
+.projectMcpRisk{margin-top:18px;border-top:1px solid var(--gc-outline);padding-top:12px}
+.projectMcpProvider{border:1px solid var(--gc-outline);border-radius:11px;padding:12px;margin:10px 0}
+.projectMcpProvider>strong{font-size:13px}
+.projectMcpModes{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:12px}
+.projectMcpMode{border:1px solid var(--gc-outline);border-radius:9px;padding:9px;min-width:0}
+.projectMcpMode label{display:flex;gap:7px;align-items:center;font-size:12px;font-weight:600}
+.projectMcpTierLabel{margin-top:10px;display:block!important}
+.projectMcpTierLabel select{min-width:0;width:100%;margin-top:5px;border:1px solid var(--gc-outline);border-radius:8px;background:var(--gc-surface);color:var(--gc-text);padding:8px}
+.projectMcpTools{margin-top:10px;display:grid;gap:7px}
+.projectMcpTool{display:flex;align-items:center;gap:9px;font-size:11px;cursor:pointer}
+.projectMcpTool>span{display:flex;flex-direction:column;gap:3px;min-width:0;overflow-wrap:anywhere}
+.projectMcpTool small{color:var(--gc-text-soft)}
+.projectMcpTool:has(input:disabled){opacity:.65;cursor:not-allowed}

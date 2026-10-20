@@ -25,20 +25,27 @@ const browserArgs = [
   '--headless=new', '--disable-gpu', '--disable-dev-shm-usage',
   '--no-first-run', '--remote-debugging-port=' + port, '--user-data-dir=' + profile, 'about:blank'
 ]
-if (typeof process.getuid === 'function' && process.getuid() === 0) browserArgs.unshift('--no-sandbox')
-const chrome = spawn(executable, browserArgs, { stdio: 'ignore' })
+// CI uses an ephemeral, isolated test browser profile. Do not weaken local user browsers.
+if (process.env.CI === 'true' || (typeof process.getuid === 'function' && process.getuid() === 0)) browserArgs.unshift('--no-sandbox')
+const chrome = spawn(executable, browserArgs, { stdio: ['ignore','ignore','pipe'] })
+let browserStderr=''
+chrome.stderr?.on('data',chunk=>{browserStderr=(browserStderr+chunk.toString()).slice(-5000)})
 let ws
 try {
   let tab
-  for (let attempt = 0; attempt < 60; attempt++) {
+  for (let attempt = 0; attempt < 120; attempt++) {
     if (chrome.exitCode !== null) throw Error('Chromium exited before connecting.')
     try {
-      const response = await fetch('http://127.0.0.1:' + port + '/json/new?about:blank', {method:'PUT'})
-      if (response.ok) { tab = await response.json(); break }
+      const response = await fetch('http://127.0.0.1:' + port + '/json/list')
+      if(response.ok){
+        const targets=await response.json()
+        tab=Array.isArray(targets)?targets.find(t=>t.type==='page'&&t.webSocketDebuggerUrl):null
+        if(tab)break
+      }
     } catch {}
     await delay(150)
   }
-  assert.ok(tab?.webSocketDebuggerUrl, 'Could not open a Chromium debugging target.')
+  assert.ok(tab?.webSocketDebuggerUrl, 'Could not open a Chromium debugging target. '+browserStderr)
   ws = new WebSocket(tab.webSocketDebuggerUrl)
   await new Promise((resolve, reject) => {
     ws.addEventListener('open', resolve, {once:true})
