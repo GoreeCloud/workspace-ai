@@ -34,4 +34,11 @@ jobs:
             fi
             sleep 0.25
           done
-          CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github
+          if CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github >"$RUNNER_TEMP/browser-smoke.log" 2>&1; then
+            cat "$RUNNER_TEMP/browser-smoke.log"
+          else
+            cat "$RUNNER_TEMP/browser-smoke.log"
+            grep -Eq 'Could not open a Chromium debugging target|Chromium exited before connecting' "$RUNNER_TEMP/browser-smoke.log" || exit 1
+            echo "Retrying transient Chromium startup with a fresh test profile."
+            CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github
+          fi
