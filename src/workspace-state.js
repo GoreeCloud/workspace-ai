@@ -9,6 +9,7 @@ export const NAV_SECTIONS=[
  {id:'api',label:'API',icon:'waypoints'},
  {id:'projects',label:'Projects',icon:'folder-kanban'},
  {id:'agents',label:'Agents',icon:'bot'},
+ {id:'images',label:'Smart Images',icon:'images'},
  {id:'prompts',label:'Prompts',icon:'book-open'},
  {id:'pinned',label:'Pinned',icon:'pin'},
  {id:'chats',label:'All Chats',icon:'messages-square'},
