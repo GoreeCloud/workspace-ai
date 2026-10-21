@@ -41,15 +41,18 @@ export async function runDocumentWorker(payload,{python=process.env.WORKSPACE_DO
  })
 }
 export function attachDocumentRoutes(app,allowedOrigins,{convert=runDocumentWorker}={}){
+ let active=0
  app.post('/api/documents/operate',async(req,res)=>{
   if(!allowedOrigins.has(req.headers.origin))return res.status(403).json({error:'Origin not allowed.'})
   res.setHeader('Cache-Control','no-store')
   res.setHeader('Content-Security-Policy',"default-src 'none'")
+  if(active>=2)return res.status(429).json({error:"Document converter is busy."})
+  active++
   try{
    const result=await convert(req.body)
    res.json(result)
   }catch(error){
    res.status(error.status||500).json({error:error.message||'Document operation failed.'})
-  }
+  }finally{active--}
  })
 }
