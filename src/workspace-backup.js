@@ -3,6 +3,7 @@ import {normalizePrompts} from './prompt-library.js'
 import {normalizeAgents} from './agent-model.js'
 import {cleanProjectNavigation} from './project-sidebar.js'
 import {normalizeChatAttachments} from './chat-attachments.js'
+import {documentFilename,DOCUMENT_FORMATS} from './chat-document-intent.js'
 // A versioned, portable, local-only archive. Credentials and service sessions never enter this format.
 export const BACKUP_KIND = 'goreecloud.workspace-ai.backup'
 export const BACKUP_VERSION = 1
@@ -76,6 +77,7 @@ function validateChats(value) {
     if (content === undefined) throw Error('Missing message content')
     const out = {id: requiredString(m.id, 'message ID', 160), role: m.role, content}
     if(m.attachments!==undefined)out.attachments=normalizeChatAttachments(m.attachments)
+    if(m.document!==undefined){const d=m.document;if(m.role!=='assistant'||!record(d)||!DOCUMENT_FORMATS.includes(d.format))throw Error('Invalid document');const title=requiredString(d.title,'document title',160),source=requiredString(d.source,'document source',12000),name=documentFilename(title,d.format);if(d.name!==name||!Number.isSafeInteger(d.bytes)||d.bytes<12||d.bytes>6291456)throw Error('Invalid document file');out.document={title,source,format:d.format,name,bytes:d.bytes}}
     if (m.provider !== undefined) {
      if (!['plan','api'].includes(m.provider)) throw Error('Invalid message provider')
      out.provider = m.provider

@@ -3,6 +3,14 @@ import {spawn} from 'node:child_process'
 import {fileURLToPath} from 'node:url'
 const worker=fileURLToPath(new URL('./document_worker.py',import.meta.url))
 const fileNames=/^[A-Za-z0-9][A-Za-z0-9 _.()\-]{0,100}\.(docx|pptx|xlsx|pdf)$/i
+// A single capacity gate covers Document Studio and AI chat artifacts together.
+let activeDocumentWorkers=0
+export async function withDocumentWorkerSlot(work){
+ if(activeDocumentWorkers>=2)throw Object.assign(Error('Document converter is busy.'),{status:429})
+ activeDocumentWorkers++
+ try{return await work()}finally{activeDocumentWorkers--}
+}
+
 export async function runDocumentWorker(payload,{python=process.env.WORKSPACE_DOCUMENT_PYTHON||'python3',timeoutMs=15000}={}){
  if(!payload||!['open','edit','create'].includes(payload.action)||!fileNames.test(payload.name||''))
   throw Object.assign(Error('Unsupported document request.'),{status:400})
@@ -13,7 +21,7 @@ export async function runDocumentWorker(payload,{python=process.env.WORKSPACE_DO
  }
  if(payload.action==='edit'&&(!Array.isArray(payload.changes)||payload.changes.length<1||payload.changes.length>120))
   throw Object.assign(Error('Provide 1–120 edits.'),{status:400})
- return await new Promise((resolve,reject)=>{
+ return await withDocumentWorkerSlot(()=>new Promise((resolve,reject)=>{
   const child=spawn(python,['-I','-B',worker],{
    cwd:process.cwd(),stdio:['pipe','pipe','pipe'],
    env:{PATH:process.env.PATH||'',PYTHONIOENCODING:'utf-8',PYTHONDONTWRITEBYTECODE:'1'},windowsHide:true
@@ -38,7 +46,7 @@ export async function runDocumentWorker(payload,{python=process.env.WORKSPACE_DO
   })
   child.stdin.on('error',()=>{})
   child.stdin.end(JSON.stringify(payload))
- })
+ }))
 }
 export function attachDocumentRoutes(app,allowedOrigins,{convert=runDocumentWorker}={}){
  let active=0

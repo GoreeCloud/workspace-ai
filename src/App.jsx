@@ -19,6 +19,9 @@ import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProbl
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import ChatAttachments from './ChatAttachments.jsx';
 import ToolActivity from './ToolActivity.jsx';
+import ChatDocumentCard from './ChatDocumentCard.jsx';
+import {documentIntent,documentWritingPrompt,normalizeDocumentSource,latestDocument} from './chat-document-intent.js';
+import {renderChatDocument,downloadChatDocument,chatDocumentMetadata} from './chat-document-service.js';
 import {updateToolActivity,settleToolActivity} from './tool-activity.js';
 import {normalizeChatAttachments,messageWithAttachments,imageInputsForMessage} from './chat-attachments.js';
 import {projectContext,inferenceMessages} from './project-model.js';
@@ -203,7 +206,10 @@ async function send(value=draft){
   let pending;try{pending=normalizeChatAttachments(attachmentsDraft)}catch(e){setError(report(e));return}
   const images=imageInputsForMessage({attachments:pending});
   const text=value.trim()||(pending.length?'Please review the attached content.':'');
-  if(!text||!ready||busy||storageConflict)return;
+  const documentRequest=documentIntent(text,latestDocument(scopedChatMessages(chat)));
+  if(documentRequest?.kind==='missing-source'){setError('No earlier generated document is available in this conversation.');return}
+  if(!text||(!ready&&documentRequest?.kind!=='convert')||busy||storageConflict)return;
+  if(documentRequest?.kind==='convert'&&pending.length){setError('Remove attachments before converting an earlier document.');return}
   if(images.length&&provider!=='api'){setError('Images require the separately billed OpenAI API. Choose OpenAI API under Models & billing before sending.');return}
   if(!chat&&chatsRef.current.length>=50){setError('Workspace AI stores at most 50 conversations. Delete an old chat before starting another.');return}
   const id=chat?.id||crypto.randomUUID();
@@ -213,25 +219,35 @@ async function send(value=draft){
   const requestHistory=[...scopedChatMessages(chat),message]; // Send only the current project segment.
   let preparedMessages
   try{preparedMessages=inferenceMessages(requestHistory.map(m=>({...m,content:messageWithAttachments(m)})),context)}catch(e){setError(report(e));return}
+  if(documentRequest?.kind==='create'){
+   const last=preparedMessages.at(-1)
+   preparedMessages=[...preparedMessages.slice(0,-1),{...last,content:last.content+'\n\n'+documentWritingPrompt(documentRequest)}]
+  }
   const answer={id:crypto.randomUUID(),role:'assistant',content:''};
   if(!commitChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:activeProjectId||null,updatedAt:Date.now()},...v]))return;
   setCurrent(id);setDraft('');setAttachmentsDraft([]);setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
   try{
+    if(documentRequest?.kind==='convert'){
+     const file=await renderChatDocument(documentRequest)
+     changeLast(id,m=>({...m,content:'Created '+file.name+' from the earlier document.',document:chatDocumentMetadata(file,documentRequest.source,documentRequest.title)}))
+     downloadChatDocument(file)
+     return
+    }
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json',...(browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{})},body:JSON.stringify({
       messages:preparedMessages,images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
     if(!response.body)throw Error('The server returned no stream');
     const reader=response.body.getReader(),decoder=new TextDecoder();
-    let buffer='',complete=false;
+    let buffer='',complete=false,generatedText='';
     const update=line=>{
       if(!line.trim())return;
       const e=JSON.parse(line);
       if(e.type==='meta')changeLast(id,m=>({...m,provider:e.provider,model:e.model}));
        if(e.type==='tool')changeLast(id,m=>({...m,toolActivity:updateToolActivity(m.toolActivity,e)}));
        if(e.type==='usage'&&Number.isSafeInteger(e.cachedInputTokens)&&e.cachedInputTokens>=0&&Number.isSafeInteger(e.inputTokens)&&e.inputTokens>=e.cachedInputTokens)changeLast(id,m=>({...m,usage:{cachedInputTokens:e.cachedInputTokens,inputTokens:e.inputTokens}}));
-      if(e.type==='delta')changeLast(id,m=>({...m,content:m.content+(e.text||'')}));
+      if(e.type==='delta'){generatedText+=e.text||'';changeLast(id,m=>({...m,content:m.content+(e.text||'')}))}
       if(e.type==='complete')complete=true;
       if(e.type==='error')throw Error(e.message||'Streaming error');
     };
@@ -245,6 +261,12 @@ async function send(value=draft){
       if(buffer.trim())update(buffer);
     }finally{reader.releaseLock()}
     if(!complete)throw Error('Response ended unexpectedly');
+    if(documentRequest?.kind==='create'){
+     const source=normalizeDocumentSource(generatedText)
+     const file=await renderChatDocument({...documentRequest,source})
+     changeLast(id,m=>({...m,content:source,document:chatDocumentMetadata(file,source,documentRequest.title)}))
+     downloadChatDocument(file)
+    }
      changeLast(id,m=>({...m,toolActivity:settleToolActivity(m.toolActivity)}));
   }catch(e){
     const message=stop.signal.aborted?'Generation stopped':report(e);
@@ -314,7 +336,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} busy={busy||storageConflict} onUsePrompt={useSavedPrompt} onOpenProject={id=>{setSelectedProject(id);setView('projects')}} onOpenSettings={(tab='connections')=>{setSettingsTab(tab);setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
  <p className="eyebrow">✦ YOUR SPACE TO THINK BIGGER</p><div className="bigIcon"><Sparkles size={38}/></div>
  <h1>Good ideas start <em>here.</em></h1><p>Ask anything, create something, or follow your curiosity.<br/>Your AI workspace, your way.</p>
- <div className="ideas">{[['Explore an idea','Turn curiosity into clarity','Help me turn a new idea into a concrete project.'],['Write code','Build, debug and create','Help me plan and build a useful application.'],['Create content','Find the right words','Help me draft a clear and thoughtful article.'],['Learn something','Go beyond the surface','Explain an interesting concept with examples.']].map(([title,sub,idea],i)=><button key={title} className="idea" onClick={()=>{setDraft(idea);prompt.current?.focus()}}><span className={'ideaIcon icon'+i}>{i===0?<Sparkles size={19}/>:i===1?'⌘':i===2?'✎':'◇'}</span><span><strong>{title}</strong><small>{sub}</small></span><span className="ideaArrow">→</span></button>)}</div></section>:
+ <div className="ideas">{[['Explore an idea','Turn curiosity into clarity','Help me turn a new idea into a concrete project.'],['Write code','Build, debug and create','Help me plan and build a useful application.'],['Create a document','Word, Markdown or PDF','Create a Word document about GoreeCloud Integral Platform Systems.'],['Learn something','Go beyond the surface','Explain an interesting concept with examples.']].map(([title,sub,idea],i)=><button key={title} className="idea" onClick={()=>{setDraft(idea);prompt.current?.focus()}}><span className={'ideaIcon icon'+i}>{i===0?<Sparkles size={19}/>:i===1?'⌘':i===2?'✎':'◇'}</span><span><strong>{title}</strong><small>{sub}</small></span><span className="ideaArrow">→</span></button>)}</div></section>:
  <><div className="chatSearchBar" hidden={!chatSearchOpen}>
   <Search size={16}/><input aria-label="Search within conversation" value={chatSearchQuery} onChange={e=>setChatSearchQuery(e.target.value)} placeholder="Search this chat"/>
   <span>{chatSearchQuery.trim()?chat.messages.filter(m=>m.content.toLowerCase().includes(chatSearchQuery.trim().toLowerCase())).length+' matches':'Search messages'}</span>
@@ -323,7 +345,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <section className="feed" aria-label="Conversation messages">{chat.messages.map((m,messageIndex)=>chatSearchOpen&&chatSearchQuery.trim()&&!m.content.toLowerCase().includes(chatSearchQuery.trim().toLowerCase())?null:<article className={'message '+m.role} key={m.id}>
  {m.role==='assistant'&&<div className="avatar"><Sparkles size={16}/></div>}
  <div className="msgContent">{m.role==='assistant'&&<strong className="byline">Workspace AI <small>{m.provider==='plan'?'· ChatGPT plan':m.provider==='api'?'· OpenAI API':''}</small>{m.usage?.cachedInputTokens>0&&<small title="Provider-reported cached input tokens; cached tokens are still part of the total input"> · {m.usage.cachedInputTokens.toLocaleString()} of {m.usage.inputTokens.toLocaleString()} input tokens cached</small>}</strong>}
- {m.role==='user'?<div className="userBubble">{m.content}{Array.isArray(m.attachments)&&m.attachments.length>0&&<div className="chatMessageAttachments">{m.attachments.map((file,i)=>file.kind==='image'?<img key={i} src={file.dataUrl} alt={'Attached '+file.name} loading="lazy"/>:<small key={i}>Attached file: {file.name}</small>)}</div>}</div>:<><ToolActivity items={m.toolActivity}/><div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div></>}
+ {m.role==='user'?<div className="userBubble">{m.content}{Array.isArray(m.attachments)&&m.attachments.length>0&&<div className="chatMessageAttachments">{m.attachments.map((file,i)=>file.kind==='image'?<img key={i} src={file.dataUrl} alt={'Attached '+file.name} loading="lazy"/>:<small key={i}>Attached file: {file.name}</small>)}</div>}</div>:<><ToolActivity items={m.toolActivity}/><div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div><ChatDocumentCard document={m.document}/></>}
  {m.role==='assistant'&&!!m.content&&<div className="messageTools"><button className="copy" onClick={()=>navigator.clipboard.writeText(m.content).catch(()=>setError('Could not copy text'))}><Copy size={14}/>Copy</button>
  {activeProject?.memoryEnabled&&!m.error&&messageIndex>=conversationContextStart(chat)&&<button className="copy" disabled={busy} onClick={()=>setMemoryDraft({projectId:activeProject.id,chatId:chat.id,messageId:m.id,text:memoryCandidateFromMessage(m.content)})}><Sparkles size={14}/>Review for project memory</button>}</div>}
  {memoryDraft?.chatId===chat.id&&memoryDraft?.messageId===m.id&&memoryDraft?.projectId===activeProject?.id&&<div className="memoryReview">
@@ -334,13 +356,13 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <button className="outline" onClick={()=>setMemoryDraft(null)}>Cancel</button></div></div>}
  </div></article>)}<div ref={bottom}/></section></>}</div>
  {view==='chat'&&<div className="composerArea">{chat&&conversationContextStart(chat)>0&&<p className="disclaimer" role="status">This chat was moved between projects. Older messages remain visible, but the AI does not receive them in new requests.</p>}{activeProject&&<div className="workspaceScope">Project: {activeProject.name} · {activeProject.files?.length||0} files · Project instructions active {chat?<button title="Move chat to no project" aria-label="Move chat out of project" disabled={busy} onClick={()=>assignChat(chat.id,null)}>Remove from project</button>:<button title="New chat outside project" aria-label="Start a chat outside this project" onClick={()=>setSelectedProject(null)}>×</button>}</div>}{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
- {!ready&&<div className="notice"><span>Connect ChatGPT or configure a separately billed OpenAI API connection.</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}
+ {!ready&&<div className="notice"><span>Connect ChatGPT or an OpenAI API to draft new content. Existing documents can still be converted and downloaded offline.</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}
  <div className="composer"><textarea ref={prompt} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={12000} rows={2} placeholder="Ask anything…" aria-label="Message to Workspace AI" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send()}}}/>
  <div className="composerBottom">
   <ChatAttachments items={attachmentsDraft} onChange={setAttachmentsDraft} onError={setError} disabled={busy||Boolean(storageConflict)} availablePrompts={promptsForContext(workspace.prompts||[],activeProjectId)} onSavedPrompt={item=>{try{setDraft(old=>appendPromptDraft(old,item.content))}catch(e){setError(report(e))}}}/>
   <button type="button" className="chatEmbeddedButton" disabled={busy} aria-label={listening?'Stop microphone dictation':'Start microphone dictation'} title="Voice dictation (browser microphone)" onClick={toggleDictation}>{listening?<MicOff size={20}/>:<Mic size={20}/>}</button>
   <button type="button" className="chatEmbeddedButton" aria-label={chatFullscreen?'Exit full-screen chat':'Full-screen chat'} aria-pressed={chatFullscreen} onClick={()=>setChatFullscreen(v=>!v)}>{chatFullscreen?<Minimize2 size={19}/>:<Maximize2 size={19}/>}</button>
-  <button className="send" disabled={!busy&&(!ready||(!draft.trim()&&!attachmentsDraft.length)||storageConflict)} onClick={()=>busy?controller.current?.abort():void send()} aria-label={busy?'Stop generation':'Send message'}>{busy?<Square size={16} fill="currentColor"/>:<ArrowUp size={19}/>}</button>
+  <button className="send" disabled={!busy&&((!ready&&documentIntent(draft,latestDocument(scopedChatMessages(chat)))?.kind!=='convert')||(!draft.trim()&&!attachmentsDraft.length)||storageConflict)} onClick={()=>busy?controller.current?.abort():void send()} aria-label={busy?'Stop generation':'Send message'}>{busy?<Square size={16} fill="currentColor"/>:<ArrowUp size={19}/>}</button>
  </div></div>
  <p className="disclaimer">Workspace AI can make mistakes. Verify important information. <span>POWERED BY OPENAI</span></p></div>}
 </main>

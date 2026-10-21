@@ -18,6 +18,7 @@ import {attachAccountSyncRelay} from './account-sync-relay.mjs'
 import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
 import {attachDocumentRoutes} from './document-routes.mjs'
+import {attachChatDocumentRoutes} from './ai-document-routes.mjs'
 import {attachSmartImageRoutes} from './smart-image-routes.mjs'
 
 const app = express()
@@ -56,6 +57,7 @@ app.use('/api/smart-images',express.json({limit:'24kb'}))
 app.use(express.json({ limit: '90kb' }))
 const localOrigins=new Set([clientOrigin,'http://127.0.0.1:5173'])
 attachDocumentRoutes(app,localOrigins)
+attachChatDocumentRoutes(app,localOrigins)
 const smartImageRoutes=attachSmartImageRoutes(app,localOrigins)
 const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
 const mcpIntegration=attachIntegrationRoutes(app,localOrigins,{onMcpChange:provider=>mcpApproval.revokeProvider(provider)})
