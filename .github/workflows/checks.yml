@@ -53,6 +53,8 @@ jobs:
         run: bash -n scripts/private-dev-qa-gateway-check.sh
       - name: Syntax-check Caddy candidate preflight
         run: bash -n scripts/private-dev-caddy-preflight.sh
+      - name: Syntax-check disposable TLS QA gateway rehearsal
+        run: bash -n scripts/private-dev-qa-gateway-rehearsal.sh
       - name: Validate isolated Docker Compose configuration
         run: docker compose -f deploy/private-dev/compose.yaml config --quiet
       - name: Build and start private development smoke backend
