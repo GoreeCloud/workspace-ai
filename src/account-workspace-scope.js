@@ -1,5 +1,5 @@
 let activeScope=null
-const supported=new Set(['workspace-ai-history-v1','workspace-ai-workspace-v1','workspace-ai-theme','workspace-ai-synced-account-v1'])
+const supported=new Set(['workspace-ai-history-v1','workspace-ai-workspace-v1','workspace-ai-theme','workspace-ai-synced-account-v1','workspace-ai-profile-avatar-v1'])
 export function selectBrowserAccount(scope){if(scope!==null&&(typeof scope!=='string'||!/^[a-f0-9]{24}$/.test(scope)))throw Error('Invalid account identity');activeScope=scope}
 export function browserAccountScope(){return activeScope}
 export function accountScopedKey(key){if(!supported.has(key))throw Error('Unsupported storage key');return activeScope?'workspace-ai-account-'+activeScope+':'+key:key}

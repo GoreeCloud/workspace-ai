@@ -75,6 +75,8 @@ export async function exchangeCode({ code, issuedId, attempt }) {
   return {
     subject: payload.sub,
     email: typeof payload.email === 'string' ? payload.email : null,
+    display_name: typeof payload.name==='string'&&payload.name.trim()?payload.name.trim().slice(0,90):null,
+    username: typeof payload.preferred_username==='string'&&payload.preferred_username.trim()?payload.preferred_username.trim().slice(0,90):null,
     client_id: clientId,
     id_token: token.id_token,
     access_token: token.access_token,

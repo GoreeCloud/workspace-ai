@@ -99,6 +99,8 @@ export function publicStatus(profile, apiConfigured = false) {
     accounts:publicAccounts(profile),
     planEnabled: Boolean(account?.scopes?.includes('chatgpt.tokens.use.direct')),
     email: account?.email || null,
+    displayName:typeof account?.display_name==='string'?account.display_name:null,
+    username:typeof account?.username==='string'?account.username:null,
     apiConfigured,
     model: process.env.OPENAI_API_MODEL || 'gpt-5-mini'
   }

@@ -1,0 +1,61 @@
+{
+  "name": "@goreecloud/workspace-ai-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Development-only Electron desktop shell for Workspace AI",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "package:linux": "electron-builder --linux AppImage deb --publish never",
+    "package:windows": "electron-builder --win nsis portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "cloud.goree.workspaceai",
+    "productName": "GoreeCloud Workspace AI",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "navigation.cjs",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "workspace/server"
+      },
+      {
+        "from": "../dist",
+        "to": "workspace/dist"
+      },
+      {
+        "from": "../node_modules",
+        "to": "workspace/node_modules"
+      },
+      {
+        "from": "../package.json",
+        "to": "workspace/package.json"
+      }
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "../public/icons/icon-512.png"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
+  }
+}
