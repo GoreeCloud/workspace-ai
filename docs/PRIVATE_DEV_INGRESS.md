@@ -49,6 +49,16 @@ Before and after deployment, inspect `docker port <container-id>` (must be empty
 
 GitHub Actions includes an independent Docker Compose smoke job that builds the image, checks health, verifies **no published port**, tests a valid Host and denial of invalid Host/Origin, and removes resources afterward. CI is not evidence of VPS deployment, NetBird ingress, certificate trust, browser UX, or owner-specific authentication.
 
+## Inactive private Caddy integration template
+
+The repository includes an **unapplied** `deploy/private-dev/Caddyfile.private.example` with private NetBird source matching, an owner-specific Caddy Basic Authentication gate, DNS-01 TLS configuration, and a default 403. It deliberately strips the gateway's `Authorization` and `Proxy-Authorization` headers before proxying to the backend. Do not store plaintext or hashed owner passwords in GitHub; provision a separate development-only bcrypt hash through a restricted environment variable after the host's Caddy version, DNS provider configuration, and secret delivery are reviewed.
+
+`deploy/private-dev/compose.ingress.yaml` is also **unapplied**. It requires a separately provisioned internal Docker network named `goreecloud-workspace-ai-private-ingress` that only the authorized Caddy reverse proxy and this development backend can reach. The base smoke Compose configuration does not attach Caddy and remains the default. No public port publishing, production application credentials, or shared Docker proxy-network attachment is authorized by these templates.
+
+Before any live activation, capture the existing container/network topology, Caddyfile revision, certificate state, Caddy version/plugins and complete route snapshot; validate the proposed combined configuration using the exact existing Caddy binary and plugin set; confirm that owner-only authentication is active **before** attaching a reachable backend; rehearse restoring the previous Caddy configuration and Docker network connections in a permitted test target. A proxy reload and production/shared-container network mutation are separate risk-bearing operations and were not performed for this PR.
+
+Caddy's Basic Authentication is a *temporary one-owner development gate*, not SSO, account isolation, or proof that the Workspace AI backend is safe for concurrent users. In particular, anyone with the gateway password would still share the backend's server-side account profile; continue using synthetic profiles and no API/OAuth credentials until proper per-user authorization and isolation are validated.
+
 ## Mandatory ingress gates before a Caddy change
 
 1. Preserve the private/split-horizon DNS rewrite. Do not create a public A/AAAA record for this hostname.
