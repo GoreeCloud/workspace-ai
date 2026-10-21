@@ -8,6 +8,7 @@ import WorkspaceBackup from './WorkspaceBackup.jsx';
 import AccountSyncPanel from './AccountSyncPanel.jsx';
 import {useAccountSync} from './use-account-sync.js';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
+import {prepareProjectDeletion} from './project-deletion.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from './browser-storage-guard.js';
@@ -203,6 +204,16 @@ function saveReviewedMemory(){
   }
  }catch(e){setError(report(e))}
 }
+function deleteProject(projectId){
+ if(busy||storageConflict){setError('Stop the current response or resolve the storage conflict first.');return false}
+ try{
+  const next=prepareProjectDeletion(chatsRef.current,workspaceRef.current,projectId)
+  storageGuard.current.restore(()=>persistWorkspaceRestore(localStorage,KEY,WORKSPACE_KEY,next))
+  chatsRef.current=next.chats;workspaceRef.current=next.workspace
+  setChats(next.chats);setWorkspace(next.workspace);setSelectedProject(null);setMemoryDraft(null)
+  return true
+ }catch(e){handleStorageFailure(e);return false}
+}
 function restoreWorkspace(archive,mode,prefs){
  if(busy||storageConflict)throw Error('Stop generation or reload the tab before restoring conversations');
  const restored=prepareWorkspaceRestore(chats,workspace,archive,mode);
@@ -222,7 +233,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  {sync.state!=='enabled'&&<div className="notice" role="status"><ShieldCheck size={16}/><span>Local device data only. Signing in does not automatically sync projects, memories or chats to other devices; lost browser data may not be recoverable.</span><button type="button" onClick={()=>{setSettingsTab('privacy');setSettings(true)}}>Data &amp; sync</button></div>}
  {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  <div className="viewport">{view!=='chat'?<WorkspaceViews view={view} chats={chats} workspace={workspace} onWorkspace={updateWorkspace}
- onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat} onRenameChat={renameChat}
+ onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat} onRenameChat={renameChat} onDeleteProject={deleteProject}
  selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} busy={busy||storageConflict} onUsePrompt={useSavedPrompt} onOpenProject={id=>{setSelectedProject(id);setView('projects')}} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
  <p className="eyebrow">✦ YOUR SPACE TO THINK BIGGER</p><div className="bigIcon"><Sparkles size={38}/></div>
  <h1>Good ideas start <em>here.</em></h1><p>Ask anything, create something, or follow your curiosity.<br/>Your AI workspace, your way.</p>
