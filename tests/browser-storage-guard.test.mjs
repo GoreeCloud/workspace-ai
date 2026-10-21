@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {BrowserStorageConflict,createBrowserStorageGuard} from '../src/browser-storage-guard.js'
+import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from '../src/browser-storage-guard.js'
 import {persistWorkspaceChange} from '../src/workspace-persistence.js'
 import {newProject} from '../src/project-model.js'
 
@@ -96,4 +96,15 @@ test('App protects initial sends at the persisted 50-chat limit and exposes stal
  assert.match(app,/storageGuard\.current\.restore/)
  assert.match(app,/storageGuard\.current\.watch\(event\.key\)/)
  assert.match(app,/Reload latest/)
+})
+
+test('unreadable chat or project storage blocks startup without clearing data',()=>{
+ const corruptChats=store({[CHAT]:'{malformed',[WORKSPACE]:'{"projects":[],"pinned":[]}'})
+ assert.match(browserStorageLoadProblem(corruptChats,CHAT,WORKSPACE),/read-only/)
+ assert.equal(corruptChats.getItem(CHAT),'{malformed')
+ const corruptWorkspace=store({[CHAT]:'[]',[WORKSPACE]:'{"projects":null,"pinned":[]}'})
+ assert.match(browserStorageLoadProblem(corruptWorkspace,CHAT,WORKSPACE),/read-only/)
+ assert.equal(corruptWorkspace.getItem(WORKSPACE),'{"projects":null,"pinned":[]}')
+ assert.equal(browserStorageLoadProblem(store({[CHAT]:'[]',[WORKSPACE]:'{"projects":[],"pinned":[]}'}),CHAT,WORKSPACE),null)
+ assert.equal(browserStorageLoadProblem(store(),CHAT,WORKSPACE),null)
 })
