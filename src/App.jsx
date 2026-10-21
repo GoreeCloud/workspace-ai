@@ -18,6 +18,8 @@ import {persistWorkspaceChange} from './workspace-persistence.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import ChatAttachments from './ChatAttachments.jsx';
+import ToolActivity from './ToolActivity.jsx';
+import {updateToolActivity,settleToolActivity} from './tool-activity.js';
 import {normalizeChatAttachments,messageWithAttachments,imageInputsForMessage} from './chat-attachments.js';
 import {projectContext,inferenceMessages} from './project-model.js';
 import {memoryCandidateFromMessage} from './project-memory.js';
@@ -227,6 +229,7 @@ async function send(value=draft){
       if(!line.trim())return;
       const e=JSON.parse(line);
       if(e.type==='meta')changeLast(id,m=>({...m,provider:e.provider,model:e.model}));
+       if(e.type==='tool')changeLast(id,m=>({...m,toolActivity:updateToolActivity(m.toolActivity,e)}));
       if(e.type==='delta')changeLast(id,m=>({...m,content:m.content+(e.text||'')}));
       if(e.type==='complete')complete=true;
       if(e.type==='error')throw Error(e.message||'Streaming error');
@@ -241,9 +244,10 @@ async function send(value=draft){
       if(buffer.trim())update(buffer);
     }finally{reader.releaseLock()}
     if(!complete)throw Error('Response ended unexpectedly');
+     changeLast(id,m=>({...m,toolActivity:settleToolActivity(m.toolActivity)}));
   }catch(e){
     const message=stop.signal.aborted?'Generation stopped':report(e);
-    changeLast(id,m=>({...m,error:true,content:m.content||message}));
+    changeLast(id,m=>({...m,error:true,content:m.content||message,toolActivity:settleToolActivity(m.toolActivity)}));
     setError(message);
   }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
 }
@@ -318,7 +322,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <section className="feed" aria-label="Conversation messages">{chat.messages.map((m,messageIndex)=>chatSearchOpen&&chatSearchQuery.trim()&&!m.content.toLowerCase().includes(chatSearchQuery.trim().toLowerCase())?null:<article className={'message '+m.role} key={m.id}>
  {m.role==='assistant'&&<div className="avatar"><Sparkles size={16}/></div>}
  <div className="msgContent">{m.role==='assistant'&&<strong className="byline">Workspace AI <small>{m.provider==='plan'?'· ChatGPT plan':m.provider==='api'?'· OpenAI API':''}</small></strong>}
- {m.role==='user'?<div className="userBubble">{m.content}{Array.isArray(m.attachments)&&m.attachments.length>0&&<div className="chatMessageAttachments">{m.attachments.map((file,i)=>file.kind==='image'?<img key={i} src={file.dataUrl} alt={'Attached '+file.name} loading="lazy"/>:<small key={i}>Attached file: {file.name}</small>)}</div>}</div>:<div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div>}
+ {m.role==='user'?<div className="userBubble">{m.content}{Array.isArray(m.attachments)&&m.attachments.length>0&&<div className="chatMessageAttachments">{m.attachments.map((file,i)=>file.kind==='image'?<img key={i} src={file.dataUrl} alt={'Attached '+file.name} loading="lazy"/>:<small key={i}>Attached file: {file.name}</small>)}</div>}</div>:<><ToolActivity items={m.toolActivity}/><div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div></>}
  {m.role==='assistant'&&!!m.content&&<div className="messageTools"><button className="copy" onClick={()=>navigator.clipboard.writeText(m.content).catch(()=>setError('Could not copy text'))}><Copy size={14}/>Copy</button>
  {activeProject?.memoryEnabled&&!m.error&&messageIndex>=conversationContextStart(chat)&&<button className="copy" disabled={busy} onClick={()=>setMemoryDraft({projectId:activeProject.id,chatId:chat.id,messageId:m.id,text:memoryCandidateFromMessage(m.content)})}><Sparkles size={14}/>Review for project memory</button>}</div>}
  {memoryDraft?.chatId===chat.id&&memoryDraft?.messageId===m.id&&memoryDraft?.projectId===activeProject?.id&&<div className="memoryReview">
