@@ -1,15 +1,16 @@
 import { createHash, randomBytes } from 'node:crypto'
 import { createRemoteJWKSet, jwtVerify } from 'jose'
 import { readProfile, updateProfile } from './storage.mjs'
+import {accountId,refreshSavedAccount,removeAccount} from './account-profiles.mjs'
 
 export const AUTH_BASE = 'https://auth.openai.com'
 export const RESOURCE = 'https://api.openai.com/v1'
 export const SCOPES = 'openid profile email offline_access resource.invoke chatgpt.tokens.use.direct'
 const jwks = createRemoteJWKSet(new URL(AUTH_BASE + '/.well-known/jwks.json'))
 const pending = new Map()
-let refreshPending = null
+const refreshPending=new Map()
 
-export function makeAttempt({ hostId, callback, current }) {
+export function makeAttempt({ hostId, callback, current, allowOtherAccount=false }) {
   const state = randomBytes(32).toString('base64url')
   const nonce = randomBytes(32).toString('base64url')
   const verifier = randomBytes(48).toString('base64url')
@@ -27,10 +28,10 @@ export function makeAttempt({ hostId, callback, current }) {
     ext_agent_host_id: hostId
   })
   if (!current?.client_id) query.set('agent_name_hint', 'GoreeCloud Workspace AI')
-  if (current?.email) query.set('login_hint', current.email)
-  if (current?.id_token) query.set('id_token_hint', current.id_token)
+  if (!allowOtherAccount && current?.email) query.set('login_hint', current.email)
+  if (!allowOtherAccount && current?.id_token) query.set('id_token_hint', current.id_token)
   for (const [key, attempt] of pending) if (attempt.created < Date.now() - 600_000) pending.delete(key)
-  pending.set(state, { nonce, verifier, callback, clientId, subject: current?.subject, created: Date.now() })
+  pending.set(state, { nonce, verifier, callback, clientId, subject: allowOtherAccount?null:current?.subject, created: Date.now() })
   return AUTH_BASE + '/api/accounts/authorize?' + query.toString()
 }
 
@@ -83,14 +84,15 @@ export async function exchangeCode({ code, issuedId, attempt }) {
   }
 }
 
-export async function getPlanToken() {
+export async function getPlanToken(expectedAccountId) {
   const profile = await readProfile()
   const account = profile.account
+  if (expectedAccountId!==undefined && accountId(account?.subject)!==expectedAccountId)throw Error('Account changed; reload before using the plan')
   if (!account?.access_token || !account.scopes?.includes('chatgpt.tokens.use.direct')) return null
   if (account.expires_at > Date.now() + 120_000) return account.access_token
   if (!account.refresh_token) return null
-  if (!refreshPending) {
-    refreshPending = (async () => {
+  if (!refreshPending.has(account.subject)) {
+    const task = (async () => {
       const newer = await tokenRequest({
         grant_type: 'refresh_token',
         client_id: account.client_id,
@@ -113,22 +115,22 @@ export async function getPlanToken() {
       // An in-flight refresh must never overwrite a newly signed-in account.
       let applied=false
       await updateProfile(previous => {
-        if (previous.account?.subject!==account.subject ||
-            previous.account?.client_id!==account.client_id ||
-            previous.account?.refresh_token!==account.refresh_token) return previous
-        applied=true
-        return {...previous,account:updated}
+        const next=refreshSavedAccount(previous,account,updated)
+        applied=next!==previous
+        return next
       })
       if(!applied)throw Error('Account changed during token renewal.')
       return updated.access_token
-    })().finally(() => { refreshPending = null })
+    })().finally(() => { refreshPending.delete(account.subject) })
+    refreshPending.set(account.subject,task)
   }
-  return refreshPending
+  return refreshPending.get(account.subject)
 }
 
-export async function disconnectAccount() {
+export async function disconnectAccount(expectedAccountId) {
   const profile = await readProfile()
   const account = profile.account
+  if(!account?.subject||accountId(account.subject)!==expectedAccountId)throw Error('Active account changed before sign out')
   let revoked = true
   if (account?.refresh_token) {
     try {
@@ -145,11 +147,9 @@ export async function disconnectAccount() {
       revoked = response.ok
     } catch { revoked = false }
   }
-  await updateProfile(previous => ({
-    ...previous,
-    account: previous.account
-      ? { subject: account.subject, client_id: account.client_id, email: account.email }
-      : undefined
-  }))
+  await updateProfile(previous=>{
+    if(previous.account?.subject!==account.subject||previous.account?.refresh_token!==account.refresh_token)throw Error('Account changed while signing out')
+    return removeAccount(previous,account.subject)
+  })
   return revoked
 }
