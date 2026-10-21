@@ -5,7 +5,7 @@ import {validateLinkedSource,MAX_LINKED_SOURCES} from './project-linked-source.j
 // Project workspaces: validated browser-local metadata and explicit sharing only.
 export const PROJECT_GLYPHS = ['folder','sparkles','code','book','briefcase','flask','rocket','globe','heart','shield','palette','database']
 export const PROJECT_API_SERVICES = ['todoist','github','dropbox','linear','google-drive','gmail','cloudflare']
-export const PROJECT_MCP_SERVICES = ['remote-desktop-commander','firecrawl']
+export const PROJECT_MCP_SERVICES = ['remote-desktop-commander','firecrawl','todoist-mcp','google-drive-mcp','gmail-mcp','github-mcp','dropbox-mcp','linear-mcp','notion-mcp']
 export const PROJECT_FILE_MAX_BYTES = 64 * 1024
 export const PROJECT_FILE_MAX_COUNT = 10
 export const PROJECT_TEXT_BUDGET = 7000

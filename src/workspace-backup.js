@@ -39,6 +39,7 @@ function validateWorkspace(value) {
  return {
   projects:normalizeProjects(projects),
   agents:normalizeAgents(value.agents??[],projects),
+  preferences:{appearance:['light','dark','system'].includes(value.preferences?.appearance)?value.preferences.appearance:'system'},
   prompts:normalizePrompts(value.prompts??[],[...ids],true),
   pinned: [...new Set(pinned)],
   collapsed: value.collapsed === true,
@@ -146,6 +147,7 @@ export function prepareWorkspaceRestore(existingChats, existingWorkspace, archiv
    ...oldWorkspace,
    projects: mergedProjects,
    agents: mergedAgents,
+   preferences:oldWorkspace.preferences||imported.workspace.preferences,
    prompts: mergedPrompts,
    pinned: [...new Set(pins)].filter(id => chatIds.has(id)).slice(0, 200)
   },

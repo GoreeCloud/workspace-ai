@@ -12,7 +12,7 @@ export const NAV_SECTIONS=[
  {id:'chats',label:'All Chats',icon:'messages-square'},
  {id:'settings',label:'Settings',icon:'settings-2'}
 ]
-export const BLANK_WORKSPACE={projects:[],agents:[],prompts:[],pinned:[],collapsed:false,expanded:{projects:true,agents:true,prompts:true,pinned:true,chats:true}}
+export const BLANK_WORKSPACE={projects:[],agents:[],prompts:[],pinned:[],preferences:{appearance:'system'},collapsed:false,expanded:{projects:true,agents:true,prompts:true,pinned:true,chats:true}}
 export function readWorkspace(){
  try{
   const raw=JSON.parse(localStorage.getItem(WORKSPACE_KEY)||'null')
@@ -20,6 +20,7 @@ export function readWorkspace(){
   const projects=Array.isArray(raw.projects)?normalizeProjects(raw.projects.slice(0,100).flatMap(p=>{try{return [normalizeProject(p)]}catch{return []}})):[]
   return {
    projects,agents:normalizeAgents(raw.agents||[],projects),
+   preferences:{appearance:['light','dark','system'].includes(raw.preferences?.appearance)?raw.preferences.appearance:'system'},
    prompts:normalizePrompts(raw.prompts||[],Array.isArray(raw.projects)?raw.projects.map(p=>p?.id):[]),
    pinned:Array.isArray(raw.pinned)?raw.pinned.filter(v=>typeof v==='string').slice(0,200):[],
    collapsed:raw.collapsed===true,
