@@ -24,6 +24,15 @@ export function moveProject(projects,order,pinned,id,direction){
  ;[next[i],next[j]]=[next[j],next[i]]
  return next
 }
+export function reorderProject(projects,order,pinned,sourceId,targetId){
+ const nav=cleanProjectNavigation(projects,order,pinned),pinSet=new Set(nav.pinnedProjects)
+ if(!nav.projectOrder.includes(sourceId)||!nav.projectOrder.includes(targetId))throw Error('Unknown project')
+ if(pinSet.has(sourceId)!==pinSet.has(targetId))throw Error('Pin or unpin a project before moving it between groups')
+ if(sourceId===targetId)return nav.projectOrder
+ const next=nav.projectOrder.filter(id=>id!==sourceId)
+ next.splice(next.indexOf(targetId),0,sourceId)
+ return next
+}
 export function chatsForProject(chats,pinned,projectId){
  const selected=(Array.isArray(chats)?chats:[]).filter(c=>c.projectId===projectId&&c.archived!==true)
  const pins=new Set(Array.isArray(pinned)?pinned:[])
