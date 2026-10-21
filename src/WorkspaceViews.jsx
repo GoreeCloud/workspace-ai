@@ -63,7 +63,7 @@ function ChatRow({chat,pinned,onSelect,onPin,onDelete,onAssign,onRename,projects
  <button className="iconAction" title={pinned?'Unpin':'Pin'} aria-label={pinned?'Unpin chat':'Pin chat'} onClick={()=>onPin(chat.id)}>{pinned?<PinOff size={16}/>:<Pin size={16}/>}</button>
  <button className="iconAction" title="Delete" aria-label="Delete chat" onClick={()=>onDelete(chat.id)}><Trash2 size={16}/></button></div>
 }
-export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelectChat,onNewChat,onDeleteChat,onAssignChat,onRenameChat,selectedProject,onProject,onOpenSettings,focusSearchRequest=0,busy=false,onUsePrompt,onOpenProject}){
+export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelectChat,onNewChat,onDeleteChat,onAssignChat,onRenameChat,onDeleteProject,selectedProject,onProject,onOpenSettings,focusSearchRequest=0,busy=false,onUsePrompt,onOpenProject}){
  const [query,setQuery]=useState(''),[name,setName]=useState(''),[createMemory,setCreateMemory]=useState(true)
  const searchRef=useRef(null)
  useEffect(()=>{if(view==='chats'&&focusSearchRequest>0)searchRef.current?.focus()},[focusSearchRequest,view])
@@ -72,7 +72,11 @@ export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelec
  const shown=searchChats(view==='pinned'?chats.filter(c=>workspace.pinned.includes(c.id)):chats,query,view==='projects'?selectedProject:null)
  const create=()=>{const title=name.trim().slice(0,90);if(!title||workspace.projects.length>=100)return;const id=crypto.randomUUID();if(!onWorkspace(w=>({...w,projects:[...w.projects,{...newProject(id,title),memoryEnabled:createMemory}]})))return;onProject(id);setName('');setCreateMemory(true)}
  const updateProject=(id,patch)=>onWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===id?normalizeProject({...p,...(typeof patch==='function'?patch(p):patch)}):p)}))
- const removeProject=()=>{if(busy||!project||!confirm('Delete project '+project.name+'? Chats will be kept.'))return;if(!onWorkspace(w=>({...w,prompts:(w.prompts||[]).filter(p=>p.projectId!==project.id),agents:(w.agents||[]).filter(a=>a.projectId!==project.id),projects:w.projects.filter(p=>p.id!==project.id).map(p=>({...p,shareFilesWith:(p.shareFilesWith||[]).filter(id=>id!==project.id)}))})))return;onProject(null);chats.filter(c=>c.projectId===project.id).forEach(c=>onAssignChat(c.id,null))}
+  const removeProject=()=>{
+   if(busy||!project)return
+   if(!confirm('Delete project '+project.name+'? Its private memory, agents and prompts will be removed. Chats remain visible but their previous messages will no longer be sent to the AI. IMPORTANT: server-scheduled agent jobs are independent and can continue running. Remove those separately under Agents before deleting this project.'))return
+   if(onDeleteProject?.(project.id))onProject(null)
+  }
  if(view==='agents')return <AgentStudio workspace={workspace} onWorkspace={onWorkspace} selectedProject={selectedProject} onProject={onProject} onOpenProject={onOpenProject} busy={busy}/>
  if(view==='prompts')return <PromptsView workspace={workspace} onWorkspace={onWorkspace} onUsePrompt={onUsePrompt} defaultProjectId={selectedProject} busy={busy}/>
  if(view==='mcp'||view==='api')return <IntegrationsView key={view} kind={view}/>
