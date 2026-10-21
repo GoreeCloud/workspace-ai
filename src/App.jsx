@@ -13,11 +13,13 @@ import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
+import ChatAttachments from './ChatAttachments.jsx';
+import {normalizeChatAttachments,messageWithAttachments,imageInputsForMessage} from './chat-attachments.js';
 import {projectContext,inferenceMessages} from './project-model.js';
 import {memoryCandidateFromMessage} from './project-memory.js';
 import {normalizeProjectMemoryEntries,createProjectMemoryEntry} from './project-memory-entries.js';
 import {appendPromptDraft,promptsForContext} from './prompt-library.js';
-import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound} from 'lucide-react';
+import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound,ArrowLeft,Ellipsis,Pin,PinOff,Archive,ArchiveRestore,Search,Mic,MicOff,Maximize2,Minimize2} from 'lucide-react';
 const KEY='workspace-ai-history-v1';
 const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}};
 function report(error){return error instanceof Error?error.message:String(error)}
@@ -26,6 +28,8 @@ export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
 const [settingsTab,setSettingsTab]=useState('connections');
+const [attachmentsDraft,setAttachmentsDraft]=useState([]),[chatMenuOpen,setChatMenuOpen]=useState(false),[chatSearchOpen,setChatSearchOpen]=useState(false),[chatSearchQuery,setChatSearchQuery]=useState(''),[chatFullscreen,setChatFullscreen]=useState(false),[listening,setListening]=useState(false);
+const recognitionRef=useRef(null);
 const [memoryDraft,setMemoryDraft]=useState(null);
 const [storageConflict,setStorageConflict]=useState(()=>browserStorageLoadProblem(localStorage,KEY,WORKSPACE_KEY));
 const [workspace,setWorkspace]=useState(readWorkspace),[view,setView]=useState('chat'),[selectedProject,setSelectedProject]=useState(null),[searchRequest,setSearchRequest]=useState(0);
@@ -128,11 +132,38 @@ useEffect(()=>{
 },[settings,busy]);
 async function refresh(){try{const s=await api('/api/status');setStatus(s);if(s.planEnabled){const m=await api('/api/models');setModels(m.planModels||[]);setPlanModel(old=>(m.planModels||[]).some(v=>v.slug===old)?old:(m.planModels?.[0]?.slug||''));if(m.error)setError(m.error)}}catch(e){setError(report(e))}}
 useEffect(()=>{refresh();const auth=new URLSearchParams(location.search).get('auth');if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}},[]);
-function newChat(projectId){if(busy||storageConflict)return;setCurrent(null);setMemoryDraft(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setMobile(false);setError('');prompt.current?.focus()}
+function newChat(projectId){if(busy||storageConflict)return;setCurrent(null);setMemoryDraft(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setAttachmentsDraft([]);setChatMenuOpen(false);setChatSearchOpen(false);setChatSearchQuery('');setMobile(false);setError('');prompt.current?.focus()}
 function remove(id){if(busy||storageConflict||!confirm('Delete this chat locally?'))return;if(!commitChats(v=>v.filter(c=>c.id!==id)))return;updateWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id)setCurrent(null)}
-function openChat(id){if(busy)return;setCurrent(id);setMemoryDraft(null);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
+function openChat(id){if(busy)return;setCurrent(id);setMemoryDraft(null);setAttachmentsDraft([]);setChatMenuOpen(false);setChatSearchQuery('');setChatSearchOpen(false);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
 function assignChat(id,projectId){if(busy||storageConflict)return;const safeId=workspaceRef.current.projects.some(p=>p.id===projectId)?projectId:null;if(!commitChats(v=>v.map(c=>c.id===id?moveChatToProject(c,safeId):c)))return;if(current===id){setSelectedProject(safeId);setMemoryDraft(null)}}
 function renameChat(id,title){if(storageConflict)return;const clean=title.trim().slice(0,90);if(clean)commitChats(v=>v.map(c=>c.id===id?{...c,title:clean,updatedAt:Date.now()}:c))}
+function archiveChat(id,archived=true){
+ if(busy||storageConflict)return false
+ const done=commitChats(v=>v.map(c=>c.id===id?{...c,archived,updatedAt:Date.now()}:c))
+ if(done&&archived&&current===id){setView('archived');setChatMenuOpen(false)}
+ return done
+}
+function toggleChatPin(id){if(busy||storageConflict)return;updateWorkspace(w=>({...w,pinned:w.pinned.includes(id)?w.pinned.filter(v=>v!==id):[...w.pinned,id]}))}
+async function shareChat(){
+ if(!chat)return
+ const content='# '+chat.title+'\n\n'+chat.messages.map(m=>m.role+':\n'+m.content).join('\n\n').slice(0,85000)
+ if(!window.confirm('Share the selected conversation? Its text may leave this device or be copied to your clipboard.'))return
+ try{if(navigator.share)await navigator.share({title:chat.title,text:content});else{await navigator.clipboard.writeText(content);setError('Conversation copied to clipboard for sharing.')}}catch(e){if(e.name!=='AbortError')setError(report(e))}
+}
+function toggleDictation(){
+ if(listening){recognitionRef.current?.stop();return}
+ const Speech=window.SpeechRecognition||window.webkitSpeechRecognition
+ if(!Speech){setError('Speech dictation is unavailable in this browser. Microphone transcription may require browser speech services.');return}
+ try{
+  const recognition=new Speech();recognition.lang=navigator.language||'en-US';recognition.interimResults=false;recognition.continuous=false
+  recognition.onresult=event=>{const text=Array.from(event.results||[]).map(result=>result[0]?.transcript||'').join(' ').trim();if(text)setDraft(previous=>(previous?previous+' ':'')+text)}
+  recognition.onerror=e=>{setError('Microphone dictation: '+(e.error||'unavailable'));setListening(false)}
+  recognition.onend=()=>{setListening(false);recognitionRef.current=null}
+  recognitionRef.current=recognition;recognition.start();setListening(true)
+ }catch(e){setError(report(e));setListening(false)}
+}
+function backFromChat(){recognitionRef.current?.stop();setChatFullscreen(false);setChatMenuOpen(false);setChatSearchOpen(false);navigate(activeProjectId?'projects':'chats');if(activeProjectId)setSelectedProject(activeProjectId)}
+
 function useSavedPrompt(item){
  if(busy||!item||(workspace.prompts||[]).every(p=>p.id!==item.id))return
  if(item.projectId&&!workspace.projects.some(p=>p.id===item.projectId))return
@@ -142,7 +173,7 @@ function useSavedPrompt(item){
   setView('chat');setMobile(false);setError('');prompt.current?.focus()
  }catch(e){setError(report(e))}
 }
-function navigate(id){setView(id);setMobile(false)}
+function navigate(id){setView(id);setMobile(false);setChatMenuOpen(false);setChatSearchOpen(false);setChatFullscreen(false)}
 function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
 async function signIn(){try{const r=await api('/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
 async function signOut(){if(!confirm('Disconnect ChatGPT? Account sync will stop on this device.'))return;sync.keepLocal();try{const r=await api('/api/auth/disconnect',{});await refresh();await sync.refresh();if(r.warning)setError(r.warning)}catch(e){setError(report(e))}}
