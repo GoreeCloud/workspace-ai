@@ -8,6 +8,8 @@ import ProjectStudio,{ProjectGlyph} from './ProjectStudio.jsx'
 import {newProject,normalizeProject} from './project-model.js'
 import PromptsView from './PromptsView.jsx'
 import AgentStudio from './AgentStudio.jsx'
+import DocumentStudio from './DocumentStudio.jsx'
+import EngineeringStudio from './EngineeringStudio.jsx'
 import SettingsCategories from './SettingsCategories.jsx'
 import {chatsForProject} from './project-sidebar.js'
 async function post(url,body){
@@ -83,6 +85,8 @@ export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelec
    if(!confirm('Delete project '+project.name+'? Its private memory, agents and prompts will be removed. Chats remain visible but their previous messages will no longer be sent to the AI. IMPORTANT: server-scheduled agent jobs are independent and can continue running. Remove those separately under Agents before deleting this project.'))return
    if(onDeleteProject?.(project.id))onProject(null)
   }
+ if(view==='documents')return <DocumentStudio/>
+ if(view==='engineering')return <EngineeringStudio workspace={workspace} onWorkspace={onWorkspace}/>
  if(view==='agents')return <AgentStudio workspace={workspace} onWorkspace={onWorkspace} selectedProject={selectedProject} onProject={onProject} onOpenProject={onOpenProject} busy={busy}/>
  if(view==='prompts')return <PromptsView workspace={workspace} onWorkspace={onWorkspace} onUsePrompt={onUsePrompt} defaultProjectId={selectedProject} busy={busy}/>
  if(view==='mcp'||view==='api')return <IntegrationsView key={view} kind={view}/>

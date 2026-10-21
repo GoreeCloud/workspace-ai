@@ -1,0 +1,58 @@
+/* Document and Engineering Studio. Uses semantic GC UI tokens. */
+.docStudio{width:min(1120px,100%);padding-bottom:96px}
+.docStudio h2{margin:0;font-size:18px;letter-spacing:-.3px;color:var(--gc-text)}
+.docStudio h3{font-size:13px;color:var(--gc-text);margin:18px 0 10px}
+.docStudio .workspacePageTop{align-items:center}
+.docTag{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;border:1px solid var(--gc-outline);background:var(--gc-surface-tonal);color:var(--gc-text-soft);border-radius:30px;padding:7px 12px;font-size:11px;font-weight:650}
+.documentCapabilities{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.documentCapabilities>div{display:flex;flex-direction:column;align-items:flex-start;gap:8px;border:1px solid var(--gc-outline);background:var(--gc-surface-raised);border-radius:16px;padding:17px;min-width:0}
+.documentCapabilities svg{color:var(--gc-brand)}
+.documentCapabilities strong{font-size:13px;color:var(--gc-text)}
+.documentCapabilities small{font-size:11px;line-height:1.5;color:var(--gc-text-soft)}
+.docPanel{background:var(--gc-surface-raised);border:1px solid var(--gc-outline);padding:22px;border-radius:17px;margin:15px 0;box-shadow:var(--gc-shadow-card)}
+.docPanelTop{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:18px}
+.docPanelTop p{font-size:12px;line-height:1.6;color:var(--gc-text-soft);margin:6px 0 0}
+.docPanel label,.engineeringForm label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:650;line-height:1.4;color:var(--gc-text)}
+.docStudio input:not([type=checkbox]):not([type=file]),.docStudio textarea,.docStudio select{border:1px solid var(--gc-outline);border-radius:10px;background:var(--gc-surface);color:var(--gc-text);padding:10px 11px;min-height:42px;font-size:13px;width:100%;min-width:0;box-sizing:border-box}
+.docStudio textarea{resize:vertical;min-height:68px;line-height:1.55}
+.docStudio select{cursor:pointer}
+.docFileName{width:100%}
+.docFileName>textarea{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;line-height:1.65;tab-size:2}
+.docActions{display:flex;align-items:end;flex-wrap:wrap;gap:12px;margin:16px 0 8px}
+.docActions .primary,.docActions .outline{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:43px;padding:10px 13px}
+.docActions button:disabled{opacity:.6;cursor:not-allowed}
+.docUpload{position:relative;cursor:pointer;font-size:13px;font-weight:650}
+.docUpload input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+.docUpload:focus-within{outline:3px solid var(--gc-brand);outline-offset:2px}
+.docUpload:has(input:disabled){opacity:.55;pointer-events:none}
+.documentNotice{background:var(--gc-brand-container);color:var(--gc-on-brand-container);border-radius:11px;padding:11px 14px;font-size:12px;line-height:1.6;margin:14px 0}
+.documentHint{color:var(--gc-text-soft);font-size:11px;line-height:1.6;font-weight:400;margin:10px 0}
+.docPreview{margin-top:18px}
+.docTableWrap{overflow:auto;border:1px solid var(--gc-outline);border-radius:10px;max-height:340px}
+.docTableWrap table{width:100%;border-collapse:collapse;font-size:12px}
+.docTableWrap th,.docTableWrap td{border-right:1px solid var(--gc-divider);border-bottom:1px solid var(--gc-divider);padding:8px 10px;min-width:80px;max-width:300px;text-align:left;white-space:pre-wrap;overflow-wrap:anywhere}
+.docTableWrap th{color:var(--gc-text-soft);font-weight:700;background:var(--gc-surface-tonal)}
+.docTableWrap tr:last-child td{border-bottom:0}
+.docTableWrap td input{min-width:180px}
+.docFields{display:flex;flex-direction:column;gap:12px}
+.docFields>label{max-width:100%}
+.docFields textarea{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+.docSlide{border:1px solid var(--gc-divider);border-radius:13px;padding:15px;display:flex;flex-direction:column;gap:12px}
+.docSlide>strong{font-size:13px;color:var(--gc-brand)}
+.docExtract{overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;line-height:1.5;padding:14px;background:var(--gc-surface-tonal);border-radius:10px;max-height:350px}
+.docFields details{border:1px solid var(--gc-outline);border-radius:10px;padding:10px}
+.docFields summary{cursor:pointer;font-size:12px;color:var(--gc-text);font-weight:650}
+.engineeringForm{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.engineeringForm>.docWide{grid-column:1/-1}
+.engineeringForm>.docCheck{flex-direction:row;align-items:center;grid-column:1/-1;font-weight:500}
+.engineeringForm>.docCheck input{accent-color:var(--gc-brand);width:17px;height:17px}
+.engineeringForm>.primary{justify-self:start;min-height:44px}
+.documentPhases{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.documentPhase{display:flex;align-items:flex-start;gap:11px;background:var(--gc-surface-tonal);border-radius:12px;padding:13px}
+.documentStep{min-width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:var(--gc-brand);background:var(--gc-brand-container);font-size:11px;font-weight:750}
+.documentPhase div{display:flex;flex-direction:column;gap:4px}
+.documentPhase strong{font-size:12px;color:var(--gc-text)}
+.documentPhase small{font-size:11px;color:var(--gc-text-soft);line-height:1.45}
+@media(max-width:730px){.documentCapabilities{grid-template-columns:1fr;gap:8px}.docPanel{padding:16px}.docPanelTop{flex-wrap:wrap}.documentPhases,.engineeringForm{grid-template-columns:1fr}.docStudio{padding:22px 15px 80px}}
+@media(prefers-reduced-motion:reduce){.docStudio *{scroll-behavior:auto!important}}
+@media(forced-colors:active){.documentCapabilities>div,.docPanel,.documentPhase{border:1px solid CanvasText}}
