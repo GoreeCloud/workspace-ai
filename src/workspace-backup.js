@@ -1,6 +1,7 @@
 import {normalizeProject,normalizeProjects} from './project-model.js'
 import {normalizePrompts} from './prompt-library.js'
 import {normalizeAgents} from './agent-model.js'
+import {cleanProjectNavigation} from './project-sidebar.js'
 // A versioned, portable, local-only archive. Credentials and service sessions never enter this format.
 export const BACKUP_KIND = 'goreecloud.workspace-ai.backup'
 export const BACKUP_VERSION = 1
@@ -38,6 +39,7 @@ function validateWorkspace(value) {
  const pinned = value.pinned.map(id => requiredString(id, 'pinned chat ID', 160))
  return {
   projects:normalizeProjects(projects),
+  ...cleanProjectNavigation(projects,value.projectOrder,value.pinnedProjects),
   agents:normalizeAgents(value.agents??[],projects),
   preferences:{appearance:['light','dark','system'].includes(value.preferences?.appearance)?value.preferences.appearance:'system'},
   prompts:normalizePrompts(value.prompts??[],[...ids],true),
@@ -146,6 +148,7 @@ export function prepareWorkspaceRestore(existingChats, existingWorkspace, archiv
   workspace: {
    ...oldWorkspace,
    projects: mergedProjects,
+   ...cleanProjectNavigation(mergedProjects,[...(oldWorkspace.projectOrder||[]),...(imported.workspace.projectOrder||[])], [...(oldWorkspace.pinnedProjects||[]),...imported.workspace.pinnedProjects.filter(id=>newProjectIds.has(id))]),
    agents: mergedAgents,
    preferences:oldWorkspace.preferences||imported.workspace.preferences,
    prompts: mergedPrompts,
