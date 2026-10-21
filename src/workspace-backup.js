@@ -2,6 +2,7 @@ import {normalizeProject,normalizeProjects} from './project-model.js'
 import {normalizePrompts} from './prompt-library.js'
 import {normalizeAgents} from './agent-model.js'
 import {cleanProjectNavigation} from './project-sidebar.js'
+import {normalizeChatAttachments} from './chat-attachments.js'
 // A versioned, portable, local-only archive. Credentials and service sessions never enter this format.
 export const BACKUP_KIND = 'goreecloud.workspace-ai.backup'
 export const BACKUP_VERSION = 1
@@ -67,12 +68,14 @@ function validateChats(value) {
   if(!Number.isSafeInteger(contextStart)||contextStart<0||contextStart>c.messages.length)throw Error('Invalid conversation context boundary')
   return {
    id, title, projectId, contextStart,
+   archived:c.archived===true,
    updatedAt: timestamp(c.updatedAt ?? 0, 'conversation timestamp'),
    messages: c.messages.map(m => {
     if (!record(m) || !['user','assistant'].includes(m.role)) throw Error('Invalid message role')
     const content = optionalString(m.content, 'message content', 200000)
     if (content === undefined) throw Error('Missing message content')
     const out = {id: requiredString(m.id, 'message ID', 160), role: m.role, content}
+    if(m.attachments!==undefined)out.attachments=normalizeChatAttachments(m.attachments)
     if (m.provider !== undefined) {
      if (!['plan','api'].includes(m.provider)) throw Error('Invalid message provider')
      out.provider = m.provider
