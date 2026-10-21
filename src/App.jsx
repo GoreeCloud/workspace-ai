@@ -228,6 +228,12 @@ async function send(value=draft){
   setCurrent(id);setDraft('');setAttachmentsDraft([]);setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
   try{
+    if(documentRequest?.kind==='convert'){
+     const file=await renderChatDocument(documentRequest)
+     changeLast(id,m=>({...m,content:'Created '+file.name+' from the earlier document.',document:chatDocumentMetadata(file,documentRequest.source,documentRequest.title)}))
+     downloadChatDocument(file)
+     return
+    }
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json',...(browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{})},body:JSON.stringify({
       messages:preparedMessages,images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
