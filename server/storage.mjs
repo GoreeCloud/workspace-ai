@@ -1,15 +1,30 @@
 import { randomUUID } from 'node:crypto'
-import { promises as fs } from 'node:fs'
+import { constants as fsConstants, promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
 const directory = path.join(os.homedir(), '.config', 'workspace-ai')
 const filename = path.join(directory, 'credentials.json')
 
+// Credentials must never be read through a symlink or from a group/world
+// accessible file. Use O_NOFOLLOW plus fstat to avoid a check/open race.
 export async function readProfile() {
   try {
-    const value = JSON.parse(await fs.readFile(filename, 'utf8'))
-    return value && typeof value === 'object' ? value : {}
+    const folder = await fs.lstat(directory)
+    if (!folder.isDirectory() || (folder.mode & 0o077)) {
+      throw new Error('Workspace credentials directory must be private (0700), not a symlink.')
+    }
+    const handle = await fs.open(filename, fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW || 0))
+    try {
+      const details = await handle.stat()
+      if (!details.isFile() || (details.mode & 0o077)) {
+        throw new Error('Workspace credentials must be a private regular file (0600).')
+      }
+      const value = JSON.parse(await handle.readFile('utf8'))
+      return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+    } finally {
+      await handle.close()
+    }
   } catch (error) {
     if (error.code === 'ENOENT') return {}
     throw error
@@ -18,6 +33,8 @@ export async function readProfile() {
 
 export async function saveProfile(value) {
   await fs.mkdir(directory, { recursive: true, mode: 0o700 })
+  const folder = await fs.lstat(directory)
+  if (!folder.isDirectory()) throw new Error('Refusing a symlinked workspace credentials directory.')
   await fs.chmod(directory, 0o700)
   const temporary = path.join(directory, '.credentials-' + randomUUID())
   try {
