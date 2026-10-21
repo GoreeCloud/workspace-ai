@@ -11,19 +11,23 @@ export function resolveIngress(env = process.env) {
   if (env.WORKSPACE_AI_PRIVATE_DEV_ENABLED && !['true', 'false'].includes(env.WORKSPACE_AI_PRIVATE_DEV_ENABLED)) {
     throw new Error('Invalid WORKSPACE_AI_PRIVATE_DEV_ENABLED')
   }
-  if (!enabled && (env.WORKSPACE_AI_PRIVATE_DEV_ORIGIN || env.WORKSPACE_AI_PRIVATE_DEV_BIND_ALL || env.WORKSPACE_AI_PRIVATE_DEV_ISOLATED_CONTAINER)) {
+  if (!enabled && (env.WORKSPACE_AI_PRIVATE_DEV_ORIGIN || env.WORKSPACE_AI_PRIVATE_DEV_BIND_ALL || env.WORKSPACE_AI_PRIVATE_DEV_ISOLATED_CONTAINER || env.WORKSPACE_AI_PRIVATE_DEV_GATEWAY_KEY)) {
     throw new Error('Private development settings require WORKSPACE_AI_PRIVATE_DEV_ENABLED=true')
   }
 
   const localOrigin = 'http://127.0.0.1:' + port
   if (!enabled) return {
-    port, privateDev: false, bindHost: '127.0.0.1', clientOrigin: localOrigin,
+    port, privateDev: false, bindHost: '127.0.0.1', clientOrigin: localOrigin, gatewayKey: '',
     allowedHosts: new Set(['127.0.0.1:' + port]),
     allowedOrigins: new Set([localOrigin, 'http://127.0.0.1:5173'])
   }
 
   if (env.WORKSPACE_AI_PRIVATE_DEV_ORIGIN !== DEV_ORIGIN) {
     throw new Error('Private development origin must exactly match the approved HTTPS hostname')
+  }
+  const gatewayKey = env.WORKSPACE_AI_PRIVATE_DEV_GATEWAY_KEY || ''
+  if (!/^[a-zA-Z0-9_-]{32,128}$/.test(gatewayKey)) {
+    throw new Error('Private development requires a separately provisioned 32-128 character gateway secret')
   }
   const bindAll = env.WORKSPACE_AI_PRIVATE_DEV_BIND_ALL === 'true'
   if (env.WORKSPACE_AI_PRIVATE_DEV_BIND_ALL && !['true', 'false'].includes(env.WORKSPACE_AI_PRIVATE_DEV_BIND_ALL)) {
@@ -34,7 +38,7 @@ export function resolveIngress(env = process.env) {
   }
   return {
     port, privateDev: true, bindHost: bindAll ? '0.0.0.0' : '127.0.0.1',
-    clientOrigin: DEV_ORIGIN,
+    clientOrigin: DEV_ORIGIN, gatewayKey,
     allowedHosts: new Set(['workspace-ai-dev.goreecloud.com']),
     allowedOrigins: new Set([DEV_ORIGIN])
   }
