@@ -1,4 +1,5 @@
 import {moveChatToProject} from './chat-project-boundary.js'
+import {cleanProjectNavigation} from './project-sidebar.js'
 
 // Project deletion must be one workspace+chat persistence transaction.
 // Otherwise failed chat writes can retain old private conversation context
@@ -11,6 +12,7 @@ export function prepareProjectDeletion(chats,workspace,projectId,now=Date.now())
   chats:chats.map(chat=>chat.projectId===projectId?moveChatToProject(chat,null,now):chat),
   workspace:{
    ...workspace,
+   ...cleanProjectNavigation(workspace.projects.filter(p=>p.id!==projectId),workspace.projectOrder,workspace.pinnedProjects),
    projects:workspace.projects.filter(p=>p.id!==projectId).map(p=>({
     ...p,shareFilesWith:(p.shareFilesWith||[]).filter(id=>id!==projectId)
    })),
