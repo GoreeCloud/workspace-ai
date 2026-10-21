@@ -162,6 +162,14 @@ try {
   await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('mockup.png')")
   await evaluate("document.querySelector('button[aria-label=\"Back to parent Dropbox folder\"]').click()")
   await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('Design')")
+  // Cross-feature integration: Documents and Engineering Studio render in the same app.
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Documents').click()")
+  await wait("document.querySelector('.docStudio h1')?.textContent==='Documents'")
+  assert.ok(await evaluate("document.querySelectorAll('.docStudio .docPanel').length>=2"))
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Engineering').click()")
+  await wait("document.querySelector('.docStudio h1')?.textContent==='Engineering Studio'")
+  assert.ok(await evaluate("document.querySelector('.engineeringForm')!==null"))
+  assert.deepEqual(exceptions,[],'Documents and Engineering navigation has no exceptions')
   // Smart Image Generation synthetic browser acceptance: routing, model lock, billing guard.
   await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Smart Images').click()")
   await wait("document.querySelector('.smartImagePage h1')?.textContent==='Smart Image Generation'")
