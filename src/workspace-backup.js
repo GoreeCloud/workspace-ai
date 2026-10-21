@@ -58,8 +58,10 @@ function validateChats(value) {
   ids.add(id)
   const title = requiredString(c.title, 'conversation title', 240)
   const projectId = c.projectId == null ? null : requiredString(c.projectId, 'conversation project', 160)
+  const contextStart=c.contextStart??0
+  if(!Number.isSafeInteger(contextStart)||contextStart<0||contextStart>c.messages.length)throw Error('Invalid conversation context boundary')
   return {
-   id, title, projectId,
+   id, title, projectId, contextStart,
    updatedAt: timestamp(c.updatedAt ?? 0, 'conversation timestamp'),
    messages: c.messages.map(m => {
     if (!record(m) || !['user','assistant'].includes(m.role)) throw Error('Invalid message role')
@@ -90,7 +92,8 @@ export function parseWorkspaceBackup(text) {
   kind: BACKUP_KIND,
   version: BACKUP_VERSION,
   exportedAt: requiredString(data.exportedAt, 'export date', 64),
-  chats: chats.map(c => ({...c, projectId: projectIds.has(c.projectId) ? c.projectId : null})),
+  chats: chats.map(c => c.projectId!==null&&!projectIds.has(c.projectId)
+   ? {...c,projectId:null,contextStart:c.messages.length}:c),
   workspace: {...workspace, pinned: workspace.pinned.filter(id => chatIds.has(id))}
  }
 }
@@ -122,7 +125,8 @@ export function prepareWorkspaceRestore(existingChats, existingWorkspace, archiv
  const mergedProjects = [...projects, ...additions].slice(0, MAX_PROJECTS)
  const newProjectIds = new Set(mergedProjects.filter(p => !projectIds.has(p.id)).map(p => p.id))
  const newChats = [...oldChats, ...added.map(c => ({
-  ...c, projectId: newProjectIds.has(c.projectId) ? c.projectId : null
+  ...c, projectId: newProjectIds.has(c.projectId) ? c.projectId : null,
+  contextStart: c.projectId&&!newProjectIds.has(c.projectId)?c.messages.length:c.contextStart
  }))]
  const existingPrompts=Array.isArray(oldWorkspace.prompts)?oldWorkspace.prompts:[]
  const promptIds=new Set(existingPrompts.map(p=>p.id))

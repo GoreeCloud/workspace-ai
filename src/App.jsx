@@ -7,6 +7,8 @@ import WorkspaceViews from './WorkspaceViews.jsx';
 import WorkspaceBackup from './WorkspaceBackup.jsx';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
+import {persistWorkspaceChange} from './workspace-persistence.js';
+import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import {projectContext,inferenceMessages} from './project-model.js';
 import {memoryCandidateFromMessage,appendReviewedMemory} from './project-memory.js';
 import {appendPromptDraft,promptsForContext} from './prompt-library.js';
@@ -23,13 +25,22 @@ const [memoryDraft,setMemoryDraft]=useState(null);
 const [workspace,setWorkspace]=useState(readWorkspace),[view,setView]=useState('chat'),[selectedProject,setSelectedProject]=useState(null),[searchRequest,setSearchRequest]=useState(0);
 const [appearance,setAppearance]=useState(()=>{try{const saved=localStorage.getItem('workspace-ai-theme');return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
+const workspaceRef=useRef(workspace);
+workspaceRef.current=workspace;
 const dialogRef=useRef(null);
 const chat=chats.find(c=>c.id===current);
 const activeProjectId=chat?.projectId||(!chat?selectedProject:null);
 const activeProject=workspace.projects.find(p=>p.id===activeProjectId);
 const ready=provider==='api'?status.apiConfigured:provider==='plan'?status.planEnabled&&!!planModel:(status.planEnabled&&!!planModel)||(status.apiConfigured&&fallback);
 useEffect(()=>{try{localStorage.setItem(KEY,JSON.stringify(chats.slice(0,50)))}catch{}},[chats]);
-useEffect(()=>{try{localStorage.setItem(WORKSPACE_KEY,JSON.stringify(workspace))}catch{setError('Project changes could not be saved in browser storage. Export your data and free some space.')}},[workspace]);
+function updateWorkspace(change){
+ try{
+  const next=persistWorkspaceChange(localStorage,WORKSPACE_KEY,workspaceRef.current,change);
+  workspaceRef.current=next;
+  setWorkspace(next);
+  return true;
+ }catch{setError('Project changes could not be saved in browser storage. Free space or export a backup; the change was not applied.');return false}
+}
 useEffect(()=>{bottom.current?.scrollIntoView({behavior:'smooth'})},[chats,busy]);
 useEffect(()=>{
  const system=window.matchMedia('(prefers-color-scheme: dark)');
@@ -72,9 +83,9 @@ useEffect(()=>{
 async function refresh(){try{const s=await api('/api/status');setStatus(s);if(s.planEnabled){const m=await api('/api/models');setModels(m.planModels||[]);setPlanModel(old=>(m.planModels||[]).some(v=>v.slug===old)?old:(m.planModels?.[0]?.slug||''));if(m.error)setError(m.error)}}catch(e){setError(report(e))}}
 useEffect(()=>{refresh();const auth=new URLSearchParams(location.search).get('auth');if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}},[]);
 function newChat(projectId){if(busy)return;setCurrent(null);setMemoryDraft(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setMobile(false);setError('');prompt.current?.focus()}
-function remove(id){if(busy||!confirm('Delete this chat locally?'))return;setChats(v=>v.filter(c=>c.id!==id));setWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id)setCurrent(null)}
+function remove(id){if(busy||!confirm('Delete this chat locally?'))return;setChats(v=>v.filter(c=>c.id!==id));updateWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id)setCurrent(null)}
 function openChat(id){if(busy)return;setCurrent(id);setMemoryDraft(null);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
-function assignChat(id,projectId){if(busy)return;const safeId=workspace.projects.some(p=>p.id===projectId)?projectId:null;setChats(v=>v.map(c=>c.id===id?{...c,projectId:safeId,updatedAt:Date.now()}:c));if(current===id){setSelectedProject(safeId);setMemoryDraft(null)}}
+function assignChat(id,projectId){if(busy)return;const safeId=workspace.projects.some(p=>p.id===projectId)?projectId:null;setChats(v=>v.map(c=>c.id===id?moveChatToProject(c,safeId):c));if(current===id){setSelectedProject(safeId);setMemoryDraft(null)}}
 function renameChat(id,title){const clean=title.trim().slice(0,90);if(clean)setChats(v=>v.map(c=>c.id===id?{...c,title:clean,updatedAt:Date.now()}:c))}
 function useSavedPrompt(item){
  if(busy||!item||(workspace.prompts||[]).every(p=>p.id!==item.id))return
@@ -94,14 +105,16 @@ async function send(value=draft){
   if(!text||!ready||busy)return;
   const id=chat?.id||crypto.randomUUID();
   const context=projectContext(workspace,activeProjectId,text);
-  const history=[...(chat?.messages||[]).filter(m=>!m.error&&m.content?.trim()),{id:crypto.randomUUID(),role:'user',content:text}];
+  const message={id:crypto.randomUUID(),role:'user',content:text};
+  const history=[...(chat?.messages||[]),message]; // Keep older messages visible.
+  const requestHistory=[...scopedChatMessages(chat),message]; // Send only the current project segment.
   const answer={id:crypto.randomUUID(),role:'assistant',content:''};
   setChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:activeProjectId||null,updatedAt:Date.now()},...v]);
   setCurrent(id);setDraft('');setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
   try{
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
-      messages:inferenceMessages(history,context),preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
+      messages:inferenceMessages(requestHistory,context),preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
     if(!response.body)throw Error('The server returned no stream');
@@ -135,39 +148,40 @@ function saveReviewedMemory(){
  if(!memoryDraft||busy||!activeProject?.memoryEnabled||!chat||memoryDraft.projectId!==activeProject.id||memoryDraft.chatId!==chat.id)return;
  try{
   const nextMemory=appendReviewedMemory(activeProject.memory||'',memoryDraft.text,chat.title);
-  setWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===activeProject.id?{...p,memory:nextMemory}:p)}));
-  setMemoryDraft(null);
-  setError('');
+  if(updateWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===activeProject.id?{...p,memory:nextMemory}:p)}))){
+   setMemoryDraft(null);
+   setError('');
+  }
  }catch(e){setError(report(e))}
 }
 function restoreWorkspace(archive,mode){
  if(busy)throw Error('Stop the current response before restoring conversations');
  const restored=prepareWorkspaceRestore(chats,workspace,archive,mode);
  persistWorkspaceRestore(localStorage,KEY,WORKSPACE_KEY,restored);
- setChats(restored.chats);setWorkspace(restored.workspace);setCurrent(null);setMemoryDraft(null);setSelectedProject(null);setView('chats');
+ setChats(restored.chats);workspaceRef.current=restored.workspace;setWorkspace(restored.workspace);setCurrent(null);setMemoryDraft(null);setSelectedProject(null);setView('chats');
  return restored;
 }
 function exportChat(){if(!chat)return;const md='# '+chat.title+'\n\n'+chat.messages.map(m=>'## '+m.role+'\n\n'+m.content).join('\n\n---\n\n');const url=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=url;a.download='workspace-ai-chat.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),0)}
 return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed":"")}>
-<WorkspaceNavigation workspace={workspace} onWorkspace={setWorkspace} view={view} onNavigate={navigate}
+<WorkspaceNavigation workspace={workspace} onWorkspace={updateWorkspace} view={view} onNavigate={navigate}
  chats={chats} current={current} onSelectChat={openChat} onNewChat={()=>newChat()}
  mobile={mobile} onMobile={setMobile} selectedProject={selectedProject} onProject={setSelectedProject} onUsePrompt={useSavedPrompt}/>
 <main className="main">
  <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{view==='chat'?'Workspace AI':{mcp:'MCP',api:'API',projects:'Projects',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></div>
  <div><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
  {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
- <div className="viewport">{view!=='chat'?<WorkspaceViews view={view} chats={chats} workspace={workspace} onWorkspace={setWorkspace}
+ <div className="viewport">{view!=='chat'?<WorkspaceViews view={view} chats={chats} workspace={workspace} onWorkspace={updateWorkspace}
  onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat} onRenameChat={renameChat}
  selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} busy={busy} onUsePrompt={useSavedPrompt} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
  <p className="eyebrow">✦ YOUR SPACE TO THINK BIGGER</p><div className="bigIcon"><Sparkles size={38}/></div>
  <h1>Good ideas start <em>here.</em></h1><p>Ask anything, create something, or follow your curiosity.<br/>Your AI workspace, your way.</p>
  <div className="ideas">{[['Explore an idea','Turn curiosity into clarity','Help me turn a new idea into a concrete project.'],['Write code','Build, debug and create','Help me plan and build a useful application.'],['Create content','Find the right words','Help me draft a clear and thoughtful article.'],['Learn something','Go beyond the surface','Explain an interesting concept with examples.']].map(([title,sub,idea],i)=><button key={title} className="idea" onClick={()=>{setDraft(idea);prompt.current?.focus()}}><span className={'ideaIcon icon'+i}>{i===0?<Sparkles size={19}/>:i===1?'⌘':i===2?'✎':'◇'}</span><span><strong>{title}</strong><small>{sub}</small></span><span className="ideaArrow">→</span></button>)}</div></section>:
- <section className="feed" aria-label="Conversation messages">{chat.messages.map(m=><article className={'message '+m.role} key={m.id}>
+ <section className="feed" aria-label="Conversation messages">{chat.messages.map((m,messageIndex)=><article className={'message '+m.role} key={m.id}>
  {m.role==='assistant'&&<div className="avatar"><Sparkles size={16}/></div>}
  <div className="msgContent">{m.role==='assistant'&&<strong className="byline">Workspace AI <small>{m.provider==='plan'?'· ChatGPT plan':m.provider==='api'?'· OpenAI API':''}</small></strong>}
  {m.role==='user'?<div className="userBubble">{m.content}</div>:<div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div>}
  {m.role==='assistant'&&!!m.content&&<div className="messageTools"><button className="copy" onClick={()=>navigator.clipboard.writeText(m.content).catch(()=>setError('Could not copy text'))}><Copy size={14}/>Copy</button>
- {activeProject?.memoryEnabled&&!m.error&&<button className="copy" disabled={busy} onClick={()=>setMemoryDraft({projectId:activeProject.id,chatId:chat.id,messageId:m.id,text:memoryCandidateFromMessage(m.content)})}><Sparkles size={14}/>Review for project memory</button>}</div>}
+ {activeProject?.memoryEnabled&&!m.error&&messageIndex>=conversationContextStart(chat)&&<button className="copy" disabled={busy} onClick={()=>setMemoryDraft({projectId:activeProject.id,chatId:chat.id,messageId:m.id,text:memoryCandidateFromMessage(m.content)})}><Sparkles size={14}/>Review for project memory</button>}</div>}
  {memoryDraft?.chatId===chat.id&&memoryDraft?.messageId===m.id&&memoryDraft?.projectId===activeProject?.id&&<div className="memoryReview">
  <label htmlFor={'review-'+m.id}>Review and edit the memory saved to {activeProject.name}</label>
  <textarea id={'review-'+m.id} rows={4} maxLength={1200} value={memoryDraft.text} onChange={e=>setMemoryDraft(v=>({...v,text:e.target.value}))}/>
@@ -175,7 +189,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <div className="actions"><button className="primary" onClick={saveReviewedMemory} disabled={!memoryDraft.text.trim()||busy}>Save reviewed memory</button>
  <button className="outline" onClick={()=>setMemoryDraft(null)}>Cancel</button></div></div>}
  </div></article>)}<div ref={bottom}/></section>}</div>
- {view==='chat'&&<div className="composerArea">{activeProject&&<div className="workspaceScope">Project: {activeProject.name} · {activeProject.files?.length||0} files · Project instructions active {chat?<button title="Move chat to no project" aria-label="Move chat out of project" disabled={busy} onClick={()=>assignChat(chat.id,null)}>Remove from project</button>:<button title="New chat outside project" aria-label="Start a chat outside this project" onClick={()=>setSelectedProject(null)}>×</button>}</div>}{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
+ {view==='chat'&&<div className="composerArea">{chat&&conversationContextStart(chat)>0&&<p className="disclaimer" role="status">This chat was moved between projects. Older messages remain visible, but the AI does not receive them in new requests.</p>}{activeProject&&<div className="workspaceScope">Project: {activeProject.name} · {activeProject.files?.length||0} files · Project instructions active {chat?<button title="Move chat to no project" aria-label="Move chat out of project" disabled={busy} onClick={()=>assignChat(chat.id,null)}>Remove from project</button>:<button title="New chat outside project" aria-label="Start a chat outside this project" onClick={()=>setSelectedProject(null)}>×</button>}</div>}{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  {!ready&&<div className="notice"><span>Connect ChatGPT or configure a separately billed OpenAI API connection.</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}
  <div className="composer"><textarea ref={prompt} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={12000} rows={2} placeholder="Ask anything…" aria-label="Message to Workspace AI" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send()}}}/>
  <div className="composerBottom"><select aria-label="Insert saved prompt" className="promptComposerSelect" defaultValue="" disabled={busy} onChange={e=>{const p=(workspace.prompts||[]).find(p=>p.id===e.target.value);if(p){try{setDraft(old=>appendPromptDraft(old,p.content))}catch(err){setError(report(err))}}e.target.value='';prompt.current?.focus()}}><option value="">Saved prompts…</option>{promptsForContext(workspace.prompts||[],activeProjectId).map(p=><option key={p.id} value={p.id}>{p.title}</option>)}</select><button className="sourceButton" onClick={()=>{setSettingsTab('routing');setSettings(true)}}><Sparkles size={15}/>{provider==='auto'?'Automatic':provider==='api'?'OpenAI API':'ChatGPT plan'}<ChevronDown size={14}/></button><small>{provider==='plan'?planModel||'Choose a model':provider==='api'?status.model:'Smart routing'}</small>

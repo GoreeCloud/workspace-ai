@@ -57,7 +57,7 @@ function ChatRow({chat,pinned,onSelect,onPin,onDelete,onAssign,onRename,projects
   <button className="iconAction" aria-label="Save conversation title" type="submit" disabled={!title.trim()}><Check size={16}/></button>
   <button className="iconAction" aria-label="Cancel rename" type="button" onClick={()=>{setEditing(false);setTitle(chat.title||'')}}><X size={16}/></button>
  </form>:<button className="chatJump" onClick={()=>onSelect(chat.id)}><strong>{chat.title||'Conversation'}</strong><small>{new Date(chat.updatedAt||Date.now()).toLocaleDateString()}</small></button>}
- <select aria-label={'Assign '+(chat.title||'chat')+' to project'} value={chat.projectId||''} onChange={e=>onAssign(chat.id,e.target.value||null)}><option value="">No project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
+ <select title="Moving a chat starts a new AI context; earlier messages stay visible only." aria-label={'Assign '+(chat.title||'chat')+' to project'} value={chat.projectId||''} onChange={e=>onAssign(chat.id,e.target.value||null)}><option value="">No project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
  <button className="iconAction" title="Rename" aria-label="Rename chat" onClick={()=>{setTitle(chat.title||'');setEditing(true)}} disabled={editing}><Pencil size={16}/></button>
  <button className="iconAction" title={pinned?'Unpin':'Pin'} aria-label={pinned?'Unpin chat':'Pin chat'} onClick={()=>onPin(chat.id)}>{pinned?<PinOff size={16}/>:<Pin size={16}/>}</button>
  <button className="iconAction" title="Delete" aria-label="Delete chat" onClick={()=>onDelete(chat.id)}><Trash2 size={16}/></button></div>
@@ -69,9 +69,9 @@ export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelec
  const pin=id=>onWorkspace(w=>({...w,pinned:w.pinned.includes(id)?w.pinned.filter(v=>v!==id):[...w.pinned,id]}))
  const project=workspace.projects.find(p=>p.id===selectedProject)
  const shown=searchChats(view==='pinned'?chats.filter(c=>workspace.pinned.includes(c.id)):chats,query,view==='projects'?selectedProject:null)
- const create=()=>{const title=name.trim().slice(0,90);if(!title||workspace.projects.length>=100)return;const id=crypto.randomUUID();onWorkspace(w=>({...w,projects:[...w.projects,{...newProject(id,title),memoryEnabled:createMemory}]}));onProject(id);setName('');setCreateMemory(false)}
+ const create=()=>{const title=name.trim().slice(0,90);if(!title||workspace.projects.length>=100)return;const id=crypto.randomUUID();if(!onWorkspace(w=>({...w,projects:[...w.projects,{...newProject(id,title),memoryEnabled:createMemory}]})))return;onProject(id);setName('');setCreateMemory(false)}
  const updateProject=(id,patch)=>onWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===id?normalizeProject({...p,...(typeof patch==='function'?patch(p):patch)}):p)}))
- const removeProject=()=>{if(busy||!project||!confirm('Delete project '+project.name+'? Chats will be kept.'))return;onWorkspace(w=>({...w,prompts:(w.prompts||[]).filter(p=>p.projectId!==project.id),projects:w.projects.filter(p=>p.id!==project.id).map(p=>({...p,shareFilesWith:(p.shareFilesWith||[]).filter(id=>id!==project.id)}))}));onProject(null);chats.filter(c=>c.projectId===project.id).forEach(c=>onAssignChat(c.id,null))}
+ const removeProject=()=>{if(busy||!project||!confirm('Delete project '+project.name+'? Chats will be kept.'))return;if(!onWorkspace(w=>({...w,prompts:(w.prompts||[]).filter(p=>p.projectId!==project.id),projects:w.projects.filter(p=>p.id!==project.id).map(p=>({...p,shareFilesWith:(p.shareFilesWith||[]).filter(id=>id!==project.id)}))})))return;onProject(null);chats.filter(c=>c.projectId===project.id).forEach(c=>onAssignChat(c.id,null))}
  if(view==='prompts')return <PromptsView workspace={workspace} onWorkspace={onWorkspace} onUsePrompt={onUsePrompt} defaultProjectId={selectedProject} busy={busy}/>
  if(view==='mcp'||view==='api')return <IntegrationsView key={view} kind={view}/>
  if(view==='settings')return <div className="workspacePage"><div className="workspacePageTop"><h1>Settings</h1></div><div className="workspaceCard"><h2>Workspace preferences</h2><p>Manage authentication, appearance, routing and privacy in Settings & connections.</p><button className="primary" onClick={onOpenSettings}><Settings2 size={16}/> Open settings</button></div></div>
@@ -83,7 +83,7 @@ export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelec
  <details className="workspaceProjectMenu"><summary title={'Settings for '+p.name} aria-label={'Project settings for '+p.name}><Ellipsis size={16}/></summary>
  <div className="workspaceProjectMenuPanel" role="group" aria-label={'Settings for '+p.name}><strong>Project settings</strong>
  <label><input type="checkbox" checked={p.memoryEnabled===true} onChange={e=>updateProject(p.id,{memoryEnabled:e.target.checked})}/> Enable memory</label>
- <small>Memory is off by default. Each project's notes stay private; disabling pauses their use without deleting them.</small>
+ <small>Memory stays within each project. Disabling pauses memory use without deleting notes. Moving a chat starts a fresh AI context while retaining old messages for display.</small>
  <button className="outline" type="button" onClick={()=>onProject(p.id)}>Open project</button></div></details>
  </div>)}{selectedProject&&<button className="outline" onClick={()=>onProject(null)}>All projects</button>}</div>{project&&<ProjectStudio project={project} projects={workspace.projects} onUpdate={updateProject} onNewChat={onNewChat} onDelete={removeProject} chatCount={chats.filter(c=>c.projectId===project.id).length} busy={busy}/>} </>}
  <div className="workspaceSearch"><Search size={17}/><input ref={searchRef} aria-label="Search conversations" placeholder="Search chats and messages" value={query} onChange={e=>setQuery(e.target.value)}/></div>
