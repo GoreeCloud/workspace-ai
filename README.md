@@ -58,6 +58,12 @@ Supported local imports are UTF-8 text and source files selected from your devic
 
 See [Project workspaces: capabilities and boundaries](docs/PROJECT_WORKSPACES.md) for the security model, limitations, remaining work and privacy/backup implications. An optional [local MCP approval broker](docs/MCP_APPROVAL_BROKER.md) validates short-lived policies and single-use approvals. A separately guarded [MCP live execution route](docs/MCP_LIVE_EXECUTION.md) is present but **disabled by default** and requires additional operator and provider configuration, reviewed tool adapters, and action approvals.
 
+## AI Agents (Agent Studio)
+
+Open **Agents** to create project-specific agents, configure instructions and roles, and run up to four agents concurrently. A coordinator agent in the same project can optionally synthesize results. Agent runs use the existing chat inference endpoint with only the selected project's enabled context and no tool invocation; API usage may be billed separately. Agent definitions are included in local backups. Agents cannot access memory from another project.
+
+**Optional scheduled agents:** A local server can enable owner-key protected schedules with WORKSPACE_AI_ENABLE_SCHEDULED_AGENTS=true, WORKSPACE_AI_AGENT_OWNER_KEY (32+ random characters), and a separately configured environment OPENAI_API_KEY. Scheduling is off by default, at most eight runs occur within 24 hours, and unattended runs have no tools or browser memory. Jobs keep independent snapshots and must be removed separately if a project is deleted. See [Agent Studio design, security and limitations](docs/AGENT_STUDIO.md).
+
 ## Browser-local backup and shortcuts
 
 Open **Settings & connections → Privacy** to download a JSON backup or choose an existing Workspace AI JSON backup for restore. Imported archives are validated before changes. **Merge** preserves existing conversations when their IDs conflict; **Replace** asks for confirmation and replaces the browser-local conversations, projects, and pins. An import respects the application's 50-conversation limit; the UI reports conversations skipped during a merge. If browser storage is full, restoration reports an error and attempts to roll back both local storage keys.
