@@ -348,7 +348,16 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
 <section className="settingsPanel" hidden={settingsTab!=='connections'}>
 <h3>01 · CONNECTIONS</h3><div className="connectionCard"><div className="connectionTop"><span className="providerIcon"><Sparkles size={20}/></span><div><strong>ChatGPT subscription</strong><small>Eligible plan allowance with your permission</small></div><span className={'pill '+(status.planEnabled?'active':'')}>{status.planEnabled?'Connected':status.connected?'Sign-in only':'Not connected'}</span></div>
 {status.connected&&<p className="connectedText"><CheckCircle size={16}/>{status.email||'ChatGPT account'}</p>}
-<div className="actions">{status.connected?<><button className="outline" onClick={signIn}>Reauthorize</button><button className="danger" onClick={signOut}>Disconnect</button></>:<button className="primary" onClick={signIn}><Sparkles size={16}/>Continue with ChatGPT →</button>}</div></div>
+{Array.isArray(status.accounts)&&status.accounts.length>0&&<div className="accountSwitcher" aria-label="Saved ChatGPT accounts">
+ <strong>Saved accounts on this device</strong>
+ {status.accounts.map(a=><div className="accountSwitcherRow" key={a.accountId}>
+  <span>{a.email||'ChatGPT account'} {a.active?'(Active)':''}</span>
+  <button className="outline" type="button" disabled={busy||Boolean(storageConflict)||a.active} onClick={()=>switchAccount(a.accountId)}>Switch</button>
+ </div>)}
+ <button type="button" className="outline" disabled={busy||Boolean(storageConflict)||!status.connected} onClick={()=>switchAccount(null)}>Use local-only guest workspace</button>
+</div>}
+<p className="privacyInfo">Saved ChatGPT identities have separate browser-local chats, projects, memories and preferences. Guest data remains separate. To move data between accounts, explicitly export and import a backup. The local server still has shared API keys, MCP connections and schedules; this is not secure hosted multi-tenant access.</p>
+<div className="actions">{status.connected?<><button className="outline" onClick={()=>signIn(false)}>Reauthorize</button><button className="outline" onClick={()=>signIn(true)}>Add account</button><button className="danger" onClick={signOut}>Sign out</button></>:<button className="primary" onClick={()=>signIn(true)}><Sparkles size={16}/>Sign in with ChatGPT →</button>}</div></div>
 <div className="connectionCard"><div className="connectionTop"><span className="providerIcon apiIcon"><KeyRound size={20}/></span><div><strong>OpenAI API</strong><small>Separately billed, optional fallback</small></div><span className={'pill '+(status.apiConfigured?'active':'')}>{!status.apiConfigured?'Not configured':status.apiVerification?.state==='verified'?'Key verified':status.apiVerification?.state==='invalid'?'Key rejected':status.apiVerification?.state==='restricted'?'Restricted':'Configured'}</span></div><ConnectionField configured={status.apiConfigured} keySource={status.apiKeySource} verification={status.apiVerification} onRefresh={refresh}/></div>
 </section>
 <section className="settingsPanel" hidden={settingsTab!=='routing'}>
