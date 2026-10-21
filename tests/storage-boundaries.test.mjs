@@ -5,6 +5,31 @@ import {mkdtemp, rm} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import path from 'node:path'
 
+test('oversized local credential profiles fail closed without parsing or overwriting', async () => {
+  const home = await mkdtemp(path.join(tmpdir(), 'workspace-ai-credential-limit-'))
+  try {
+    const script = [
+      "import assert from 'node:assert/strict'",
+      "import {mkdir, writeFile, readFile} from 'node:fs/promises'",
+      "import path from 'node:path'",
+      "import {readProfile, saveProfile} from './server/storage.mjs'",
+      "const folder=path.join(process.env.HOME,'.config','workspace-ai')",
+      "await mkdir(folder,{recursive:true,mode:0o700})",
+      "const target=path.join(folder,'credentials.json')",
+      "await writeFile(target,'x'.repeat(524289),{mode:0o600})",
+      "await assert.rejects(()=>readProfile(),/safety size limit/)",
+      "await assert.rejects(()=>saveProfile({payload:'x'.repeat(524289)}),/safety size limit/)",
+      "assert.equal((await readFile(target)).length,524289)",
+    ].join('\n')
+    const child = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
+      cwd: process.cwd(), encoding: 'utf8', env: {...process.env, HOME: home}, timeout: 15000,
+    })
+    assert.equal(child.status, 0, child.stderr || child.error?.message)
+  } finally {
+    await rm(home, {recursive:true, force:true})
+  }
+})
+
 test('local OAuth storage rejects symlinks and exposed credentials without reading target data', async () => {
   const home = await mkdtemp(path.join(tmpdir(), 'workspace-ai-secret-safety-'))
   try {
