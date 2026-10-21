@@ -52,6 +52,43 @@ def create_docx(model):
             for j,value in enumerate(row[:width]):dtable.cell(i,j).text=text(str(value),800)
     out=io.BytesIO();doc.save(out);return out.getvalue()
 
+def replace_styled_runs(paragraph, replacement):
+    old = paragraph.text
+    if old == replacement: return
+    runs = list(paragraph.runs)
+    if not runs:
+        require(not old, "Unsupported inline content")
+        paragraph.add_run(replacement); return
+    require("".join(run.text for run in runs) == old,
+            "Unsupported inline content; cannot safely edit")
+    prefix = 0
+    while prefix < min(len(old),len(replacement)) and old[prefix] == replacement[prefix]:
+        prefix += 1
+    suffix = 0
+    while (suffix < len(old)-prefix and suffix < len(replacement)-prefix
+           and old[-1-suffix] == replacement[-1-suffix]):
+        suffix += 1
+    suffix_start = len(old)-suffix
+    inserted = replacement[prefix:len(replacement)-suffix if suffix else len(replacement)]
+    offset = 0
+    spans = []
+    for run in runs:
+        spans.append((offset,offset+len(run.text)))
+        offset += len(run.text)
+    anchor = next((i for i,(a,b) in enumerate(spans) if a <= prefix < b),len(runs)-1)
+    updates = []
+    allowed = {"rPr","t","br","cr","tab"}
+    for i,(run,(start,end)) in enumerate(zip(runs,spans)):
+        original = run.text
+        left = original[:max(0,min(len(original),prefix-start))]
+        right = original[max(0,min(len(original),suffix_start-start)):]
+        revised = left + (inserted if i==anchor else "") + right
+        if revised != original:
+            require(all(child.tag.rsplit("}",1)[-1] in allowed for child in run._r),
+                    "Inline drawing or field prevents safe editing")
+            updates.append((run,revised))
+    for run,revised in updates: run.text = revised
+
 def edit_docx(data, changes):
     from docx import Document
     doc=Document(io.BytesIO(data))
@@ -60,12 +97,14 @@ def edit_docx(data, changes):
         if edit.get("target")=="paragraph":
             i=edit.get("index")
             require(type(i)==int and 0<=i<len(doc.paragraphs),"Paragraph index out of range")
-            doc.paragraphs[i].text=value
+            replace_styled_runs(doc.paragraphs[i],value)
         elif edit.get("target")=="cell":
             t,r,c=(edit.get(k) for k in ("table","row","col"))
             require(all(type(x)==int and x>=0 for x in (t,r,c)), "Invalid table cell location")
             require(t<len(doc.tables) and r<len(doc.tables[t].rows) and c<len(doc.tables[t].rows[r].cells),"Cell outside table")
-            doc.tables[t].cell(r,c).text=value
+            cell=doc.tables[t].cell(r,c)
+            require(len(cell.paragraphs)==1,"Editing multi-paragraph table cells is not supported")
+            replace_styled_runs(cell.paragraphs[0],value)
         else: raise ValueError("Unsupported DOCX edit")
     out=io.BytesIO();doc.save(out);return out.getvalue()
 
@@ -99,7 +138,12 @@ def edit_pptx(data,changes):
         require(type(i)==int and type(j)==int and 0<=i<len(prs.slides) and 0<=j<len(prs.slides[i].shapes),"Invalid shape location")
         shape=prs.slides[i].shapes[j]
         require(shape.has_text_frame,"Shape has no editable text")
-        shape.text=text(edit.get("text"),4000)
+        replacement=text(edit.get("text"),4000)
+        pieces=replacement.split("\n")
+        paragraphs=list(shape.text_frame.paragraphs)
+        require(len(pieces)==len(paragraphs),"Changing slide paragraph count can alter styling")
+        for paragraph,piece in zip(paragraphs,pieces):
+            replace_styled_runs(paragraph,piece)
     out=io.BytesIO();prs.save(out);return out.getvalue()
 
 def value_repr(value):
