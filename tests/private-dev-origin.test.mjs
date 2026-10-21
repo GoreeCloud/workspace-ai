@@ -79,7 +79,6 @@ test('private development origin is enforced by the real server before API handl
     assert.match(status.headers['cache-control'],/no-store/)
     assert.match(status.headers['content-security-policy'],/frame-ancestors 'none'/)
     assert.equal((await send(port,'127.0.0.1:'+port)).status,403)
-    assert.equal((await send(port,'workspace-ai-dev.goreecloud.com.attacker.invalid')).status,403)
     assert.equal((await send(port,'workspace-ai-dev.goreecloud.com','POST','https://workspace-ai-dev.goreecloud.com.attacker.invalid','/api/chat','{}')).status,403)
     assert.equal((await send(port,'workspace-ai-dev.goreecloud.com.attacker.invalid')).status,403)
     assert.equal((await send(port,'workspace-ai-dev.goreecloud.com','POST',undefined,'/api/chat','{}')).status,403)
