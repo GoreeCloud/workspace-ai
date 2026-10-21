@@ -1,4 +1,5 @@
 import {trustedMcpClassification,MCP_RISK_TIERS} from '../src/mcp-risk-policy.js'
+import {secureMcpPost,validateMcpEndpoint} from './mcp-executor.mjs'
 import {SERVICES,byId} from './services.mjs'
 import {serviceTools} from './service-capabilities.mjs'
 import {checkProviderToken,TOKEN_PROVIDERS} from './service-validation.mjs'
@@ -13,10 +14,10 @@ const envKey=id=>'WORKSPACE_MCP_'+id.toUpperCase().replace(/-/g,'_')+'_URL'
 const tokenKey=id=>'WORKSPACE_MCP_'+id.toUpperCase().replace(/-/g,'_')+'_TOKEN'
 const endpoint=id=>{
  const raw=process.env[envKey(id)];if(!raw)return null
- try{const x=new URL(raw);if(x.protocol!=='https:'||x.username||x.password||x.hash||x.port||x.hostname==='localhost'||/^\d+\.\d+\.\d+\.\d+$/.test(x.hostname))return null;return x.toString()}catch{return null}
+ try{return validateMcpEndpoint(raw).toString()}catch{return null}
 }
-async function parseMcp(response){
- const data=(await response.text()).slice(0,500000)
+function parseMcp(data){
+ if(typeof data!=='string'||Buffer.byteLength(data)>262144)throw Error('Invalid or oversized MCP response')
  if(data.startsWith('{'))return JSON.parse(data)
  for(const part of data.split(/\r?\n\r?\n/)){
   const line=part.split(/\r?\n/).find(l=>l.startsWith('data:'))
@@ -24,26 +25,29 @@ async function parseMcp(response){
  }
  throw Error('Unsupported MCP response')
 }
-export async function discoverMcp(id,fetchImpl=fetch){
+export async function discoverMcp(id,fetchImpl,post=secureMcpPost){
  const url=endpoint(id);if(!url)return {status:'setup-required',message:'Configure an HTTPS MCP endpoint in the local server environment.',tools:[]}
+ const token=process.env[tokenKey(id)]||''
  const headers={'Content-Type':'application/json',Accept:'application/json, text/event-stream','MCP-Protocol-Version':'2025-06-18'}
- if(process.env[tokenKey(id)])headers.Authorization='Bearer '+process.env[tokenKey(id)]
+ if(token)headers.Authorization='Bearer '+token
  const call=async(data,session)=>{
+  if(!fetchImpl){
+   // The production path resolves DNS and pins a validated public address.
+   // Never send provider tokens through a generic fetch() that can follow
+   // rebinding or access internal addresses after validation.
+   const answer=await post(url,data,{token,session:session||''})
+   return {payload:data.method==='notifications/initialized'?null:parseMcp(answer.text),session:answer.session||session}
+  }
+  // Explicitly injected transport supports deterministic synthetic test fixtures.
   const response=await fetchImpl(url,{method:'POST',headers:{...headers,...(session?{'Mcp-Session-Id':session}:{})},body:JSON.stringify(data),signal:AbortSignal.timeout(12000),redirect:'error'})
   if(!response.ok)throw Error('MCP HTTP '+response.status)
-  return {payload:await parseMcp(response),session:response.headers.get('mcp-session-id')||session}
+  return {payload:data.method==='notifications/initialized'?null:parseMcp(await response.text()),session:response.headers?.get?.('mcp-session-id')||session}
  }
  try{
   const init=await call({jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'GoreeCloud Workspace AI',version:'0.2.0'}}})
   if(init.payload.error)throw Error('Initialize failed')
-  // MCP clients must acknowledge initialization before calling tools/list.
-  // Notifications normally return HTTP 202 without a JSON-RPC response.
-  const notified=await fetchImpl(url,{
-   method:'POST',headers:{...headers,...(init.session?{'Mcp-Session-Id':init.session}:{})},
-   body:JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'}),
-   signal:AbortSignal.timeout(12000),redirect:'error'
-  })
-  if(!notified.ok)throw Error('MCP initialization notification failed')
+  // Some servers acknowledge initialization with HTTP 202 and no body.
+  await call({jsonrpc:'2.0',method:'notifications/initialized'},init.session)
   const list=await call({jsonrpc:'2.0',id:2,method:'tools/list',params:{}},init.session)
   if(list.payload.error)throw Error('Tool listing failed')
   const tools=(list.payload.result?.tools||[]).filter(t=>typeof t?.name==='string').slice(0,120).map(t=>({name:t.name.slice(0,120),description:String(t.description||'').slice(0,240),executable:false,requiresApproval:true}))
