@@ -9,3 +9,9 @@ Generated files are validated by the local server and presented in downloadable 
 ### Styled PDF creation
 
 Chat-created PDF derivatives now use a bounded, Markdown-aware PDF renderer instead of printing literal Markdown markers. Headings, ordered/unordered lists, quotes, horizontal rules, bold/italic spans, inline code, page flow, and page numbers render without another AI call. All paragraph text is escaped, external HTML/media are not loaded, and formatting is limited to a safe subset (no full CommonMark tables, embedded images, diagrams, or custom fonts). Existing Document Studio plain-text PDF operations are unchanged. Python rendering tests verify heading extraction, pagination, styling, output integrity, and rejection of oversized input. Further human/native-editor visual acceptance remains required.
+
+### Verified document fidelity and conversion controls
+
+When both source and output formats are mentioned (for example, “Convert that Word document to PDF” or “Make a Markdown version of that Word document”), Workspace AI selects the **destination** format and reuses the prior document source. A format mentioned only as the document topic is not treated as an output instruction.
+
+DOCX and PDF files are reopened after rendering, and supported opening headings are checked against extracted content to catch missing titles—not merely malformed file containers. The Python conversion engine has a **single shared limit of two active workers** across Document Studio and chat, returning a retryable overload error rather than starting unbounded processes. These checks do not establish complete Office/PDF fidelity or factual accuracy.

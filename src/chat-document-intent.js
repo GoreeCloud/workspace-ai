@@ -8,9 +8,19 @@ export function documentFilename(title,format){
 export function documentIntent(prompt,previous=null){
  if(typeof prompt!=='string'||prompt.length>12000)return null
  const value=prompt.trim()
- const format=/\b(word document|microsoft word|docx)\b|\.docx\b/i.test(value)?'docx':/\b(markdown|md file)\b|\.md\b/i.test(value)?'md':/\bpdf\b|\.pdf\b/i.test(value)?'pdf':null
+ // Interpret formats before topic words, but honor an explicit "to/as/into" output.
+ // This prevents source mentions like "Word document to PDF" selecting Word.
+ const formatTokens=/\b(word document|microsoft word|word file|docx|markdown|md file|pdf)\b|\.(?:docx|md|pdf)\b/gi
+ const detect=token=>/word|docx/i.test(token)?'docx':/markdown|md/i.test(token)?'md':'pdf'
+ const explicit=/\b(?:to|into|as)\s+(?:an?\s+)?(?:a\s+)?(word document|microsoft word|word file|docx|markdown|md file|pdf)\b/gi
+ const explicitTargets=[...value.matchAll(explicit)]
+ const output=explicitTargets.at(-1)?.[1]
+ const topicStart=value.search(/\b(?:about|regarding|titled|called)\b/i)
+ const requestPart=topicStart>=0?value.slice(0,topicStart):value
+ const firstFormat=[...requestPart.matchAll(formatTokens)][0]?.[0]
+ const format=output?detect(output):firstFormat?detect(firstFormat):null
  if(!format||!/\b(create|make|generate|write|draft|prepare|produce|export|convert|turn|save)\b/i.test(value))return null
- const refersBack=/\b(that document|the document|this document|previous document|same document|that file|the file|it)\b/i.test(value)
+ const refersBack=/\b(?:that|this|the|previous|same|existing)\s+(?:(?:word|pdf|markdown)\s+)?(?:document|file)\b|\bit\b/i.test(value)
  const converting=/\b(version of|convert|export|turn|as (?:a |an )?|same content|make it)\b/i.test(value)
  if(refersBack&&converting){
   if(!previous)return {kind:'missing-source',format}

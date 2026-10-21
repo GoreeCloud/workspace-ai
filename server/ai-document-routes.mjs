@@ -24,6 +24,14 @@ export async function createChatDocument(body,{convert=runDocumentWorker}={}){
   const reopened=await convert({action:'open',name:item.name,base64:result.base64})
   if(!reopened.model||(item.format==='docx'&&!reopened.model.paragraphCount)||(item.format==='pdf'&&!reopened.model.pageCount))
    throw Error('Generated document failed validation.')
+  const heading=item.source.split('\n').find(line=>line.startsWith('# '))?.slice(2).trim()
+  if(heading&&heading.length>=4&&heading.length<=120&&/^[ -~]+$/.test(heading)){
+   const lines=item.format==='docx'?reopened.model.paragraphs:reopened.model.pages
+   const extracted=(lines||[]).map(p=>p.text||'').join(' ').replace(/\s+/g,' ').toLowerCase()
+   if(!extracted.includes(heading.replace(/\s+/g,' ').toLowerCase()))
+    throw Error('Generated document did not retain its opening title.')
+  }
+
  }
  if(binary.length<12||binary.length>6*1024*1024)throw Error('Document file size is invalid.')
  return {ok:true,name:item.name,format:item.format,mime:mime[item.format],bytes:binary.length,
