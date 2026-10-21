@@ -1,0 +1,26 @@
+/* Compact, legible activity rows; no decorative icons or unverified tool success. */
+.chatToolActivity{margin:8px 0 16px;max-width:680px}
+.chatToolActivity h4{font-size:11px;font-weight:750;letter-spacing:.04em;color:var(--gc-text-soft);margin:0 0 7px}
+.chatToolActivity ul{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:3px}
+.chatToolRow{display:flex;align-items:center;gap:10px;min-height:43px;padding:6px 9px;border-radius:11px;color:var(--gc-text);background:var(--gc-surface-tonal);border:1px solid var(--gc-outline)}
+.chatToolIcon{width:27px;height:27px;min-width:27px;display:grid;place-items:center;border-radius:9px;color:var(--gc-brand);background:var(--gc-brand-container)}
+.chatToolIcon.tone-github,.chatToolIcon.tone-notion{color:var(--gc-text);background:var(--gc-surface-raised)}
+.chatToolIcon.tone-drive{color:#176c50;background:#d7f2e5}
+.chatToolIcon.tone-gmail{color:#ae3434;background:#ffe9e6}
+.chatToolIcon.tone-calendar{color:#245bbb;background:#e5eeff}
+.chatToolIcon.tone-todoist{color:#b4332c;background:#ffe6e1}
+.chatToolIcon.tone-dropbox{color:#0759b5;background:#e1edff}
+.chatToolIcon.tone-linear{color:#6755bd;background:#ede7ff}
+.chatToolIcon.tone-firecrawl{color:#a04422;background:#ffebe2}
+.chatToolIcon.tone-desktop{color:#276f8d;background:#dbf1f9}
+.chatToolText{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;overflow-wrap:anywhere}
+.chatToolText strong{font-size:12px;font-weight:650;line-height:1.45;color:var(--gc-text)}
+.chatToolText small{font-size:10px;line-height:1.25;color:var(--gc-text-soft)}
+.chatToolState{display:flex;gap:4px;align-items:center;flex:none;font-size:10px;font-weight:600;color:var(--gc-text-soft)}
+.chatToolRow.is-completed .chatToolState{color:var(--gc-positive)}
+.chatToolRow.is-failed .chatToolState,.chatToolRow.is-interrupted .chatToolState{color:var(--gc-negative)}
+.chatToolRow.is-running .chatToolState{color:var(--gc-brand)}
+@media(min-width:581px){.chatToolState span{min-width:64px}}
+@media(max-width:580px){.chatToolActivity{width:100%}.chatToolRow{gap:8px}.chatToolState span{display:none}.chatToolState svg{width:17px;height:17px}}
+@media(prefers-reduced-motion:no-preference){.chatToolRow.is-running .chatToolState svg{animation:chatToolTurn 1.7s linear infinite}@keyframes chatToolTurn{to{transform:rotate(360deg)}}}
+@media(forced-colors:active){.chatToolIcon{border:1px solid CanvasText}.chatToolRow{border-color:CanvasText}.chatToolState{color:CanvasText!important}}
