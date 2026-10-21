@@ -155,7 +155,7 @@ try {
   await evaluate("document.querySelector('button[aria-label=\"Back to parent Dropbox folder\"]').click()")
   await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('Design')")
   // Smart Image Generation synthetic browser acceptance: routing, model lock, billing guard.
-  await evaluate("document.querySelector('.workspaceNavLink[aria-label=Smart\\ Images]')?.click()")
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Smart Images').click()")
   await wait("document.querySelector('.smartImagePage h1')?.textContent==='Smart Image Generation'")
   assert.equal(await evaluate("document.querySelectorAll('.smartImageOptions select').length"),4)
   assert.ok(await evaluate("[...document.querySelectorAll('.smartImageActions button')].some(b=>b.textContent.includes('Generate image')&&b.disabled)"),'Paid generation disabled without provider key')
