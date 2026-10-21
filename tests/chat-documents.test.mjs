@@ -26,3 +26,12 @@ test('rejects invalid input, validates Markdown result',async()=>{
  assert.equal(Buffer.from(file.base64,'base64').toString('utf8'),request.source+'\n')
  assert.equal(file.sha256.length,64)
 })
+
+test('Word files generated from Markdown reopen and retain the document title',{timeout:30000},async()=>{
+ const source='# GoreeCloud Integral Platform Systems\n\n## Overview\nPlatform systems connect services.'
+ const file=await createChatDocument({format:'docx',title:'GoreeCloud Integral Platform Systems',source})
+ assert.equal(file.format,'docx');assert.ok(file.bytes>1000)
+ const {runDocumentWorker}=await import('../server/document-routes.mjs')
+ const reopened=await runDocumentWorker({action:'open',name:file.name,base64:file.base64})
+ assert.ok(reopened.model.paragraphs.some(p=>p.text==='GoreeCloud Integral Platform Systems'))
+})
