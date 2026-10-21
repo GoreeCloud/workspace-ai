@@ -26,7 +26,9 @@ export function messageWithAttachments(message){
  const text=typeof message?.content==='string'?message.content:''
  const attachments=normalizeChatAttachments(message?.attachments)
  const excerpt=attachments.filter(a=>a.kind==='text').map(a=>'\n\n[Attached text file: '+a.name+']\n'+a.text+'\n[/Attached file]')
- return (text+excerpt.join('')).slice(0,12000)
+ const combined=text+excerpt.join('')
+ if(combined.length>12000)throw Error('Message and attachments exceed 12,000 characters; shorten the text or remove a file')
+ return combined
 }
 export function imageInputsForMessage(message){
  return normalizeChatAttachments(message?.attachments).filter(a=>a.kind==='image').map(a=>a.dataUrl)
