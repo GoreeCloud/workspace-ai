@@ -57,7 +57,7 @@ function ChatRow({chat,pinned,onSelect,onPin,onDelete,onAssign,onRename,projects
   <button className="iconAction" aria-label="Save conversation title" type="submit" disabled={!title.trim()}><Check size={16}/></button>
   <button className="iconAction" aria-label="Cancel rename" type="button" onClick={()=>{setEditing(false);setTitle(chat.title||'')}}><X size={16}/></button>
  </form>:<button className="chatJump" onClick={()=>onSelect(chat.id)}><strong>{chat.title||'Conversation'}</strong><small>{new Date(chat.updatedAt||Date.now()).toLocaleDateString()}</small></button>}
- <select aria-label={'Assign '+(chat.title||'chat')+' to project'} value={chat.projectId||''} onChange={e=>onAssign(chat.id,e.target.value||null)}><option value="">No project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
+ <select title="Moving a chat starts a new AI context; earlier messages stay visible only." aria-label={'Assign '+(chat.title||'chat')+' to project'} value={chat.projectId||''} onChange={e=>onAssign(chat.id,e.target.value||null)}><option value="">No project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
  <button className="iconAction" title="Rename" aria-label="Rename chat" onClick={()=>{setTitle(chat.title||'');setEditing(true)}} disabled={editing}><Pencil size={16}/></button>
  <button className="iconAction" title={pinned?'Unpin':'Pin'} aria-label={pinned?'Unpin chat':'Pin chat'} onClick={()=>onPin(chat.id)}>{pinned?<PinOff size={16}/>:<Pin size={16}/>}</button>
  <button className="iconAction" title="Delete" aria-label="Delete chat" onClick={()=>onDelete(chat.id)}><Trash2 size={16}/></button></div>
