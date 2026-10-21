@@ -12,6 +12,7 @@ import {attachMcpLiveRoutes} from './mcp-live-routes.mjs'
 import {attachGoogleRoutes} from './google-routes.mjs'
 import {attachAgentRoutes} from './agent-routes.mjs'
 import {attachAccountSyncRelay} from './account-sync-relay.mjs'
+import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
@@ -42,6 +43,7 @@ app.use((req, res, next) => {
   }
   next()
 })
+app.use('/api/chat',express.json({limit:'520kb'}))
 app.use(express.json({ limit: '90kb' }))
 const localOrigins=new Set([clientOrigin,'http://127.0.0.1:5173'])
 const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
@@ -132,10 +134,11 @@ function normalizedError(response, json) {
 
 app.post('/api/chat', async (req, res) => {
   const messages = checkMessages(req.body?.messages)
+  const images = validateChatImages(req.body?.images)
   const preference = req.body?.preference
   const fallbackAllowed = req.body?.allowApiFallback === true
   const requestedModel = req.body?.model
-  if (!messages || !['auto', 'plan', 'api'].includes(preference)) {
+  if (!messages || !images || (images.length>0&&preference!=='api') || !['auto', 'plan', 'api'].includes(preference)) {
     return res.status(400).json({ error: 'Invalid conversation or provider selection.' })
   }
   const profile = await readProfile()
@@ -160,7 +163,7 @@ app.post('/api/chat', async (req, res) => {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream'
       },
-      body: JSON.stringify({ model, input: messages, store: false, stream: true }),
+      body: JSON.stringify({ model, input: images.length?multimodalChatInput(messages,images):messages, store: false, stream: true }),
       signal: AbortSignal.any([aborter.signal, AbortSignal.timeout(180_000)])
     })
     return { response, model }
