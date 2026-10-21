@@ -19,7 +19,7 @@ All switches are absent/off by default. In an approved **isolated staging enviro
 
 Only the exact reviewed tools **firecrawl/web.scrape**, **firecrawl/web.crawl**, **remote-desktop-commander/devices.list**, and **remote-desktop-commander/process.execute** have validators. Actual installations may use different names/arguments; those are deliberately refused pending review. Content fetch URL hostnames must match the administrator allowlist; Critical command execution requires a separately approved full command plus the admin allowlist.
 
-The transport pins DNS resolution to public IPv4, verifies HTTPS TLS hostname/certificates, rejects redirects, and bounds time, requests, and result size. Results are untrusted provider data and should not automatically become tool instructions or authorize subsequent actions.
+Both MCP discovery and reviewed tool execution now use the hardened HTTPS transport in real server operation. They pin DNS resolution to a validated public IPv4 address, verify TLS hostname/certificates, reject redirects and IPv4/IPv6 literal endpoints, and bound time, requests and response sizes. Discovery is read-only (`initialize`, initialized notification, `tools/list`) and **never calls `tools/call`**. Only explicit synthetic test transport injection bypasses network I/O, not any deployed route. Results are untrusted provider data and should not automatically become tool instructions or authorize subsequent actions.
 
 ## Release boundaries
 
