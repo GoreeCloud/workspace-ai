@@ -10,6 +10,7 @@ import {useAccountSync} from './use-account-sync.js';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {prepareProjectDeletion} from './project-deletion.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
+import {accountScopedKey,browserAccountScope} from './account-workspace-scope.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
@@ -20,10 +21,11 @@ import {memoryCandidateFromMessage} from './project-memory.js';
 import {normalizeProjectMemoryEntries,createProjectMemoryEntry} from './project-memory-entries.js';
 import {appendPromptDraft,promptsForContext} from './prompt-library.js';
 import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound,ArrowLeft,Ellipsis,Pin,PinOff,Archive,ArchiveRestore,Search,Mic,MicOff,Maximize2,Minimize2} from 'lucide-react';
-const KEY='workspace-ai-history-v1';
+const KEY=accountScopedKey('workspace-ai-history-v1');
+const ACTIVE_WORKSPACE_KEY=accountScopedKey(WORKSPACE_KEY);
 const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}};
 function report(error){return error instanceof Error?error.message:String(error)}
-async function api(url,data){const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(data)}:{});const json=await r.json();if(!r.ok)throw Error(json.error||'Request failed');return json}
+async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});const json=await r.json();if(!r.ok)throw Error(json.error||'Request failed');return json}
 export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
@@ -31,9 +33,9 @@ const [settingsTab,setSettingsTab]=useState('connections');
 const [attachmentsDraft,setAttachmentsDraft]=useState([]),[chatMenuOpen,setChatMenuOpen]=useState(false),[chatSearchOpen,setChatSearchOpen]=useState(false),[chatSearchQuery,setChatSearchQuery]=useState(''),[chatFullscreen,setChatFullscreen]=useState(false),[listening,setListening]=useState(false);
 const recognitionRef=useRef(null);
 const [memoryDraft,setMemoryDraft]=useState(null);
-const [storageConflict,setStorageConflict]=useState(()=>browserStorageLoadProblem(localStorage,KEY,WORKSPACE_KEY));
+const [storageConflict,setStorageConflict]=useState(()=>browserStorageLoadProblem(localStorage,KEY,ACTIVE_WORKSPACE_KEY));
 const [workspace,setWorkspace]=useState(readWorkspace),[view,setView]=useState('chat'),[selectedProject,setSelectedProject]=useState(null),[searchRequest,setSearchRequest]=useState(0);
-const [appearance,setAppearance]=useState(()=>{const value=readWorkspace().preferences?.appearance;if(['light','dark','system'].includes(value))return value;try{const saved=localStorage.getItem('workspace-ai-theme');return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
+const [appearance,setAppearance]=useState(()=>{const value=readWorkspace().preferences?.appearance;if(['light','dark','system'].includes(value))return value;try{const saved=localStorage.getItem(accountScopedKey('workspace-ai-theme'));return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
 const sync=useAccountSync({chats,workspace,preferences:{appearance},busy:busy||Boolean(storageConflict),onRestore:(archive,mode,prefs)=>restoreWorkspace(archive,mode,prefs)});
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
 const workspaceRef=useRef(workspace);
@@ -41,7 +43,7 @@ workspaceRef.current=workspace;
 const chatsRef=useRef(chats);
 chatsRef.current=chats;
 const storageGuard=useRef(null);
-if(!storageGuard.current)storageGuard.current=createBrowserStorageGuard(localStorage,[KEY,WORKSPACE_KEY]);
+if(!storageGuard.current)storageGuard.current=createBrowserStorageGuard(localStorage,[KEY,ACTIVE_WORKSPACE_KEY]);
 const dialogRef=useRef(null);
 const chat=chats.find(c=>c.id===current);
 const activeProjectId=chat?.projectId||(!chat?selectedProject:null);
@@ -85,7 +87,7 @@ useEffect(()=>{
 function updateWorkspace(change){
  if(storageConflict){setError(storageConflict);return false}
  try{
-  const next=persistWorkspaceChange({setItem:(key,value)=>storageGuard.current.write(key,value)},WORKSPACE_KEY,workspaceRef.current,change);
+  const next=persistWorkspaceChange({setItem:(key,value)=>storageGuard.current.write(key,value)},ACTIVE_WORKSPACE_KEY,workspaceRef.current,change);
   workspaceRef.current=next;
   setWorkspace(next);
   return true;
@@ -98,7 +100,7 @@ useEffect(()=>{
  document.documentElement.setAttribute('data-accent','iris');
  update();
  system.addEventListener('change',update);
- try{localStorage.setItem('workspace-ai-theme',appearance)}catch{}
+ try{localStorage.setItem(accountScopedKey('workspace-ai-theme'),appearance)}catch{}
  return ()=>system.removeEventListener('change',update);
 },[appearance]);
 useEffect(()=>{
@@ -175,8 +177,23 @@ function useSavedPrompt(item){
 }
 function navigate(id){setView(id);setMobile(false);setChatMenuOpen(false);setChatSearchOpen(false);setChatFullscreen(false)}
 function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
-async function signIn(){try{const r=await api('/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
-async function signOut(){if(!confirm('Disconnect ChatGPT? Account sync will stop on this device.'))return;sync.keepLocal();try{const r=await api('/api/auth/disconnect',{});await refresh();await sync.refresh();if(r.warning)setError(r.warning)}catch(e){setError(report(e))}}
+async function signIn(add=false){try{if(busy||storageConflict)return;const r=await api(add?'/api/auth/start?mode=add':'/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
+async function signOut(){
+ if(busy||storageConflict||!status.accountId)return
+ if(!confirm('Sign out of '+(status.email||'this account')+'? Local projects and chats are preserved in this browser, and other saved accounts stay connected.'))return
+ sync.keepLocal()
+ try{
+  const result=await api('/api/auth/disconnect',{accountId:status.accountId})
+  if(result.warning)alert(result.warning)
+  location.replace(location.pathname)
+ }catch(e){setError(report(e))}
+}
+async function switchAccount(id){
+ if(busy||storageConflict||id===status.accountId)return
+ sync.keepLocal()
+ try{await api('/api/auth/switch',{accountId:id});location.replace(location.pathname)}
+ catch(e){setError(report(e))}
+}
 async function send(value=draft){
   let pending;try{pending=normalizeChatAttachments(attachmentsDraft)}catch(e){setError(report(e));return}
   const images=imageInputsForMessage({attachments:pending});
@@ -196,7 +213,7 @@ async function send(value=draft){
   setCurrent(id);setDraft('');setAttachmentsDraft([]);setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
   try{
-    const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
+    const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json',...(browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{})},body:JSON.stringify({
       messages:preparedMessages,images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
@@ -244,7 +261,7 @@ function deleteProject(projectId){
  if(busy||storageConflict){setError('Stop the current response or resolve the storage conflict first.');return false}
  try{
   const next=prepareProjectDeletion(chatsRef.current,workspaceRef.current,projectId)
-  storageGuard.current.restore(()=>persistWorkspaceRestore(localStorage,KEY,WORKSPACE_KEY,next))
+  storageGuard.current.restore(()=>persistWorkspaceRestore(localStorage,KEY,ACTIVE_WORKSPACE_KEY,next))
   chatsRef.current=next.chats;workspaceRef.current=next.workspace
   setChats(next.chats);setWorkspace(next.workspace);setSelectedProject(null);setMemoryDraft(null)
   return true
@@ -253,7 +270,7 @@ function deleteProject(projectId){
 function restoreWorkspace(archive,mode,prefs){
  if(busy||storageConflict)throw Error('Stop generation or reload the tab before restoring conversations');
  const restored=prepareWorkspaceRestore(chats,workspace,archive,mode);
- storageGuard.current.restore(()=>persistWorkspaceRestore(localStorage,KEY,WORKSPACE_KEY,restored));
+ storageGuard.current.restore(()=>persistWorkspaceRestore(localStorage,KEY,ACTIVE_WORKSPACE_KEY,restored));
  chatsRef.current=restored.chats;setChats(restored.chats);workspaceRef.current=restored.workspace;setWorkspace(restored.workspace);const theme=prefs?.appearance||restored.workspace.preferences?.appearance;if(['light','dark','system'].includes(theme))setAppearance(theme);setCurrent(null);setMemoryDraft(null);setSelectedProject(null);setView('chats');
  return restored;
 }
