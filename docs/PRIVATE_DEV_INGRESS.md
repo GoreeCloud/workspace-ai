@@ -157,6 +157,14 @@ bash scripts/private-dev-qa-gateway-rehearsal.sh
 
 Both scripts **passed on the VPS**. After the dedicated rehearsal passed, the earlier manually created QA Caddy container and its synthetic credentials/certificate authority material were also removed. The private development backend remains running and isolated; the additional test gateway is no longer running. These scripts are not permission to activate or modify the shared Caddy service.
 
+## Automated isolated HTTPS CI and pre-change rollback snapshot — October 21, 2026
+
+The independent pull-request workflow `.github/workflows/private-dev-https-qa.yml` has been added to draft PR #66. GitHub Actions run **39690742815** passed on commit `50b9b8151ebf2246ff306a25e557ffdd593985fa` and independently verified disposable HTTPS gateway credentials, internal Docker networks, backend health and isolation, TLS chain validation, denial of missing/wrong authentication, and Origin protections, followed by cleanup. The existing `Checks` workflow also passed in run **39690742577** on that commit.
+
+For shared-ingress recovery preparation, a restricted **pre-change snapshot** of the active VPS Caddyfile was created at `$HOME/workspace-ai-private-dev-snapshots/Caddyfile.before-workspace-ai-private-dev`. A byte-for-byte `cmp` verification against the active file succeeded immediately after capture. This snapshot is local to the authorized VPS and must not be committed, sent to public CI, or substituted for an actual restoration test. No active Caddy change or reload occurred, and access to the backup must remain restricted.
+
+Prior to an authorized Caddy route activation, verify the backup's file permissions, test complete config validation using the same custom Caddy image and existing provider modules, document a scoped rollback procedure, and **test source-peer NetBird restrictions and real owner authentication**. The synthetic QA certificate/root CA and password are separate ephemeral test fixtures and are not valid owner credentials or a trusted live certificate.
+
 ## Status and recovery
 
 **Implemented in source branch:** opt-in strict development origin, backend Host/Origin enforcement, localhost default and regression tests.
