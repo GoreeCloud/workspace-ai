@@ -8,7 +8,7 @@ import ProjectLiveSources from './ProjectLiveSources.jsx'
 import ProjectMultiProvider from './ProjectMultiProvider.jsx'
 import {ACCEPT_TEXT_FILES,PROJECT_GLYPHS,PROJECT_API_SERVICES,PROJECT_MCP_SERVICES,PROJECT_FILE_MAX_COUNT,canImportFile,importTextFile,importLocalTextFile} from './project-model.js'
 const GLYPHS={folder:Folder,sparkles:Sparkles,code:Code2,book:BookOpen,briefcase:BriefcaseBusiness,flask:FlaskConical,rocket:Rocket,globe:Globe,heart:Heart,shield:Shield,palette:Palette,database:Database}
-const SERVICE_LABELS={'google-drive':'Google Drive',gmail:'Gmail',dropbox:'Dropbox',github:'GitHub',todoist:'Todoist',linear:'Linear',cloudflare:'Cloudflare Pages','remote-desktop-commander':'Remote Desktop Commander',firecrawl:'Firecrawl'}
+const SERVICE_LABELS={'google-drive':'Google Drive',gmail:'Gmail',dropbox:'Dropbox',github:'GitHub',todoist:'Todoist',linear:'Linear',cloudflare:'Cloudflare Pages','remote-desktop-commander':'Remote Desktop Commander',firecrawl:'Firecrawl','todoist-mcp':'Todoist MCP','google-drive-mcp':'Google Drive MCP','gmail-mcp':'Gmail MCP','github-mcp':'GitHub MCP','dropbox-mcp':'Dropbox MCP','linear-mcp':'Linear MCP','notion-mcp':'Notion MCP'}
 export function ProjectGlyph({icon='folder',size=18}){const Component=GLYPHS[icon]||Folder;return <Component size={size}/>}
 export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDelete,chatCount=0,busy=false}){
  const [error,setError]=useState(''),[notice,setNotice]=useState(''),[dropboxPath,setDropboxPath]=useState(''),[cloudBusy,setCloudBusy]=useState(false),[browseDropbox,setBrowseDropbox]=useState(false),[fileQuery,setFileQuery]=useState('')
