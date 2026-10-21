@@ -58,7 +58,12 @@
         "portable"
       ]
     },
-    "executableName": "workspace-ai"
+    "executableName": "workspace-ai",
+    "artifactName": "GoreeCloud-WorkspaceAI-${version}-${arch}.${ext}"
   },
-  "author": "GoreeCloud"
+  "author": {
+    "name": "GoreeCloud",
+    "email": "goreecloud@gmail.com"
+  },
+  "homepage": "https://github.com/GoreeCloud/workspace-ai"
 }
