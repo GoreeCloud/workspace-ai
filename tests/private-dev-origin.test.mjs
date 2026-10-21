@@ -10,7 +10,6 @@ import {fileURLToPath} from 'node:url'
 import {resolveIngress} from '../server/ingress-config.mjs'
 
 const DEV = 'https://workspace-ai-dev.goreecloud.com'
-const GATEWAY_KEY = 'synthetic_test_only_gateway_key_0123456789abcdef'
 const config = (overrides = {}) => resolveIngress({WORKSPACE_AI_PORT: '3031', ...overrides})
 
 test('local installations remain loopback-bound and reject development settings', () => {
@@ -20,22 +19,18 @@ test('local installations remain loopback-bound and reject development settings'
   assert.deepEqual([...normal.allowedHosts], ['127.0.0.1:3031'])
   assert.equal(normal.allowedOrigins.has('http://127.0.0.1:5173'), true)
   assert.throws(() => config({WORKSPACE_AI_PRIVATE_DEV_ORIGIN: DEV}), /require/)
-  assert.throws(() => config({WORKSPACE_AI_PRIVATE_DEV_GATEWAY_KEY: GATEWAY_KEY}), /require/)
   assert.throws(() => config({WORKSPACE_AI_PORT: '-1'}), /Invalid/)
   assert.throws(() => config({WORKSPACE_AI_PORT: '65536'}), /Invalid/)
 })
 
 test('private host requires an exact HTTPS origin and explicit opt-in', () => {
-  const base = {WORKSPACE_AI_PRIVATE_DEV_ENABLED: 'true', WORKSPACE_AI_PRIVATE_DEV_ORIGIN: DEV, WORKSPACE_AI_PRIVATE_DEV_GATEWAY_KEY: GATEWAY_KEY}
-  assert.throws(() => config({WORKSPACE_AI_PRIVATE_DEV_ENABLED: 'true', WORKSPACE_AI_PRIVATE_DEV_ORIGIN: DEV}), /gateway secret/)
-  assert.throws(() => config({...base, WORKSPACE_AI_PRIVATE_DEV_GATEWAY_KEY: 'short'}), /gateway secret/)
+  const base = {WORKSPACE_AI_PRIVATE_DEV_ENABLED: 'true', WORKSPACE_AI_PRIVATE_DEV_ORIGIN: DEV}
   assert.throws(() => config({...base, WORKSPACE_AI_PRIVATE_DEV_ORIGIN: 'http://workspace-ai-dev.goreecloud.com'}), /approved HTTPS/)
   assert.throws(() => config({...base, WORKSPACE_AI_PRIVATE_DEV_ORIGIN: 'https://workspace-ai-dev.goreecloud.com.evil.test'}), /approved HTTPS/)
   assert.throws(() => config({...base, WORKSPACE_AI_PRIVATE_DEV_BIND_ALL: 'true'}), /isolated container/)
   assert.throws(() => config({...base, WORKSPACE_AI_PRIVATE_DEV_BIND_ALL: 'yes'}), /Invalid/)
   const enabled = config(base)
   assert.equal(enabled.bindHost, '127.0.0.1')
-  assert.equal(enabled.gatewayKey,GATEWAY_KEY)
   assert.equal(enabled.clientOrigin, DEV)
   assert.deepEqual([...enabled.allowedHosts], ['workspace-ai-dev.goreecloud.com'])
   assert.deepEqual([...enabled.allowedOrigins], [DEV])
@@ -43,10 +38,9 @@ test('private host requires an exact HTTPS origin and explicit opt-in', () => {
   assert.equal(isolated.bindHost, '0.0.0.0')
 })
 
-function send(port, host, method = 'GET', origin, route = '/api/status', body, gatewayKey = GATEWAY_KEY) {
+function send(port, host, method = 'GET', origin, route = '/api/status', body) {
   return new Promise((resolve,reject) => {
     const headers = {Host:host}
-    if (gatewayKey !== null) headers['X-Workspace-Dev-Gateway-Key'] = gatewayKey
     if (origin !== undefined) headers.Origin = origin
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     const req = httpRequest({host:'127.0.0.1',port,method,path:route,headers}, res => {
@@ -69,7 +63,7 @@ test('private development origin is enforced by the real server before API handl
     const port=socket.address().port
     await new Promise(resolve=>socket.close(resolve))
     const env={...process.env,HOME:home,WORKSPACE_AI_PORT:String(port),
-      WORKSPACE_AI_PRIVATE_DEV_ENABLED:'true', WORKSPACE_AI_PRIVATE_DEV_ORIGIN:DEV, WORKSPACE_AI_PRIVATE_DEV_GATEWAY_KEY:GATEWAY_KEY,
+      WORKSPACE_AI_PRIVATE_DEV_ENABLED:'true', WORKSPACE_AI_PRIVATE_DEV_ORIGIN:DEV,
       WORKSPACE_AI_PRIVATE_DEV_BIND_ALL:'false', WORKSPACE_AI_ENABLE_SCHEDULED_AGENTS:'false'}
     for (const key of ['OPENAI_API_KEY','WORKSPACE_AI_AGENT_OWNER_KEY','WORKSPACE_SYNC_OAUTH_CLIENT_IDS']) delete env[key]
     child=spawn(process.execPath,[fileURLToPath(new URL('../server/index.mjs',import.meta.url))],{env,cwd:home,stdio:'ignore'})
@@ -80,10 +74,6 @@ test('private development origin is enforced by the real server before API handl
       await new Promise(resolve=>setTimeout(resolve,80))
     }
     assert.equal(ready,true,'Development server did not become ready')
-    const noKey=await send(port,'workspace-ai-dev.goreecloud.com','GET',undefined,'/api/status',undefined,null)
-    assert.equal(noKey.status,403)
-    assert.doesNotMatch(noKey.body,/synthetic_test_only_gateway_key/)
-    assert.equal((await send(port,'workspace-ai-dev.goreecloud.com','GET',undefined,'/api/status',undefined,'incorrect_gateway_key_0123456789')).status,403)
     const status=await send(port,'workspace-ai-dev.goreecloud.com')
     assert.equal(status.status,200)
     assert.match(status.headers['cache-control'],/no-store/)
