@@ -1,10 +1,11 @@
 'use strict'
 // Experimental desktop wrapper: not a signed or released application.
-const {app,BrowserWindow,shell,session}=require('electron')
+const {app,BrowserWindow,shell,session,dialog}=require('electron')
 const {spawn}=require('node:child_process')
 const {createServer}=require('node:net')
 const path=require('node:path')
 const {allowedLocalNavigation,externalAuthenticationLink}=require('./navigation.cjs')
+const {waitForBackendStart}=require('./backend-startup.cjs')
 let backend,window,port,shuttingDown=false
 const root=app.isPackaged?path.join(process.resourcesPath,'workspace'):path.resolve(__dirname,'..')
 function ephemeralPort(){
@@ -25,15 +26,21 @@ function stop(){if(shuttingDown)return;shuttingDown=true;backend?.kill('SIGTERM'
 async function launch(){
  port=await ephemeralPort()
  backend=spawn(process.execPath,[path.join(root,'server','index.mjs')],{
-  cwd:root,windowsHide:true,stdio:'ignore',
+  cwd:root,windowsHide:true,stdio:['ignore','pipe','ignore'],
   env:{...process.env,ELECTRON_RUN_AS_NODE:'1',WORKSPACE_AI_PORT:String(port)}
  })
+ await waitForBackendStart(backend,port)
  await ready(port,backend)
  const origin='http://127.0.0.1:'+port
  window=new BrowserWindow({width:1280,height:830,minWidth:660,minHeight:510,title:'GoreeCloud Workspace AI',
   autoHideMenuBar:true,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,spellcheck:true}})
  session.defaultSession.setPermissionRequestHandler((contents,permission,callback)=>{
-  callback(allowedLocalNavigation(contents.getURL(),port)&&permission==='media')
+  if(!allowedLocalNavigation(contents.getURL(),port)||permission!=='media'||!window||window.isDestroyed())return callback(false)
+  dialog.showMessageBox(window,{type:'question',buttons:['Deny','Allow'],defaultId:0,cancelId:0,noLink:true,
+   title:'Workspace AI device permission',message:'Allow Workspace AI to access your camera or microphone?',
+   detail:'Only continue if you just selected a camera, photo or microphone action.'
+  }).then(({response})=>callback(response===1&&allowedLocalNavigation(contents.getURL(),port)))
+   .catch(()=>callback(false))
  })
  window.webContents.setWindowOpenHandler(({url})=>{
   const auth=externalAuthenticationLink(url)
@@ -48,6 +55,7 @@ async function launch(){
  })
  await window.loadURL(origin)
  window.on('closed',()=>{window=null})
+ backend.once('exit',()=>{if(!shuttingDown){shuttingDown=true;window?.close();app.quit()}})
 }
 app.whenReady().then(launch).catch(err=>{console.error('Workspace AI desktop startup:',err.message);stop();app.quit()})
 app.on('before-quit',stop)
