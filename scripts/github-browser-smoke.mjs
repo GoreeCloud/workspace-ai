@@ -255,6 +255,8 @@ try {
   await evaluate("document.querySelector('button[aria-label=\"Send message\"]').click()")
   await wait("[...document.querySelectorAll('.chatDocumentCard strong')].some(n=>n.textContent==='Systems.md')")
   assert.equal(await evaluate("window.__chatFileCalls"),1)
+  await wait("(()=>{const card=[...document.querySelectorAll('.chatDocumentCard')].at(-1),feed=document.querySelector('.feed');return !!card&&!!feed&&card.getBoundingClientRect().bottom<=feed.getBoundingClientRect().bottom+4})()")
+  await delay(150)
   await capture('chat-document-conversion-mobile.png')
   await send('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false})
   await capture('chat-document-conversion-desktop.png')
