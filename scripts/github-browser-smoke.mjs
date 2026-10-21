@@ -134,6 +134,14 @@ try {
           {type:'file',name:'notes.txt',path:'/notes.txt',size:1024,modified:''}
         ]})
       }
+      if(url.pathname==='/api/documents/from-chat'){
+        const body=JSON.parse(init.body)
+        if(body.format!=='md')throw Error('Unexpected paid or binary synthetic file operation')
+        const bytes=new TextEncoder().encode(body.source)
+        const base64=btoa([...bytes].map(b=>String.fromCharCode(b)).join(''))
+        window.__chatFileCalls=(window.__chatFileCalls||0)+1
+        return wrap({ok:true,name:'Systems.md',format:'md',mime:'text/markdown; charset=utf-8',bytes:bytes.length,base64})
+      }
       return nativeFetch(input,init)
     }
   })()`
