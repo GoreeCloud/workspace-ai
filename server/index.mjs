@@ -14,6 +14,7 @@ import {attachAgentRoutes} from './agent-routes.mjs'
 import {attachAccountSyncRelay} from './account-sync-relay.mjs'
 import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
+import {attachDocumentRoutes} from './document-routes.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
@@ -45,8 +46,10 @@ app.use((req, res, next) => {
   next()
 })
 app.use('/api/chat',express.json({limit:'520kb'}))
+app.use('/api/documents',express.json({limit:'9mb'}))
 app.use(express.json({ limit: '90kb' }))
 const localOrigins=new Set([clientOrigin,'http://127.0.0.1:5173'])
+attachDocumentRoutes(app,localOrigins)
 const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
 const mcpIntegration=attachIntegrationRoutes(app,localOrigins,{onMcpChange:provider=>mcpApproval.revokeProvider(provider)})
 attachMcpLiveRoutes(app,localOrigins,{broker:mcpApproval,...mcpIntegration,providerReady:mcpIntegration.isMcpReady})
