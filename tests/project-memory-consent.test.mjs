@@ -19,12 +19,11 @@ test('toggling memory controls context without deleting stored notes',()=>{
  assert.equal(project.memory,'A retained private note')
  assert.doesNotMatch(projectContext({projects:[project]},'p','note'),/retained private/)
 })
-test('sharing notes requires both source and destination memory enabled',()=>{
- const a={...newProject('a','Source'),memory:'Very sensitive note',shareMemoryWith:['b']}
+test('cross-project memory never flows even when old sharing flags exist',()=>{
+ const a={...newProject('a','Source'),memory:'Very sensitive note',shareMemoryWith:['b'],memoryEnabled:true}
  const b={...newProject('b','Destination'),memoryEnabled:true}
  assert.doesNotMatch(projectContext({projects:[a,b]},'b','sensitive'),/Very sensitive/)
- a.memoryEnabled=true
- assert.match(projectContext({projects:[a,b]},'b','sensitive'),/Very sensitive/)
- b.memoryEnabled=false
- assert.doesNotMatch(projectContext({projects:[a,b]},'b','sensitive'),/Very sensitive/)
+ assert.match(projectContext({projects:[a,b]},'a','sensitive'),/Very sensitive/)
+ a.memoryEnabled=false
+ assert.doesNotMatch(projectContext({projects:[a,b]},'a','sensitive'),/Very sensitive/)
 })

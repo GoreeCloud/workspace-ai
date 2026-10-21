@@ -12,7 +12,7 @@ const list = (a,n) => Array.isArray(a) ? a.filter(v=>typeof v==='string').slice(
 export const ACCEPT_TEXT_FILES = '.txt,.md,.markdown,.csv,.tsv,.json,.yaml,.yml,.log,.js,.jsx,.ts,.tsx,.py,.html,.css,.xml,.sql'
 const extensions = new Set(ACCEPT_TEXT_FILES.split(','))
 export function newProject(id,name,createdAt=Date.now()) {
- return {id,name,createdAt,icon:'folder',instructions:'',memoryEnabled:false,memory:'',shareMemoryWith:[],shareFilesWith:[],api:[],mcp:[],mcpPolicies:{},files:[],linkedSources:[]}
+ return {id,name,createdAt,icon:'folder',instructions:'',memoryEnabled:false,memory:'',shareFilesWith:[],api:[],mcp:[],mcpPolicies:{},files:[],linkedSources:[]}
 }
 export function normalizeProject(project) {
  if (!project || typeof project !== 'object' || Array.isArray(project) || typeof project.id!=='string' || !project.id || project.id.length>160 ||
@@ -22,7 +22,6 @@ export function normalizeProject(project) {
  data.instructions = text(project.instructions,4000)
  data.memoryEnabled = project.memoryEnabled === true
  data.memory = text(project.memory,4000)
- data.shareMemoryWith = [...new Set(list(project.shareMemoryWith,100))]
  data.shareFilesWith = [...new Set(list(project.shareFilesWith,100))]
  data.api = [...new Set(list(project.api,PROJECT_API_SERVICES.length))].filter(v=>PROJECT_API_SERVICES.includes(v))
  data.mcp = [...new Set(list(project.mcp,PROJECT_MCP_SERVICES.length))].filter(v=>PROJECT_MCP_SERVICES.includes(v))
@@ -57,7 +56,6 @@ export function normalizeProjects(projects) {
   return item
  })
  return normalized.map(p=>({...p,
-  shareMemoryWith:p.shareMemoryWith.filter(id=>ids.has(id)&&id!==p.id),
   shareFilesWith:p.shareFilesWith.filter(id=>ids.has(id)&&id!==p.id)
  }))
 }

@@ -7,7 +7,7 @@ const main=()=>({...newProject('main','Main'),instructions:'Answer in bullet poi
 test('legacy projects gain safe defaults and private-by-default isolation',()=>{
  const p=normalizeProject({id:'p',name:'Legacy',createdAt:1})
  assert.equal(p.icon,'folder')
- assert.deepEqual(p.shareMemoryWith,[])
+ assert.equal(Object.hasOwn(p,'shareMemoryWith'),false)
  assert.deepEqual(p.shareFilesWith,[])
  assert.deepEqual(p.api,[])
  assert.deepEqual(p.mcp,[])
@@ -16,22 +16,21 @@ test('legacy projects gain safe defaults and private-by-default isolation',()=>{
  assert.equal(projectContext({projects},'other'),'')
  assert.match(projectContext({projects},'main'),/Answer in bullet points/)
 })
-test('explicit outbound sharing copies only selected classes of context',()=>{
+test('legacy memory sharing grants are ignored while file sharing stays opt-in',()=>{
  const source=main(),target={...newProject('other','Other'),memoryEnabled:true}
- const projects=[source,target]
- assert.doesNotMatch(projectContext({projects},'other'),/Private/)
  source.shareMemoryWith=['other']
- const notes=projectContext({projects},'other')
- assert.match(notes,/Private roadmap/)
- assert.doesNotMatch(notes,/Private spec/)
+ const projects=[source,target]
+ assert.doesNotMatch(projectContext({projects},'other'),/Private roadmap/)
+ assert.doesNotMatch(projectContext({projects},'other'),/Private spec/)
  source.shareFilesWith=['other']
  assert.match(projectContext({projects},'other'),/Private spec/)
+ assert.doesNotMatch(projectContext({projects},'other'),/Private roadmap/)
  assert.equal(projectContext({projects},'absent'),'')
 })
 test('normalizeProjects strips links to nonexistent projects and self',()=>{
  const source={...main(),shareMemoryWith:['main','ghost','other'],shareFilesWith:['ghost','other']}
  const [normalized]=normalizeProjects([source,newProject('other','Other')])
- assert.deepEqual(normalized.shareMemoryWith,['other'])
+ assert.equal(Object.hasOwn(normalized,'shareMemoryWith'),false)
  assert.deepEqual(normalized.shareFilesWith,['other'])
 })
 test('project context enforces bounded reference text and does not carry tools',()=>{
@@ -48,7 +47,7 @@ test('file extension, limits and metadata validation exclude binary files',()=>{
  assert.throws(()=>normalizeProject({...main(),files:[{id:'bad',name:'valid.md',content:'ok'+String.fromCharCode(0)}]}),/Invalid project file/)
  assert.throws(()=>normalizeProjects([{id:'one',name:'One'},{id:'one',name:'Duplicate'}]),/Duplicate/)
 })
-test('workspace backup roundtrip preserves project instructions, notes, sharing, icons and text attachments',()=>{
+test('workspace backup roundtrip preserves private notes while removing legacy memory grants',()=>{
  const p={...main(),icon:'rocket',shareMemoryWith:['other'],api:['github'],mcp:['firecrawl']}
  const archive=createWorkspaceBackup([],{
   projects:[p,newProject('other','Other')],pinned:[],collapsed:false,expanded:{chats:true,pinned:true,projects:true}
@@ -57,6 +56,7 @@ test('workspace backup roundtrip preserves project instructions, notes, sharing,
  assert.equal(imported.workspace.projects[0].icon,'rocket')
  assert.equal(imported.workspace.projects[0].instructions,'Answer in bullet points')
  assert.equal(imported.workspace.projects[0].files[0].content,'Private spec')
- assert.deepEqual(imported.workspace.projects[0].shareMemoryWith,['other'])
+ assert.equal(imported.workspace.projects[0].memory,'Private roadmap')
+ assert.equal(Object.hasOwn(imported.workspace.projects[0],'shareMemoryWith'),false)
  assert.deepEqual(imported.workspace.projects[0].api,['github'])
 })

@@ -72,17 +72,20 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
     <textarea id="project-instructions" rows={5} maxLength={4000} value={project.instructions||''} onChange={e=>update({instructions:e.target.value})} placeholder="Describe the project's goals, response style, constraints, and tasks."/>
     <p className="projectHint">Project instructions are supplied to the AI when you send a message inside this project. They do not apply to other projects.</p>
    </section>
-   <section className="projectPanel"><h3>Memory & boundaries</h3>
-    <label><input type="checkbox" checked={project.memoryEnabled===true} onChange={e=>update({memoryEnabled:e.target.checked})}/> Enable project memory</label>
-    <label htmlFor="project-memory">Project memory notes</label>
-    <textarea id="project-memory" disabled={!project.memoryEnabled} rows={5} maxLength={4000} value={project.memory||''} onChange={e=>update({memory:e.target.value})} placeholder="Facts and preferences you want retained in this project."/>
-    <p className="projectHint">Manually maintained notes, not automatically generated long-term memory. Projects are isolated unless you grant sharing below.</p>
-    {projects.filter(p=>p.id!==project.id).length>0&&<><h4>Share this project's data with</h4>
+   <section className="projectPanel"><h3>Private project memory</h3>
+    <label><input type="checkbox" checked={project.memoryEnabled===true} onChange={e=>update({memoryEnabled:e.target.checked})}/> Include this project's memory in its AI requests</label>
+    <label htmlFor="project-memory">Edit memory for {project.name}</label>
+    <textarea id="project-memory" rows={6} maxLength={4000} value={project.memory||''} onChange={e=>{update({memory:e.target.value});setNotice('')}} placeholder="Facts and preferences retained only for this project."/>
+    <div className="actions"><button className="outline" type="button" disabled={!project.memory} onClick={()=>{
+     if(!window.confirm('Delete all memory notes for '+project.name+'? This clears only this project’s saved notes and cannot be undone.'))return
+     update({memory:''});setError('');setNotice('Memory deleted from '+project.name+'.')
+    }}><Trash2 size={15}/> Delete project memory</button></div>
+    <p className="projectHint">Memory is never shared between projects. You can edit or delete these notes even when memory is disabled. Disabling memory pauses their use without erasing them. Deletion affects future requests, not past conversations or previously exported backups.</p>
+    {projects.filter(p=>p.id!==project.id).length>0&&<><h4>Share reference files (optional)</h4>
      {projects.filter(p=>p.id!==project.id).map(p=><div key={p.id} className="projectShareRow"><span><ProjectGlyph icon={p.icon} size={15}/>{p.name}</span>
-      <label><input type="checkbox" checked={(project.shareMemoryWith||[]).includes(p.id)} disabled={!project.memoryEnabled} onChange={()=>toggle('shareMemoryWith',p.id)}/> Memory notes</label>
       <label><input type="checkbox" checked={(project.shareFilesWith||[]).includes(p.id)} onChange={()=>toggle('shareFilesWith',p.id)}/> Reference files</label>
      </div>)}
-     <p className="projectHint">One-way consent: selecting a destination allows its new AI requests to read the chosen notes or file text from this project. Sharing is off by default.</p></>}
+     <p className="projectHint">One-way file sharing allows selected projects to read reference files, never memory notes or project instructions.</p></>}
    </section>
    <section className="projectPanel"><h3>Project files</h3>
     <ProjectLiveSources project={project} onUpdate={update} busy={busy}/><p className="projectHint">Text and source files are stored locally in this browser, then included as bounded reference context when chatting. Maximum {PROJECT_FILE_MAX_COUNT} files, 64 KB each. PDF, image and binary parsing are not supported yet.</p>

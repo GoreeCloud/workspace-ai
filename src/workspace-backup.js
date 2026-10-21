@@ -118,7 +118,7 @@ export function prepareWorkspaceRestore(existingChats, existingWorkspace, archiv
  const added = incoming.slice(0, room)
  const projects = Array.isArray(oldWorkspace.projects) ? oldWorkspace.projects : []
  const projectIds = new Set(projects.map(p => p.id))
- const additions = imported.workspace.projects.filter(p => !projectIds.has(p.id)).map(p => ({...p,shareMemoryWith:p.shareMemoryWith.filter(id=>!projectIds.has(id)),shareFilesWith:p.shareFilesWith.filter(id=>!projectIds.has(id))}))
+ const additions = imported.workspace.projects.filter(p => !projectIds.has(p.id)).map(p => ({...p,shareFilesWith:p.shareFilesWith.filter(id=>!projectIds.has(id))}))
  const mergedProjects = [...projects, ...additions].slice(0, MAX_PROJECTS)
  const newProjectIds = new Set(mergedProjects.filter(p => !projectIds.has(p.id)).map(p => p.id))
  const newChats = [...oldChats, ...added.map(c => ({

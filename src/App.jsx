@@ -171,7 +171,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  {memoryDraft?.chatId===chat.id&&memoryDraft?.messageId===m.id&&memoryDraft?.projectId===activeProject?.id&&<div className="memoryReview">
  <label htmlFor={'review-'+m.id}>Review and edit the memory saved to {activeProject.name}</label>
  <textarea id={'review-'+m.id} rows={4} maxLength={1200} value={memoryDraft.text} onChange={e=>setMemoryDraft(v=>({...v,text:e.target.value}))}/>
- <p>This text is not saved until you approve it. Existing sharing settings may make saved notes available to other projects.</p>
+ <p>This text is not saved until you approve it. Saved notes are private to this project and never shared with other projects.</p>
  <div className="actions"><button className="primary" onClick={saveReviewedMemory} disabled={!memoryDraft.text.trim()||busy}>Save reviewed memory</button>
  <button className="outline" onClick={()=>setMemoryDraft(null)}>Cancel</button></div></div>}
  </div></article>)}<div ref={bottom}/></section>}</div>

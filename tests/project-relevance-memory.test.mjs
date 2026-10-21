@@ -39,14 +39,15 @@ test('bounded context includes file source names while preserving default projec
  assert.match(result,/health checks/)
  assert.ok(result.length<=PROJECT_CONTEXT_MAX)
  workspace.projects[1].shareMemoryWith=['a']
- assert.match(projectContext(workspace,'a','notes'),/Private financial notes/)
+ assert.doesNotMatch(projectContext(workspace,'a','notes'),/Private financial notes/)
 })
-test('long project notes and shared memory cannot crowd out relevant file evidence',()=>{
+test('unrelated legacy shared notes cannot crowd out private project evidence',()=>{
  const target={...newProject('p','Active'),instructions:'X'.repeat(4000),memory:'Y'.repeat(4000),files:[file('critical','critical.md','Release rollback checklist for payment integration')]}
  const shared=Array.from({length:5},(_,i)=>({...newProject('share-'+i,'Notes '+i),memory:'Z'.repeat(4000),shareMemoryWith:['p']}))
- const ctx=projectContext({projects:[target,...shared]},'p','payment rollback checklist')
+ const ctx=projectContext({projects:[{...target,memoryEnabled:true},...shared.map(p=>({...p,memoryEnabled:true}))]},'p','payment rollback checklist')
  assert.match(ctx,/critical\.md/)
  assert.match(ctx,/Release rollback checklist/)
+ assert.doesNotMatch(ctx,/ZZZZZZ/)
  assert.ok(ctx.length<=PROJECT_CONTEXT_MAX)
 })
 

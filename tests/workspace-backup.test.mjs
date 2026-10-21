@@ -80,7 +80,7 @@ test('merging conflicting project IDs never reassigns imported chats or shares p
  const merged=prepareWorkspaceRestore([],local,incoming,'merge')
  assert.equal(merged.chats[0].projectId,null)
  assert.equal(merged.workspace.projects[0].name,'Local identity')
- assert.deepEqual(merged.workspace.projects.find(p=>p.id==='project2').shareMemoryWith,[])
+ assert.equal(Object.hasOwn(merged.workspace.projects.find(p=>p.id==='project2'),'shareMemoryWith'),false)
 })
 
 test('failed storage writes attempt rollback and do not trigger app state changes',()=>{
