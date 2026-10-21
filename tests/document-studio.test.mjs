@@ -1,6 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
+import {spawnSync} from 'node:child_process'
+import {fileURLToPath} from 'node:url'
 import {createEngineeringWorkOrder,workOrderPrompt} from '../src/engineering-work-order.js'
 import {parseCsv,documentKind,validDocumentName} from '../src/document-utils.js'
 import {attachDocumentRoutes,runDocumentWorker} from '../server/document-routes.mjs'
@@ -86,4 +88,31 @@ test('backend and frontend wire Document and Engineering Studio without model co
  assert.match(app,/File\.arrayBuffer|file\.arrayBuffer/)
  assert.match(sw,/\/api\//)
  assert.match(navigation,/id:'documents'/)
+})
+
+test('existing DOCX/PPTX run styles survive targeted text replacements',()=>{
+ const python=process.env.WORKSPACE_DOCUMENT_PYTHON||'python3'
+ const script=fileURLToPath(new URL('./test_document_rich_text.py',import.meta.url))
+ const run=spawnSync(python,['-I','-B',script],{encoding:'utf8',timeout:20000})
+ assert.equal(run.status,0,run.stderr||run.error?.message)
+ assert.match(run.stdout,/RICH_TEXT_ROUNDTRIP_PASS/)
+})
+
+test('document conversion concurrency is bounded and recovers after completion',async()=>{
+ let handler,finish=[]
+ const app={post:(_path,h)=>{handler=h}}
+ attachDocumentRoutes(app,new Set(['http://127.0.0.1:3031']),{
+  convert:()=>new Promise(resolve=>finish.push(resolve))})
+ const run=()=>{
+  const res={code:200,status(n){this.code=n;return this},setHeader(){return this},json(v){this.body=v;return this}}
+  return {res,done:handler({headers:{origin:'http://127.0.0.1:3031'},body:{}},res)}
+ }
+ const first=run(),second=run(),third=run()
+ assert.equal(finish.length,2)
+ await third.done;assert.equal(third.res.code,429)
+ finish[0]({ok:true});await first.done;assert.equal(first.res.code,200)
+ const fourth=run();assert.equal(finish.length,3)
+ finish[1]({ok:true});finish[2]({ok:true})
+ await Promise.all([second.done,fourth.done])
+ assert.equal(fourth.res.code,200)
 })
