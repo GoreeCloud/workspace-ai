@@ -8,6 +8,8 @@ Start the local gateway with `node server/sync-service.mjs` behind an administra
 
 Data synchronized: project configuration, approved project memories, project files, agent definitions, conversations, prompts and appearance. Not synchronized: provider credentials, OAuth tokens, API keys, server-held scheduled agents, or authenticated MCP account connections. MCP profile metadata and intended resource scopes do not create actual provider access grants.
 
+Before uploading existing browser data to a remotely empty account, the app requires a separate explicit confirmation showing that projects, memories, chats and agents will be copied to the newly signed-in account. It records only a nonsecret account binding locally, so switching to a different signed-in account produces a stronger cross-account transfer warning. Canceling the confirmation leaves local data untouched and does not enable sync. An empty local workspace does not need migration consent. This precaution does not automatically partition all browser-local workspaces by account; using separate browser profiles remains advisable when multiple people share a computer.
+
 The local-only option retains data solely in browser storage. Device/browser loss or clearing storage can permanently erase it. A signed-in user cannot continue work on another device until the shared sync gateway is deployed and the user unlocks it with the same passphrase. If the passphrase is lost, remote ciphertext cannot be recovered. The app requires explicit confirmation before restoring remote data over local work. Concurrent changes are stopped on revision conflicts, not automatically merged.
 
 

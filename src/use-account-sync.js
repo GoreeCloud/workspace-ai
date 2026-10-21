@@ -1,6 +1,7 @@
 import {useEffect,useRef,useState} from 'react'
 import {createWorkspaceBackup,parseWorkspaceBackup} from './workspace-backup.js'
 import {encryptAccountSnapshot,decryptAccountSnapshot} from './account-sync-crypto.js'
+import {accountImportPlan,LOCAL_SYNC_OWNER_KEY} from './account-sync-consent.js'
 async function call(path,body,accountId){
  const r=await fetch(path,body?{method:'PUT',headers:{'Content-Type':'application/json',...(accountId?{'X-Workspace-Account-Id':accountId}:{})},body:JSON.stringify(body)}:{method:'GET',headers:accountId?{'X-Workspace-Account-Id':accountId}:{}})
  const value=await r.json()
@@ -24,6 +25,13 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
  const snapshot=()=>createWorkspaceBackup(chats,workspace)
  const syncPrefs=()=>({appearance:['light','dark','system'].includes(preferences.appearance)?preferences.appearance:'system'})
  const currentPayload=()=>({...snapshot(),preferences:syncPrefs()})
+ const savedAccountId=()=>{
+  try{return localStorage.getItem(LOCAL_SYNC_OWNER_KEY)}catch{return null}
+ }
+ const markOwner=accountId=>{
+  try{localStorage.setItem(LOCAL_SYNC_OWNER_KEY,accountId)}
+  catch{setMessage('Sync succeeded, but the browser could not remember this account binding. Keep a separate backup.')}
+ }
  const refresh=async()=>{
   try{
    const status=await call('/api/sync/status')
@@ -63,7 +71,10 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
     setState('restore-required');setMessage('Encrypted account data found. Review and restore it before enabling automatic sync. Nothing was overwritten.')
     setPassphrase(secret)
    }else{
+    const plan=accountImportPlan({accountId:status.accountId,previousAccountId:savedAccountId(),chats,workspace})
+    if(plan.requiresConfirmation&&!window.confirm(plan.message+'\n\nThis action cannot be undone by simply switching back to local-only mode.'))return
     await send(secret,null)
+    markOwner(status.accountId)
     active.current=true;disabledRef.current=false;setPassphrase(secret);setState('enabled')
    }
   }catch(e){setMessage(e.message);if(!mismatchRef.current)setState('local')}
@@ -84,6 +95,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
    revisionRef.current=source.revision;setRevision(source.revision);remoteRef.current=null
    // Restoring an existing snapshot must never immediately re-upload stale pre-restore state.
    skipRestoreUpload.current=true
+   markOwner(activeAccountRef.current)
    active.current=true;disabledRef.current=false;setState('enabled');setMessage('Account data restored. Future edits will synchronize.')
    return true
   }catch(e){setMessage(e.message);return null}
