@@ -6,6 +6,7 @@ import './styles.css'
 import './connection-field.css'
 import './ui-refresh.css'
 import './workspace.css'
+import {registerWorkspacePwa} from './register-pwa.js'
 
 const root=createRoot(document.getElementById('root'))
 async function verifiedScope(){
@@ -25,6 +26,7 @@ async function bootstrap(){
  try{
   const identity=await verifiedScope()
   selectBrowserAccount(identity)
+  registerWorkspacePwa()
   const {default:App}=await import('./App.jsx')
   function VerifiedApp(){
    const [error,setError]=React.useState('')
