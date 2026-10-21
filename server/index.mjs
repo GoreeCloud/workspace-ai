@@ -1,5 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import 'dotenv/config'
+import {createHash} from 'node:crypto'
+import {createEphemeralCache} from './ephemeral-cache.mjs'
+import {promptCacheKey} from './prompt-cache.mjs'
 import express from 'express'
 import { getHostId, publicStatus, readProfile, updateProfile } from './storage.mjs'
 import { makeAttempt, consumeAttempt, exchangeCode, getPlanToken, disconnectAccount } from './oauth.mjs'
@@ -14,6 +17,8 @@ import {attachAgentRoutes} from './agent-routes.mjs'
 import {attachAccountSyncRelay} from './account-sync-relay.mjs'
 import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
+import {attachDocumentRoutes} from './document-routes.mjs'
+import {attachSmartImageRoutes} from './smart-image-routes.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
@@ -24,6 +29,7 @@ const apiModel = process.env.OPENAI_API_MODEL || 'gpt-5-mini'
 const clientOrigin = 'http://127.0.0.1:' + PORT
 const callback = 'http://127.0.0.1:' + PORT + '/auth/callback'
 const endpoint = 'https://api.openai.com/v1'
+const modelCatalogCache=createEphemeralCache({ttlMs:60_000,maxEntries:24})
 const cooldownCodes = new Set([
   'subscription_sharing_usage_limit_exceeded',
   'subscription_sharing_usage_unavailable',
@@ -38,15 +44,19 @@ app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store')
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'no-referrer')
-  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'")
+  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data: https://ideogram.ai https://*.ideogram.ai; style-src 'self'; script-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'")
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     if (req.headers.origin && !['http://127.0.0.1:5173', clientOrigin].includes(req.headers.origin)) return res.status(403).json({ error: 'Origin not allowed.' })
   }
   next()
 })
 app.use('/api/chat',express.json({limit:'520kb'}))
+app.use('/api/documents',express.json({limit:'9mb'}))
+app.use('/api/smart-images',express.json({limit:'24kb'}))
 app.use(express.json({ limit: '90kb' }))
 const localOrigins=new Set([clientOrigin,'http://127.0.0.1:5173'])
+attachDocumentRoutes(app,localOrigins)
+const smartImageRoutes=attachSmartImageRoutes(app,localOrigins)
 const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
 const mcpIntegration=attachIntegrationRoutes(app,localOrigins,{onMcpChange:provider=>mcpApproval.revokeProvider(provider)})
 attachMcpLiveRoutes(app,localOrigins,{broker:mcpApproval,...mcpIntegration,providerReady:mcpIntegration.isMcpReady})
@@ -87,6 +97,8 @@ app.get('/auth/callback', async (req, res) => {
       attempt
     })
     await updateProfile(profile => rememberAccount(profile,account))
+    smartImageRoutes.clearSession()
+    modelCatalogCache.clear()
   } catch (reason) {
     error = reason instanceof Error ? reason.message : 'Unknown authorization error.'
   }
@@ -97,6 +109,8 @@ app.get('/auth/callback', async (req, res) => {
 app.post('/api/auth/disconnect', async (req, res) => {
   try{
     const revoked=await disconnectAccount(req.body?.accountId)
+    smartImageRoutes.clearSession()
+    modelCatalogCache.clear()
     res.json({revoked,warning:revoked?null:'Local credentials cleared; remote revocation was not confirmed. Disconnect this app in ChatGPT Settings.'})
   }catch(e){res.status(409).json({error:String(e.message).slice(0,190)})}
 })
@@ -105,6 +119,8 @@ app.post('/api/auth/switch', async (req,res) => {
   const selected=req.body?.accountId
   if(!(selected===null||typeof selected==='string'))return res.status(400).json({error:'Select a saved account or local-only guest'})
   const updated=await updateProfile(profile=>selectAccount(profile,selected))
+  smartImageRoutes.clearSession()
+  modelCatalogCache.clear()
   return res.json({accountId:activeAccountId(updated),connected:Boolean(updated.account?.access_token)})
  }catch(e){return res.status(409).json({error:String(e.message).slice(0,190)})}
 })
@@ -116,24 +132,28 @@ function verifyActiveAccount(req,profile){
 app.get('/api/models', async (req, res) => {
   const p=await readProfile()
   if(!verifyActiveAccount(req,p))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
-  const models = []
+  let models = []
   let error = null
   try {
-    const token = await getPlanToken(activeAccountId(p))
-    if (token) {
-      const response = await fetch(endpoint + '/models', {
-        headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(12000)
+    const account=activeAccountId(p)
+    const token=await getPlanToken(account)
+    if(token){
+      // Key uses a verified account and credential fingerprint; never caches raw tokens.
+      const credentialHash=createHash('sha256').update(token).digest('hex')
+      models=await modelCatalogCache.load(account+':'+credentialHash,async()=>{
+        const response=await fetch(endpoint+'/models',{
+          headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(12000)
+        })
+        if(!response.ok)throw Error('Plan model list unavailable ('+response.status+')')
+        const body=await response.json()
+        const visible=Array.isArray(body.models)?body.models:[]
+        return visible.filter(entry=>entry?.visibility==='list'&&validModel(entry.slug)).slice(0,100)
+          .map(entry=>({slug:entry.slug,name:typeof entry.display_name==='string'?entry.display_name.slice(0,100):entry.slug}))
       })
-      if (!response.ok) throw new Error('Plan model list unavailable (' + response.status + ')')
-      const body = await response.json()
-      const visible = Array.isArray(body.models) ? body.models : []
-      for (const entry of visible) {
-        if (entry.visibility === 'list' && validModel(entry.slug)) {
-          models.push({ slug: entry.slug, name: entry.display_name || entry.slug })
-        }
-      }
     }
-  } catch (reason) { error = reason.message }
+  }catch(reason){error=reason.message}
+  // An account could change during a concurrent upstream fetch. Never return its data.
+  if(!verifyActiveAccount(req,await readProfile()))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
   res.json({
     planModels: models,
     apiModel: apiKey ? apiModel : null,
@@ -183,7 +203,8 @@ app.post('/api/chat', async (req, res) => {
         'Content-Type': 'application/json',
         Accept: 'text/event-stream'
       },
-      body: JSON.stringify({ model, input: images.length?multimodalChatInput(messages,images):messages, store: false, stream: true }),
+      body: JSON.stringify({ model, input: images.length?multimodalChatInput(messages,images):messages, store: false, stream: true,
+        ...(route === 'api' ? {prompt_cache_key:promptCacheKey({accountId:expectedAccount,credential:token,model,messages})} : {}) }),
       signal: AbortSignal.any([aborter.signal, AbortSignal.timeout(180_000)])
     })
     return { response, model }
@@ -239,6 +260,14 @@ app.post('/api/chat', async (req, res) => {
 })
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown endpoint.' }))
+// Only build-generated public assets receive immutable HTTP caching.
+app.use('/assets',express.static(fileURLToPath(new URL('../dist/assets/',import.meta.url)),{
+  dotfiles:'deny',maxAge:'1y',immutable:true,index:false,
+  setHeaders(response,filePath){
+    if(/-[A-Za-z0-9_-]{8,}\.(?:js|css|svg|png|webp|woff2)$/.test(filePath))
+      response.setHeader('Cache-Control','public, max-age=31536000, immutable')
+  }
+}))
 app.use(express.static(fileURLToPath(new URL('../dist/', import.meta.url)), { dotfiles: 'deny' }))
 app.listen(PORT, '127.0.0.1', () => {
   console.log('Workspace AI backend: http://127.0.0.1:' + PORT)

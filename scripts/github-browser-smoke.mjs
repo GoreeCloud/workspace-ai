@@ -2,7 +2,7 @@
 // No provider credentials, paid inference, or external data are used.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:net'
@@ -69,6 +69,14 @@ try {
     if(r.exceptionDetails)throw Error('Browser evaluation failed: '+expression)
     return r.result.value
   }
+  const capture=async name=>{
+    const directory=process.env.WORKSPACE_AI_SCREENSHOT_DIR
+    if(!directory)return
+    await mkdir(directory,{recursive:true})
+    const image=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})
+    assert.ok(typeof image.data==='string'&&image.data.length>100,'Browser screenshot was not captured')
+    await writeFile(join(directory,name),Buffer.from(image.data,'base64'))
+  }
   const wait=async expression=>{
     for(let i=0;i<65;i++){
       try{if(await evaluate(expression))return}catch{}
@@ -84,6 +92,7 @@ try {
       const raw=typeof input==='string'?input:input?.url
       const url=new URL(raw,location.href)
       const wrap=body=>Promise.resolve(new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}}))
+      if(url.pathname==='/api/smart-images/status')return wrap({configured:false,source:null,models:['ideogram-4-5','gpt-image-2-5','nano-banana-2-1']})
       if(url.pathname==='/api/integrations')return wrap({executionEnabled:false,services:[{
         id:'github',name:'GitHub',kind:'api',category:'Development',auth:'token',
         connected:true,hasSessionToken:true,status:'connected',message:'Synthetic authorized connection',
@@ -153,6 +162,33 @@ try {
   await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('mockup.png')")
   await evaluate("document.querySelector('button[aria-label=\"Back to parent Dropbox folder\"]').click()")
   await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('Design')")
+  // Cross-feature integration: Documents and Engineering Studio render in the same app.
+  await send('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false})
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Documents').click()")
+  await wait("document.querySelector('.docStudio h1')?.textContent==='Documents'")
+  assert.ok(await evaluate("document.querySelectorAll('.docStudio .docPanel').length>=2"))
+  await capture('documents-desktop.png')
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Engineering').click()")
+  await wait("document.querySelector('.docStudio h1')?.textContent==='Engineering Studio'")
+  assert.ok(await evaluate("document.querySelector('.engineeringForm')!==null"))
+  await capture('engineering-desktop.png')
+  assert.deepEqual(exceptions,[],'Documents and Engineering navigation has no exceptions')
+  // Smart Image Generation synthetic browser acceptance: routing, model lock, billing guard.
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Smart Images').click()")
+  await wait("document.querySelector('.smartImagePage h1')?.textContent==='Smart Image Generation'")
+  assert.equal(await evaluate("document.querySelectorAll('.smartImageOptions select').length"),4)
+  assert.ok(await evaluate("[...document.querySelectorAll('.smartImageActions button')].some(b=>b.textContent.includes('Generate image')&&b.disabled)"),'Paid generation disabled without provider key')
+  await evaluate("(()=>{const t=document.querySelector('.smartImagePage textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(t,'A typographic logo');t.dispatchEvent(new Event('input',{bubbles:true}))})()")
+  await wait("document.querySelector('.smartImageRoute')?.textContent.includes('Ideogram 4.5')")
+  await evaluate("(()=>{const s=document.querySelector('.smartImageOptions select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,'nano-banana-2-1');s.dispatchEvent(new Event('change',{bubbles:true}))})()")
+  await wait("document.querySelector('.smartImageRoute')?.textContent.includes('Nano Banana 2.1')")
+  assert.ok(await evaluate("document.querySelector('.smartImageRoute')?.textContent.includes('Manual model lock')"))
+  assert.deepEqual(exceptions,[],'Smart Images browser workflow has no JavaScript exceptions')
+  await send('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false})
+  await delay(150)
+  await evaluate('window.scrollTo(0,0)')
+  await capture('smart-images-desktop.png')
+
   // Synthetic saved prompt workflow: create, persist in view state, and insert without sending.
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=Prompts]').click()")
   await wait("document.querySelector('.promptsPage h1')?.textContent==='Prompts'")
@@ -167,6 +203,39 @@ try {
   assert.deepEqual(exceptions,[],'Saved prompt browser workflow has no JavaScript exceptions')
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true})
   assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Horizontal mobile overflow')
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Smart Images').click()")
+  await wait("document.querySelector('.smartImagePage h1')?.textContent==='Smart Image Generation'")
+  assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Smart Images mobile horizontal overflow')
+  await evaluate('window.scrollTo(0,0)')
+  await delay(150)
+  await capture('smart-images-mobile.png')
+  await evaluate("document.querySelector('.viewport').scrollTop=document.querySelector('.viewport').scrollHeight")
+  await delay(120)
+  await capture('smart-images-mobile-actions.png')
+  await evaluate("document.querySelector('.viewport').scrollTop=0")
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Documents').click()")
+  await wait("document.querySelector('.docStudio h1')?.textContent==='Documents'")
+  assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Documents mobile horizontal overflow')
+  assert.ok(await evaluate("(()=>{const n=document.querySelector('.documentCapabilities');return n.scrollWidth>n.clientWidth&&n.getAttribute('tabindex')==='0'})()"),'Document capability cards remain keyboard-accessible and scrollable')
+  await capture('documents-mobile.png')
+  await evaluate("document.querySelector('.viewport').scrollTop=document.querySelector('.viewport').scrollHeight")
+  await delay(120)
+  await capture('documents-mobile-actions.png')
+  await evaluate("document.querySelector('.viewport').scrollTop=0")
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Engineering').click()")
+  await wait("document.querySelector('.docStudio h1')?.textContent==='Engineering Studio'")
+  assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Engineering mobile horizontal overflow')
+  assert.ok(await evaluate("(()=>{const n=document.querySelector('.documentCapabilities');return n.scrollWidth>n.clientWidth&&n.getAttribute('tabindex')==='0'})()"),'Engineering capability cards remain keyboard-accessible and scrollable')
+  await capture('engineering-mobile.png')
+  await evaluate("document.querySelector('.viewport').scrollTop=document.querySelector('.viewport').scrollHeight")
+  await delay(120)
+  await capture('engineering-mobile-actions.png')
+  await evaluate("document.querySelector('.viewport').scrollTop=0")
+  await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
+  await wait("document.querySelector('.connected')!==null")
+  assert.equal(await evaluate("document.querySelector('.connectionShort')?.textContent"),'Offline')
+  assert.ok(await evaluate("(()=>{const n=document.querySelector('.connectionShort');return getComputedStyle(n).display!=='none'&&n.getBoundingClientRect().width>0})()"),'Mobile connection text is visible')
+  assert.equal(await evaluate("document.querySelector('.connected')?.getAttribute('aria-label')"),'Not connected')
   assert.deepEqual(exceptions,[],'Browser JavaScript exceptions')
   console.log(JSON.stringify({passed:true,repositoryBrowser:true,issues:true,pullRequests:true,pagination:true,dropbox:true,mobile:true}))
 } finally {

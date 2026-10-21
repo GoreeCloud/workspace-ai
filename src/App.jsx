@@ -9,6 +9,7 @@ import AccountSyncPanel from './AccountSyncPanel.jsx';
 import AccountProfile from './AccountProfile.jsx';
 import PlatformInstallPanel from './PlatformInstallPanel.jsx';
 import {useAccountSync} from './use-account-sync.js';
+import {workspaceJson} from './workspace-api.js';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {prepareProjectDeletion} from './project-deletion.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
@@ -17,6 +18,8 @@ import {persistWorkspaceChange} from './workspace-persistence.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import ChatAttachments from './ChatAttachments.jsx';
+import ToolActivity from './ToolActivity.jsx';
+import {updateToolActivity,settleToolActivity} from './tool-activity.js';
 import {normalizeChatAttachments,messageWithAttachments,imageInputsForMessage} from './chat-attachments.js';
 import {projectContext,inferenceMessages} from './project-model.js';
 import {memoryCandidateFromMessage} from './project-memory.js';
@@ -27,7 +30,7 @@ const KEY=accountScopedKey('workspace-ai-history-v1');
 const ACTIVE_WORKSPACE_KEY=accountScopedKey(WORKSPACE_KEY);
 const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}};
 function report(error){return error instanceof Error?error.message:String(error)}
-async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});const json=await r.json();if(!r.ok)throw Error(json.error||'Request failed');return json}
+async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};return workspaceJson(url,{data,headers:extra})}
 export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
@@ -226,6 +229,8 @@ async function send(value=draft){
       if(!line.trim())return;
       const e=JSON.parse(line);
       if(e.type==='meta')changeLast(id,m=>({...m,provider:e.provider,model:e.model}));
+       if(e.type==='tool')changeLast(id,m=>({...m,toolActivity:updateToolActivity(m.toolActivity,e)}));
+       if(e.type==='usage'&&Number.isSafeInteger(e.cachedInputTokens)&&e.cachedInputTokens>=0&&Number.isSafeInteger(e.inputTokens)&&e.inputTokens>=e.cachedInputTokens)changeLast(id,m=>({...m,usage:{cachedInputTokens:e.cachedInputTokens,inputTokens:e.inputTokens}}));
       if(e.type==='delta')changeLast(id,m=>({...m,content:m.content+(e.text||'')}));
       if(e.type==='complete')complete=true;
       if(e.type==='error')throw Error(e.message||'Streaming error');
@@ -240,9 +245,10 @@ async function send(value=draft){
       if(buffer.trim())update(buffer);
     }finally{reader.releaseLock()}
     if(!complete)throw Error('Response ended unexpectedly');
+     changeLast(id,m=>({...m,toolActivity:settleToolActivity(m.toolActivity)}));
   }catch(e){
     const message=stop.signal.aborted?'Generation stopped':report(e);
-    changeLast(id,m=>({...m,error:true,content:m.content||message}));
+    changeLast(id,m=>({...m,error:true,content:m.content||message,toolActivity:settleToolActivity(m.toolActivity)}));
     setError(message);
   }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
 }
@@ -299,7 +305,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
    <button type="button" onClick={()=>{setChatMenuOpen(false);setSettingsTab('connections');setSettings(true)}}>Settings</button>
    <button type="button" className="chatDangerAction" disabled={!chat||busy} onClick={()=>{setChatMenuOpen(false);remove(chat.id)}}>Delete chat</button>
   </div>}
- </div>:<><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></>}
+ </div>:<><span className="connected" aria-label={status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'} title={status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}><i aria-hidden="true" className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i><span className="connectionLong">{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><span className="connectionShort">{status.planEnabled?'Plan':status.apiConfigured?'API':'Offline'}</span></span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></>}
  </div></header>
  {sync.state!=='enabled'&&<div className="notice" role="status"><ShieldCheck size={16}/><span>Local device data only. Signing in does not automatically sync projects, memories or chats to other devices; lost browser data may not be recoverable.</span><button type="button" onClick={()=>{setSettingsTab('privacy');setSettings(true)}}>Data &amp; sync</button></div>}
  {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
@@ -316,8 +322,8 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  </div>
  <section className="feed" aria-label="Conversation messages">{chat.messages.map((m,messageIndex)=>chatSearchOpen&&chatSearchQuery.trim()&&!m.content.toLowerCase().includes(chatSearchQuery.trim().toLowerCase())?null:<article className={'message '+m.role} key={m.id}>
  {m.role==='assistant'&&<div className="avatar"><Sparkles size={16}/></div>}
- <div className="msgContent">{m.role==='assistant'&&<strong className="byline">Workspace AI <small>{m.provider==='plan'?'· ChatGPT plan':m.provider==='api'?'· OpenAI API':''}</small></strong>}
- {m.role==='user'?<div className="userBubble">{m.content}{Array.isArray(m.attachments)&&m.attachments.length>0&&<div className="chatMessageAttachments">{m.attachments.map((file,i)=>file.kind==='image'?<img key={i} src={file.dataUrl} alt={'Attached '+file.name} loading="lazy"/>:<small key={i}>Attached file: {file.name}</small>)}</div>}</div>:<div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div>}
+ <div className="msgContent">{m.role==='assistant'&&<strong className="byline">Workspace AI <small>{m.provider==='plan'?'· ChatGPT plan':m.provider==='api'?'· OpenAI API':''}</small>{m.usage?.cachedInputTokens>0&&<small title="Provider-reported cached input tokens; cached tokens are still part of the total input"> · {m.usage.cachedInputTokens.toLocaleString()} of {m.usage.inputTokens.toLocaleString()} input tokens cached</small>}</strong>}
+ {m.role==='user'?<div className="userBubble">{m.content}{Array.isArray(m.attachments)&&m.attachments.length>0&&<div className="chatMessageAttachments">{m.attachments.map((file,i)=>file.kind==='image'?<img key={i} src={file.dataUrl} alt={'Attached '+file.name} loading="lazy"/>:<small key={i}>Attached file: {file.name}</small>)}</div>}</div>:<><ToolActivity items={m.toolActivity}/><div className={'markdown '+(m.error?'errorText':'')}>{m.content?<ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown>:busy?'● ● ●':'No response received.'}</div></>}
  {m.role==='assistant'&&!!m.content&&<div className="messageTools"><button className="copy" onClick={()=>navigator.clipboard.writeText(m.content).catch(()=>setError('Could not copy text'))}><Copy size={14}/>Copy</button>
  {activeProject?.memoryEnabled&&!m.error&&messageIndex>=conversationContextStart(chat)&&<button className="copy" disabled={busy} onClick={()=>setMemoryDraft({projectId:activeProject.id,chatId:chat.id,messageId:m.id,text:memoryCandidateFromMessage(m.content)})}><Sparkles size={14}/>Review for project memory</button>}</div>}
  {memoryDraft?.chatId===chat.id&&memoryDraft?.messageId===m.id&&memoryDraft?.projectId===activeProject?.id&&<div className="memoryReview">

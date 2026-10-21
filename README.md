@@ -5,6 +5,10 @@ A local-first, open-source AI chat workspace with **Sign in with ChatGPT** plan 
 ## Features
 
 - Responsive desktop/mobile chat interface, streaming replies, conversation history, Markdown rendering, and export.
+- **Documents (development):** edit and export Markdown, JSON, CSV, source and other text files; inspect, create and apply targeted DOCX, XLSX, PPTX and PDF edits using an optional local Python converter. See [Document Studio format limits and setup](docs/DOCUMENT_STUDIO.md).
+- **Engineering Studio (planning foundation):** export project-scoped GoreeCloud engineering work orders with roles, native-platform build requirements, risk review and evidence gates. This does not automatically execute build tools.
+- **Smart Image Generation (development):** automatic or manual model routing among Ideogram 4.5, GPT Image 2.5 and Nano Banana 2.1 through the Ideogram REST API, with separately triggered non-billed price quotes and generation. See [model routing and setup](docs/SMART_IMAGE_GENERATION.md).
+- Layered public-asset and account-isolated short-lived model-catalog caching, concurrent metadata request coalescing, and API prompt-prefix affinity; actual provider-reported cached token counts are shown when available. These are development-stage optimizations, not guarantees of lower billing. See [caching architecture](docs/CACHING.md).
 - GC UI collapsible sidebar with MCP, API, Projects, Pinned, All Chats, and Settings; compact mode and expanded groups persist locally.
 - Project workspaces with independent instructions, glyphs, editable project-isolated memory notes, optional reference-file sharing, text references, integration profiles and movable conversations.
 - Versioned JSON backup and validated restore for conversations, projects, and pins; supports merge or explicit replacement, with credential-free archives and storage-failure rollback attempts.

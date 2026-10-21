@@ -15,6 +15,12 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: server/document-requirements.txt
+      - run: python -m pip install --disable-pip-version-check -r server/document-requirements.txt
       - run: npm run check
       - name: GitHub browser synthetic acceptance
         shell: bash
@@ -34,6 +40,7 @@ jobs:
             fi
             sleep 0.25
           done
+          export WORKSPACE_AI_SCREENSHOT_DIR="$RUNNER_TEMP/workspace-ai-ui-screenshots"
           if CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github >"$RUNNER_TEMP/browser-smoke.log" 2>&1; then
             cat "$RUNNER_TEMP/browser-smoke.log"
           else
@@ -42,3 +49,12 @@ jobs:
             echo "Retrying transient Chromium startup with a fresh test profile."
             CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github
           fi
+
+      - name: Upload synthetic integrated Studios screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-ai-integration-visual-qa
+          path: ${{ runner.temp }}/workspace-ai-ui-screenshots/*.png
+          if-no-files-found: ignore
+          retention-days: 7
