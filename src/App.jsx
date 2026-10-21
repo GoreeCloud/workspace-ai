@@ -5,6 +5,8 @@ import ConnectionField from './ConnectionField.jsx';
 import WorkspaceNavigation from './WorkspaceNavigation.jsx';
 import WorkspaceViews from './WorkspaceViews.jsx';
 import WorkspaceBackup from './WorkspaceBackup.jsx';
+import AccountSyncPanel from './AccountSyncPanel.jsx';
+import {useAccountSync} from './use-account-sync.js';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
@@ -26,7 +28,8 @@ const [settingsTab,setSettingsTab]=useState('connections');
 const [memoryDraft,setMemoryDraft]=useState(null);
 const [storageConflict,setStorageConflict]=useState(()=>browserStorageLoadProblem(localStorage,KEY,WORKSPACE_KEY));
 const [workspace,setWorkspace]=useState(readWorkspace),[view,setView]=useState('chat'),[selectedProject,setSelectedProject]=useState(null),[searchRequest,setSearchRequest]=useState(0);
-const [appearance,setAppearance]=useState(()=>{try{const saved=localStorage.getItem('workspace-ai-theme');return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
+const [appearance,setAppearance]=useState(()=>{const value=readWorkspace().preferences?.appearance;if(['light','dark','system'].includes(value))return value;try{const saved=localStorage.getItem('workspace-ai-theme');return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
+const sync=useAccountSync({chats,workspace,preferences:{appearance},busy:busy||Boolean(storageConflict),onRestore:(archive,mode,prefs)=>restoreWorkspace(archive,mode,prefs)});
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
 const workspaceRef=useRef(workspace);
 workspaceRef.current=workspace;
@@ -141,7 +144,7 @@ function useSavedPrompt(item){
 function navigate(id){setView(id);setMobile(false)}
 function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
 async function signIn(){try{const r=await api('/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
-async function signOut(){if(!confirm('Disconnect ChatGPT?'))return;try{const r=await api('/api/auth/disconnect',{});await refresh();if(r.warning)setError(r.warning)}catch(e){setError(report(e))}}
+async function signOut(){if(!confirm('Disconnect ChatGPT? Account sync will stop on this device.'))return;sync.keepLocal();try{const r=await api('/api/auth/disconnect',{});await refresh();await sync.refresh();if(r.warning)setError(r.warning)}catch(e){setError(report(e))}}
 async function send(value=draft){
   const text=value.trim();
   if(!text||!ready||busy||storageConflict)return;
@@ -200,11 +203,11 @@ function saveReviewedMemory(){
   }
  }catch(e){setError(report(e))}
 }
-function restoreWorkspace(archive,mode){
+function restoreWorkspace(archive,mode,prefs){
  if(busy||storageConflict)throw Error('Stop generation or reload the tab before restoring conversations');
  const restored=prepareWorkspaceRestore(chats,workspace,archive,mode);
  storageGuard.current.restore(()=>persistWorkspaceRestore(localStorage,KEY,WORKSPACE_KEY,restored));
- chatsRef.current=restored.chats;setChats(restored.chats);workspaceRef.current=restored.workspace;setWorkspace(restored.workspace);setCurrent(null);setMemoryDraft(null);setSelectedProject(null);setView('chats');
+ chatsRef.current=restored.chats;setChats(restored.chats);workspaceRef.current=restored.workspace;setWorkspace(restored.workspace);const theme=prefs?.appearance||restored.workspace.preferences?.appearance;if(['light','dark','system'].includes(theme))setAppearance(theme);setCurrent(null);setMemoryDraft(null);setSelectedProject(null);setView('chats');
  return restored;
 }
 function exportChat(){if(!chat)return;const md='# '+chat.title+'\n\n'+chat.messages.map(m=>'## '+m.role+'\n\n'+m.content).join('\n\n---\n\n');const url=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=url;a.download='workspace-ai-chat.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),0)}
@@ -216,6 +219,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  {storageConflict&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{storageConflict}</span><button type="button" onClick={()=>window.location.reload()}>Reload latest</button></div>}
  <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{view==='chat'?'Workspace AI':{mcp:'MCP',api:'API',projects:'Projects',agents:'Agents',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></div>
  <div><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
+ {sync.state!=='enabled'&&<div className="notice" role="status"><ShieldCheck size={16}/><span>Local device data only. Signing in does not automatically sync projects, memories or chats to other devices; lost browser data may not be recoverable.</span><button type="button" onClick={()=>{setSettingsTab('privacy');setSettings(true)}}>Data &amp; sync</button></div>}
  {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  <div className="viewport">{view!=='chat'?<WorkspaceViews view={view} chats={chats} workspace={workspace} onWorkspace={updateWorkspace}
  onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat} onRenameChat={renameChat}
@@ -270,14 +274,15 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <div className="settings-preview-row">
   <span className="theme-label">Color theme</span>
   <div className="segments theme-segments" role="group" aria-label="Appearance">
-   {['system','light','dark'].map(value=><button key={value} aria-pressed={appearance===value} className={appearance===value?'selected':''} onClick={()=>setAppearance(value)}>{value==='system'?'System':value==='light'?'Light':'Dark'}</button>)}
+   {['system','light','dark'].map(value=><button key={value} aria-pressed={appearance===value} className={appearance===value?'selected':''} onClick={()=>{if(updateWorkspace(w=>({...w,preferences:{...w.preferences,appearance:value}})))setAppearance(value)}}>{value==='system'?'System':value==='light'?'Light':'Dark'}</button>)}
   </div>
  </div>
  <p>Follows your device by default. Your preference is saved on this browser.</p>
 </div>
 </section>
 <section className="settingsPanel" hidden={settingsTab!=='privacy'}>
-<h3>04 · DATA & PRIVACY</h3><p className="privacyInfo">Chat history is saved in browser local storage. OAuth credentials remain outside the repository in a protected local file. Requests use store: false.</p>
+<h3>04 · DATA & PRIVACY</h3><p className="privacyInfo">Projects, memories, chats, agents and preferences stay on this device unless encrypted account sync is configured and enabled. ChatGPT login alone does not synchronize data. Credentials remain outside browser storage; AI requests use store: false.</p>
+<AccountSyncPanel sync={sync} busy={busy||Boolean(storageConflict)}/>
 <WorkspaceBackup chats={chats} workspace={workspace} onRestore={restoreWorkspace} busy={busy||storageConflict}/><div className="actions"><button className="outline" disabled={!chat} onClick={exportChat}><Download size={15}/>Export conversation</button><button className="outline" onClick={refresh}>Refresh status</button></div>
 </section></div>
 <footer className="dialogFooter"><small>LOCAL FIRST · PUBLIC SOURCE</small><button className="primary" onClick={()=>setSettings(false)}>Done</button></footer>
