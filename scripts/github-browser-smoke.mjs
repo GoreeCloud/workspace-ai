@@ -140,7 +140,7 @@ try {
         const bytes=new TextEncoder().encode(body.source)
         const base64=btoa([...bytes].map(b=>String.fromCharCode(b)).join(''))
         window.__chatFileCalls=(window.__chatFileCalls||0)+1
-        return wrap({ok:true,name:'Systems.md',format:'md',mime:'text/markdown; charset=utf-8',bytes:bytes.length,base64})
+        return crypto.subtle.digest('SHA-256',bytes).then(digest=>wrap({ok:true,name:'Systems.md',format:'md',mime:'text/markdown; charset=utf-8',bytes:bytes.length,base64,sha256:[...new Uint8Array(digest)].map(v=>v.toString(16).padStart(2,'0')).join('')}))
       }
       return nativeFetch(input,init)
     }
