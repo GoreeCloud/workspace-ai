@@ -1,10 +1,12 @@
 import React from 'react'
-import {Plug,SlidersHorizontal,Palette,Shield,FolderKanban,KeyRound} from 'lucide-react'
+import {Plug,SlidersHorizontal,Palette,Shield,FolderKanban,KeyRound,UserRound,MonitorSmartphone} from 'lucide-react'
 const sections=[
+ {id:'profile',title:'My profile',subtitle:'Account name and profile picture',icon:UserRound},
  {id:'connections',title:'Connections & accounts',subtitle:'Sign-in, authenticated services and API keys',icon:Plug},
  {id:'routing',title:'Models & billing',subtitle:'Provider selection, fallback and spending awareness',icon:SlidersHorizontal},
  {id:'appearance',title:'Appearance & accessibility',subtitle:'Theme, chat focus and interface preferences',icon:Palette},
- {id:'privacy',title:'Data, sync & privacy',subtitle:'Local-only risks, encrypted sync and backups',icon:Shield}
+ {id:'privacy',title:'Data, sync & privacy',subtitle:'Local-only risks, encrypted sync and backups',icon:Shield},
+ {id:'platforms',title:'Apps & devices',subtitle:'Web, mobile, Linux and Windows installation',icon:MonitorSmartphone}
 ]
 export default function SettingsCategories({onOpen}){
  return <div className="workspacePage settingsCategoryPage"><header className="workspacePageTop"><div><h1>Settings</h1><p>Choose a category to manage your workspace preferences.</p></div></header>
