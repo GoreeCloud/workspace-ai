@@ -206,7 +206,10 @@ async function send(value=draft){
   let pending;try{pending=normalizeChatAttachments(attachmentsDraft)}catch(e){setError(report(e));return}
   const images=imageInputsForMessage({attachments:pending});
   const text=value.trim()||(pending.length?'Please review the attached content.':'');
-  if(!text||!ready||busy||storageConflict)return;
+  const documentRequest=documentIntent(text,latestDocument(scopedChatMessages(chat)));
+  if(documentRequest?.kind==='missing-source'){setError('No earlier generated document is available in this conversation.');return}
+  if(!text||(!ready&&documentRequest?.kind!=='convert')||busy||storageConflict)return;
+  if(documentRequest?.kind==='convert'&&pending.length){setError('Remove attachments before converting an earlier document.');return}
   if(images.length&&provider!=='api'){setError('Images require the separately billed OpenAI API. Choose OpenAI API under Models & billing before sending.');return}
   if(!chat&&chatsRef.current.length>=50){setError('Workspace AI stores at most 50 conversations. Delete an old chat before starting another.');return}
   const id=chat?.id||crypto.randomUUID();
