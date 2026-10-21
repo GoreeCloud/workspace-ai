@@ -35,3 +35,9 @@ test('Word files generated from Markdown reopen and retain the document title',{
  const reopened=await runDocumentWorker({action:'open',name:file.name,base64:file.base64})
  assert.ok(reopened.model.paragraphs.some(p=>p.text==='GoreeCloud Integral Platform Systems'))
 })
+
+test('AI document prompt avoids unsupported table and embedded-image output',()=>{
+ const prompt=documentWritingPrompt(documentIntent('Create a Word document about GoreeCloud'))
+ assert.match(prompt,/pipe tables/)
+ assert.match(prompt,/embedded images/)
+})
