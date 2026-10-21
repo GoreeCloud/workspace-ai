@@ -32,7 +32,7 @@ export function imageInputsForMessage(message){
  return normalizeChatAttachments(message?.attachments).filter(a=>a.kind==='image').map(a=>a.dataUrl)
 }
 export async function imageFromFile(file){
- const type=file?.type||(file?.name?.match(/\.(heic|heif|png|jpe?g|webp)$/i)?.[1]||'')
+ const type=(file?.type||(file?.name?.match(/\.(heic|heif|png|jpe?g|webp)$/i)?.[1]||'')).toLowerCase()
  const mime=type==='heic'?'image/heic':type==='heif'?'image/heif':type==='png'?'image/png':type==='jpg'||type==='jpeg'?'image/jpeg':type==='webp'?'image/webp':type
  if(!file||!IMAGE_UPLOAD_MIMES.includes(mime)||file.size>8*1024*1024)throw Error('Choose a JPEG, PNG, WebP or supported HEIC photo smaller than 8 MB')
  let source,uri
