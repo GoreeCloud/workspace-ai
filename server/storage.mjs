@@ -24,7 +24,19 @@ export async function readProfile() {
       if (details.size > MAX_PROFILE_BYTES) {
         throw new Error('Workspace credentials profile exceeds the safety size limit.')
       }
-      const value = JSON.parse(await handle.readFile('utf8'))
+      // Bound actual bytes read, not just the initial stat size: another
+      // process may grow this file after fstat. Never allocate from file size.
+      const buffer = Buffer.allocUnsafe(MAX_PROFILE_BYTES + 1)
+      let total = 0
+      while (total < buffer.length) {
+        const { bytesRead } = await handle.read(buffer, total, buffer.length - total, null)
+        if (bytesRead === 0) break
+        total += bytesRead
+      }
+      if (total > MAX_PROFILE_BYTES) {
+        throw new Error('Workspace credentials profile exceeds the safety size limit.')
+      }
+      const value = JSON.parse(buffer.toString('utf8', 0, total))
       return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
     } finally {
       await handle.close()
