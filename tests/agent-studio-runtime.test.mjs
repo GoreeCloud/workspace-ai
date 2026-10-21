@@ -46,7 +46,7 @@ test('agent inference cancels unbounded undelimited streams without tool calls',
 test('agent inference rejects oversized deltas and closes upstream streams',async()=>{
  let cancelled=false
  const fetcher=async()=>({ok:true,body:new ReadableStream({
-  start(sink){sink.enqueue(new TextEncoder().encode(JSON.stringify({type:'delta',text:'x'.repeat(24001)})+'\\n'))},
+  start(sink){sink.enqueue(new TextEncoder().encode(JSON.stringify({type:'delta',text:'x'.repeat(24001)})+String.fromCharCode(10)))},
   cancel(){cancelled=true}
  })})
  await assert.rejects(queryAgent({agent,task:'Summarize',fetcher}),/reply exceeded limit/)
@@ -54,15 +54,15 @@ test('agent inference rejects oversized deltas and closes upstream streams',asyn
 })
 
 test('agent inference handles fragmented stream events and rejects missing completion',async()=>{
- const encoder=new TextEncoder()
+ const encoder=new TextEncoder(), nl=String.fromCharCode(10)
  const stream=(pieces)=>async()=>({ok:true,body:new ReadableStream({
   start(sink){for(const piece of pieces)sink.enqueue(encoder.encode(piece));sink.close()}
  })})
  assert.equal(await queryAgent({agent,task:'Summarize',fetcher:stream([
-  '{"type":"del','ta","text":"Hello"}\\n{"type":"complete"}\\n'
+  '{"type":"del','ta","text":"Hello"}'+nl+'{"type":"complete"}'+nl
  ])}),'Hello')
  await assert.rejects(queryAgent({agent,task:'Summarize',fetcher:stream([
-  '{"type":"delta","text":"Incomplete"}\\n'
+  '{"type":"delta","text":"Incomplete"}'+nl
  ])}),/ended unexpectedly/)
 })
 
