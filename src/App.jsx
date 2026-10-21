@@ -261,6 +261,12 @@ async function send(value=draft){
       if(buffer.trim())update(buffer);
     }finally{reader.releaseLock()}
     if(!complete)throw Error('Response ended unexpectedly');
+    if(documentRequest?.kind==='create'){
+     const source=normalizeDocumentSource(generatedText)
+     const file=await renderChatDocument({...documentRequest,source})
+     changeLast(id,m=>({...m,content:source,document:chatDocumentMetadata(file,source,documentRequest.title)}))
+     downloadChatDocument(file)
+    }
      changeLast(id,m=>({...m,toolActivity:settleToolActivity(m.toolActivity)}));
   }catch(e){
     const message=stop.signal.aborted?'Generation stopped':report(e);
