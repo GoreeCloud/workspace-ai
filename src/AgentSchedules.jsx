@@ -37,10 +37,18 @@ export default function AgentSchedules({agents,projectId,busy=false}){
  })
  const change=(id,patch)=>action(async()=>{await call('/api/agents/schedules/'+encodeURIComponent(id),'PATCH',patch);await refresh()})
  const remove=id=>{if(!window.confirm('Delete this scheduled job and stop future runs?'))return;action(async()=>{await call('/api/agents/schedules/'+encodeURIComponent(id),'DELETE');await refresh()})}
+ const removeProjectSchedules=()=>{
+  if(!projectId||!window.confirm('Permanently delete ALL scheduled jobs and stored run history for this project on this server? New scheduled runs will stop. Any already running model request may finish before removal. This does not delete the browser-local project.'))return
+  action(async()=>{
+   const outcome=await call('/api/agents/projects/'+encodeURIComponent(projectId)+'/schedules','DELETE')
+   await refresh()
+   setNotice('Removed '+outcome.removedJobs+' scheduled jobs and '+outcome.removedRuns+' run history records from this project.')
+  })
+ }
  const run=id=>action(async()=>{await call('/api/agents/schedules/'+encodeURIComponent(id)+'/run','POST');await refresh()})
  return <section className="workspaceCard" aria-label="Scheduled agents">
   <h2><Clock size={17}/> Scheduled agents (opt-in)</h2>
-  <p>Unattended execution requires an explicitly enabled local server, a separate environment OpenAI API key, and owner authorization. Jobs keep an instruction snapshot and can outlive project deletion; remove them here separately. No tools or MCP actions are executed.</p>
+  <p>Unattended execution requires an explicitly enabled local server, a separate environment OpenAI API key, and owner authorization. Jobs keep an instruction snapshot and can outlive project deletion; revoke them here before deleting a browser-local project. This screen can also permanently clear saved run history for the selected project. No tools or MCP actions are executed.</p>
   {!status?<p>Checking scheduler availability…</p>:!status.enabled?<p className="workspaceToolNote">Disabled by default. Server owner must explicitly configure WORKSPACE_AI_ENABLE_SCHEDULED_AGENTS=true and WORKSPACE_AI_AGENT_OWNER_KEY. This setting does not enable provider writes.</p>:<>
    <label>Owner key (held in this tab only)
     <input type="password" autoComplete="off" value={ownerKey} onChange={e=>setOwnerKey(e.target.value)} placeholder="Local scheduling owner key"/>
@@ -57,6 +65,8 @@ export default function AgentSchedules({agents,projectId,busy=false}){
     <div className="actions"><button className="outline" disabled={working} onClick={()=>change(job.id,{enabled:!job.enabled})}>{job.enabled?'Pause':'Enable'}</button>
      <button className="outline" disabled={working} onClick={()=>run(job.id)}>Run once</button>
      <button className="outline" disabled={working} onClick={()=>remove(job.id)}><Trash2 size={14}/> Remove</button></div></div>)}
+   {(jobs.some(j=>j.projectId===projectId)||runs.some(r=>r.projectId===projectId))&&
+    <div className="actions"><button type="button" className="outline" disabled={working||busy||ownerKey.length<32} onClick={removeProjectSchedules}><Trash2 size={14}/> Revoke all schedules and clear history for this project</button></div>}
    {runs.filter(r=>r.projectId===projectId).slice(0,6).map(r=><details key={r.id}><summary>{r.status} · {new Date(r.startedAt).toLocaleString()}</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{r.output||r.error||'No output yet'}</pre></details>)}
   </>}
   {error&&<p className="projectAlert" role="alert">{error}</p>}
