@@ -304,3 +304,14 @@
 .accountSwitcherRow span{min-width:0;overflow-wrap:anywhere;font-size:12px}
 .accountSwitcherRow button{flex:none}
 @media(max-width:480px){.accountSwitcherRow{align-items:flex-start;flex-wrap:wrap}.accountSwitcherRow button{margin-left:auto}}
+
+/* User-owned profile image and installed-app settings */
+.accountProfileRow{display:flex;gap:16px;align-items:center;min-width:0;margin:13px 0 17px}
+.accountProfileAvatar{display:grid;place-items:center;width:76px;height:76px;flex:none;overflow:hidden;border-radius:50%;background:var(--gc-brand-container,#5145d9);color:var(--gc-brand,#fff);font-size:26px;font-weight:750}
+.accountProfileAvatar img{display:block;width:100%;height:100%;object-fit:cover}
+.accountProfileDetails{display:grid;gap:5px;min-width:0;overflow-wrap:anywhere}
+.accountProfileDetails strong{font-size:17px}
+.accountProfileDetails small{color:var(--gc-text-soft,#727789);font-size:12px}
+.accountProfileCard .privacyInfo,.platformInstallPanel .privacyInfo{font-size:12px;line-height:1.5}
+.platformInstallPanel h3,.accountProfileCard h3{display:flex;align-items:center;gap:9px}
+@media(max-width:500px){.accountProfileAvatar{width:64px;height:64px}.accountProfileDetails strong{font-size:15px}}
