@@ -64,3 +64,13 @@ test('synthetic HTTPS QA gateway cannot be mistaken for the live VPN Caddy route
   assert.match(check,/wrong credential denial/)
   assert.doesNotMatch(check,/--insecure|curl\s+-k\b/)
 })
+
+test('Caddy candidate preflight cannot reload or deploy the active shared gateway', async () => {
+  const script=await readFile(fileURLToPath(new URL('../scripts/private-dev-caddy-preflight.sh',import.meta.url)), 'utf8')
+  assert.match(script,/--network none/)
+  assert.match(script,/caddy validate --config/)
+  assert.match(script,/Caddyfile\.private\.example/)
+  assert.match(script,/VALIDATION_ONLY_NOT_A_REAL_KEY/)
+  assert.match(script,/SYNTHETIC|synthetic/)
+  assert.doesNotMatch(script,/caddy reload|docker restart caddy|docker cp|--insecure/)
+})
