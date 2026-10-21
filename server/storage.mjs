@@ -5,6 +5,7 @@ import path from 'node:path'
 
 const directory = path.join(os.homedir(), '.config', 'workspace-ai')
 const filename = path.join(directory, 'credentials.json')
+const MAX_PROFILE_BYTES = 512 * 1024
 
 // Credentials must never be read through a symlink or from a group/world
 // accessible file. Use O_NOFOLLOW plus fstat to avoid a check/open race.
@@ -19,6 +20,9 @@ export async function readProfile() {
       const details = await handle.stat()
       if (!details.isFile() || (details.mode & 0o077)) {
         throw new Error('Workspace credentials must be a private regular file (0600).')
+      }
+      if (details.size > MAX_PROFILE_BYTES) {
+        throw new Error('Workspace credentials profile exceeds the safety size limit.')
       }
       const value = JSON.parse(await handle.readFile('utf8'))
       return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
@@ -38,7 +42,11 @@ export async function saveProfile(value) {
   await fs.chmod(directory, 0o700)
   const temporary = path.join(directory, '.credentials-' + randomUUID())
   try {
-    await fs.writeFile(temporary, JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' })
+    const serialized = JSON.stringify(value, null, 2) + '\n'
+    if (Buffer.byteLength(serialized, 'utf8') > MAX_PROFILE_BYTES) {
+      throw new Error('Workspace credentials profile exceeds the safety size limit.')
+    }
+    await fs.writeFile(temporary, serialized, { mode: 0o600, flag: 'wx' })
     await fs.rename(temporary, filename)
     await fs.chmod(filename, 0o600)
   } finally {
