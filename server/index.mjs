@@ -14,6 +14,7 @@ import {attachAgentRoutes} from './agent-routes.mjs'
 import {attachAccountSyncRelay} from './account-sync-relay.mjs'
 import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
+import {attachSmartImageRoutes} from './smart-image-routes.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
@@ -38,15 +39,17 @@ app.use((req, res, next) => {
   res.setHeader('Cache-Control', 'no-store')
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'no-referrer')
-  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'")
+  res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data: https://ideogram.ai https://*.ideogram.ai; style-src 'self'; script-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'")
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     if (req.headers.origin && !['http://127.0.0.1:5173', clientOrigin].includes(req.headers.origin)) return res.status(403).json({ error: 'Origin not allowed.' })
   }
   next()
 })
 app.use('/api/chat',express.json({limit:'520kb'}))
+app.use('/api/smart-images',express.json({limit:'24kb'}))
 app.use(express.json({ limit: '90kb' }))
 const localOrigins=new Set([clientOrigin,'http://127.0.0.1:5173'])
+const smartImageRoutes=attachSmartImageRoutes(app,localOrigins)
 const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
 const mcpIntegration=attachIntegrationRoutes(app,localOrigins,{onMcpChange:provider=>mcpApproval.revokeProvider(provider)})
 attachMcpLiveRoutes(app,localOrigins,{broker:mcpApproval,...mcpIntegration,providerReady:mcpIntegration.isMcpReady})
@@ -87,6 +90,7 @@ app.get('/auth/callback', async (req, res) => {
       attempt
     })
     await updateProfile(profile => rememberAccount(profile,account))
+    smartImageRoutes.clearSession()
   } catch (reason) {
     error = reason instanceof Error ? reason.message : 'Unknown authorization error.'
   }
@@ -97,6 +101,7 @@ app.get('/auth/callback', async (req, res) => {
 app.post('/api/auth/disconnect', async (req, res) => {
   try{
     const revoked=await disconnectAccount(req.body?.accountId)
+    smartImageRoutes.clearSession()
     res.json({revoked,warning:revoked?null:'Local credentials cleared; remote revocation was not confirmed. Disconnect this app in ChatGPT Settings.'})
   }catch(e){res.status(409).json({error:String(e.message).slice(0,190)})}
 })
@@ -105,6 +110,7 @@ app.post('/api/auth/switch', async (req,res) => {
   const selected=req.body?.accountId
   if(!(selected===null||typeof selected==='string'))return res.status(400).json({error:'Select a saved account or local-only guest'})
   const updated=await updateProfile(profile=>selectAccount(profile,selected))
+  smartImageRoutes.clearSession()
   return res.json({accountId:activeAccountId(updated),connected:Boolean(updated.account?.access_token)})
  }catch(e){return res.status(409).json({error:String(e.message).slice(0,190)})}
 })

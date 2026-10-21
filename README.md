@@ -5,6 +5,7 @@ A local-first, open-source AI chat workspace with **Sign in with ChatGPT** plan 
 ## Features
 
 - Responsive desktop/mobile chat interface, streaming replies, conversation history, Markdown rendering, and export.
+- **Smart Image Generation (development):** automatic or manual model routing among Ideogram 4.5, GPT Image 2.5 and Nano Banana 2.1 through the Ideogram REST API, with separately triggered non-billed price quotes and generation. See [model routing and setup](docs/SMART_IMAGE_GENERATION.md).
 - GC UI collapsible sidebar with MCP, API, Projects, Pinned, All Chats, and Settings; compact mode and expanded groups persist locally.
 - Project workspaces with independent instructions, glyphs, editable project-isolated memory notes, optional reference-file sharing, text references, integration profiles and movable conversations.
 - Versioned JSON backup and validated restore for conversations, projects, and pins; supports merge or explicit replacement, with credential-free archives and storage-failure rollback attempts.
