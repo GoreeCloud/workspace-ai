@@ -47,6 +47,11 @@ export async function streamResponse(upstream, onEvent) {
       if (outputChars > maxOutputChars) throw new Error('OpenAI response exceeded the output safety limit.')
       onEvent({ type: 'delta', text: event.delta })
     } else if (event.type === 'response.completed') {
+      const usage=event.response?.usage
+      const cached=usage?.input_tokens_details?.cached_tokens
+      if(Number.isSafeInteger(cached)&&cached>=0&&Number.isSafeInteger(usage.input_tokens)&&usage.input_tokens>=cached) {
+        onEvent({type:'usage',inputTokens:usage.input_tokens,cachedInputTokens:cached})
+      }
       completed = true
     } else if (event.type === 'response.failed' || event.type === 'response.incomplete' || event.type === 'error') {
       failure = event.response?.error?.code || event.error?.code || event.type
