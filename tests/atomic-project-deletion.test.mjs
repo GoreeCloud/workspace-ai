@@ -25,7 +25,7 @@ test('project deletion keeps visible chats but isolates every prior message',()=
  assert.equal(result.chats[0].contextStart,messages.length)
  assert.deepEqual(scopedChatMessages(result.chats[0]),[])
  assert.equal(result.chats[0].messages.length,2)
- assert.doesNotMatch(JSON.stringify(inferenceMessages(scopedChatMessages(result.chats[0]),'')),/Alpha secret roadmap|Private answer|Alpha-private memory/)
+ assert.doesNotMatch(JSON.stringify(inferenceMessages([...scopedChatMessages(result.chats[0]),{role:'user',content:'New session question'}],'')),/Alpha secret roadmap|Private answer|Alpha-private memory/)
  assert.match(projectContext(result.workspace,'beta'),/Beta-only memory/)
  assert.equal(result.chats[1],chats[1])
  assert.equal(workspace.projects.length,2)
