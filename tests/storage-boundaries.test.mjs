@@ -48,7 +48,7 @@ test('credential reader enforces byte cap even if file grows after stat', async 
       "})",
       "try { await assert.rejects(()=>readProfile(),/safety size limit/) } finally {fs.open=open}",
       "assert.equal(consumed,524289)"
-    ].join('\\n')
+    ].join('\n')
     const child = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
       cwd: process.cwd(), encoding: 'utf8', env: {...process.env, HOME: home}, timeout: 15000,
     })
