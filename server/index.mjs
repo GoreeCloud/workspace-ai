@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url'
+import {createHash,timingSafeEqual} from 'node:crypto'
 import 'dotenv/config'
 import express from 'express'
 import { getHostId, publicStatus, readProfile, updateProfile } from './storage.mjs'
@@ -17,7 +18,7 @@ import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.
 import {resolveIngress} from './ingress-config.mjs'
 
 const app = express()
-const {port: PORT, privateDev, bindHost, clientOrigin, allowedHosts, allowedOrigins} = resolveIngress()
+const {port: PORT, privateDev, bindHost, clientOrigin, allowedHosts, allowedOrigins, gatewayKey} = resolveIngress()
 const environmentApiKey = process.env.OPENAI_API_KEY?.trim() || ''
 let apiKey = environmentApiKey
 let apiKeySource = environmentApiKey ? 'environment' : null
@@ -35,6 +36,13 @@ app.disable('x-powered-by')
 app.use((req, res, next) => {
   const host = req.headers.host
   if (!allowedHosts.has(host)) return res.status(403).json({ error: 'Unrecognized workspace host.' })
+  if (privateDev) {
+    const supplied = req.headers['x-workspace-dev-gateway-key']
+    const hash = value => createHash('sha256').update(value).digest()
+    if (typeof supplied !== 'string' || !timingSafeEqual(hash(supplied),hash(gatewayKey))) {
+      return res.status(403).json({ error: 'Private development gateway required.' })
+    }
+  }
   res.setHeader('Cache-Control', 'no-store')
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'no-referrer')
