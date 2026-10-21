@@ -10,6 +10,7 @@ async function call(path,body,accountId){
 export function useAccountSync({chats,workspace,preferences={},busy=false,onRestore}){
  const [available,setAvailable]=useState(false),[identity,setIdentity]=useState(null),[state,setState]=useState('local'),[message,setMessage]=useState('')
  const [revision,setRevision]=useState(null),[passphrase,setPassphrase]=useState('')
+ const [reauthorizeRequired,setReauthorizeRequired]=useState(false)
  const revisionRef=useRef(null)
  const lastSyncedRef=useRef(null),skipRestoreUpload=useRef(false)
  const [syncTick,setSyncTick]=useState(0)
@@ -29,6 +30,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
    if(activeAccountRef.current&&status.accountId!==activeAccountRef.current){
     mismatchRef.current=true;active.current=false;disabledRef.current=true;setState('conflict');setMessage('The logged-in account changed. Sync stopped to protect project privacy.');throw Error('Sync requires the original signed-in account. Choose local-only mode first to switch accounts.')
    }
+   setReauthorizeRequired(status.reauthorizeRequired===true)
    if(status.authenticated)activeAccountRef.current=status.accountId
    setAvailable(status.available===true);setIdentity(status.authenticated?{email:status.email||'Signed-in account',accountId:status.accountId}:null)
    if(!status.available||!status.authenticated){
@@ -108,5 +110,5 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
   },3500)
   return()=>clearTimeout(handle)
  },[chats,workspace,preferences.appearance,enabled,passphrase,busy,syncTick])
- return {available,identity,state,message,revision,enable,restore,keepLocal,refresh}
+ return {available,identity,state,message,revision,reauthorizeRequired,enable,restore,keepLocal,refresh}
 }
