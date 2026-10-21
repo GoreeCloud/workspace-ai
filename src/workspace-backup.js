@@ -3,6 +3,7 @@ import {normalizePrompts} from './prompt-library.js'
 import {normalizeAgents} from './agent-model.js'
 import {cleanProjectNavigation} from './project-sidebar.js'
 import {normalizeChatAttachments} from './chat-attachments.js'
+import {documentFilename,DOCUMENT_FORMATS} from './chat-document-intent.js'
 // A versioned, portable, local-only archive. Credentials and service sessions never enter this format.
 export const BACKUP_KIND = 'goreecloud.workspace-ai.backup'
 export const BACKUP_VERSION = 1
