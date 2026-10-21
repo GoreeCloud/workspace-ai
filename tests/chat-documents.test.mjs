@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {documentIntent,latestDocument,normalizeDocumentSource} from '../src/chat-document-intent.js'
+import {documentIntent,latestDocument,normalizeDocumentSource,documentWritingPrompt} from '../src/chat-document-intent.js'
 import {createChatDocument,validateDocumentRequest} from '../server/ai-document-routes.mjs'
 test('creates named Word, PDF and Markdown intents',()=>{
  const r=documentIntent('Create a Word document about GoreeCloud Integral Platform Systems')
