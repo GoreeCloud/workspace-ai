@@ -10,6 +10,7 @@ import PromptsView from './PromptsView.jsx'
 import AgentStudio from './AgentStudio.jsx'
 import DocumentStudio from './DocumentStudio.jsx'
 import EngineeringStudio from './EngineeringStudio.jsx'
+import SmartImageStudio from './SmartImageStudio.jsx'
 import SettingsCategories from './SettingsCategories.jsx'
 import {chatsForProject} from './project-sidebar.js'
 async function post(url,body){
@@ -87,6 +88,7 @@ export default function WorkspaceViews({view,chats,workspace,onWorkspace,onSelec
   }
  if(view==='documents')return <DocumentStudio/>
  if(view==='engineering')return <EngineeringStudio workspace={workspace} onWorkspace={onWorkspace}/>
+ if(view==='images')return <SmartImageStudio/>
  if(view==='agents')return <AgentStudio workspace={workspace} onWorkspace={onWorkspace} selectedProject={selectedProject} onProject={onProject} onOpenProject={onOpenProject} busy={busy}/>
  if(view==='prompts')return <PromptsView workspace={workspace} onWorkspace={onWorkspace} onUsePrompt={onUsePrompt} defaultProjectId={selectedProject} busy={busy}/>
  if(view==='mcp'||view==='api')return <IntegrationsView key={view} kind={view}/>

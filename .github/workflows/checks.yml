@@ -40,6 +40,7 @@ jobs:
             fi
             sleep 0.25
           done
+          export WORKSPACE_AI_SCREENSHOT_DIR="$RUNNER_TEMP/workspace-ai-ui-screenshots"
           if CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github >"$RUNNER_TEMP/browser-smoke.log" 2>&1; then
             cat "$RUNNER_TEMP/browser-smoke.log"
           else
@@ -48,3 +49,12 @@ jobs:
             echo "Retrying transient Chromium startup with a fresh test profile."
             CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github
           fi
+
+      - name: Upload synthetic Smart Images screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-images-visual-qa
+          path: ${{ runner.temp }}/workspace-ai-ui-screenshots/*.png
+          if-no-files-found: ignore
+          retention-days: 7

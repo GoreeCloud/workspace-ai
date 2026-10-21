@@ -11,6 +11,7 @@ export const NAV_SECTIONS=[
  {id:'agents',label:'Agents',icon:'bot'},
  {id:'engineering',label:'Engineering',icon:'workflow'},
  {id:'documents',label:'Documents',icon:'files'},
+ {id:'images',label:'Smart Images',icon:'images'},
  {id:'prompts',label:'Prompts',icon:'book-open'},
  {id:'pinned',label:'Pinned',icon:'pin'},
  {id:'chats',label:'All Chats',icon:'messages-square'},
