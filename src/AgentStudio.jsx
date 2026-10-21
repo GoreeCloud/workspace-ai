@@ -2,6 +2,7 @@ import React,{useEffect,useRef,useState} from 'react'
 import {Bot,Plus,Trash2,Play,Square,ShieldCheck} from 'lucide-react'
 import {AGENT_MAX_COUNT,AGENT_TEAM_MAX,newAgent,normalizeAgent,normalizeAgents} from './agent-model.js'
 import {executeAgentTeam,queryAgent} from './agent-runner.js'
+import AgentSchedules from './AgentSchedules.jsx'
 import {projectContext} from './project-model.js'
 
 export default function AgentStudio({workspace,onWorkspace,selectedProject,onProject,onOpenProject,busy=false}){
@@ -91,6 +92,7 @@ export default function AgentStudio({workspace,onWorkspace,selectedProject,onPro
    <div className="actions"><button className="primary" disabled={busy||working||!task.trim()||!selected.length} onClick={run}><Play size={15}/> Run selected agents</button>
     <button className="outline" disabled={!working} onClick={()=>controller.current?.abort()}><Square size={15}/> Stop</button></div>
   </section>
+  <AgentSchedules agents={local} projectId={projectId} busy={working||busy}/>
   {error&&<p role="alert" className="projectAlert">{error}</p>}
   {results.map(result=><section key={result.agentId} className="workspaceCard"><h3>{result.name} · {result.status}</h3><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{result.status==='completed'?result.output:result.error}</pre></section>)}
   {summary&&<section className="workspaceCard"><h3>Coordinator synthesis</h3><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{summary}</pre></section>}
