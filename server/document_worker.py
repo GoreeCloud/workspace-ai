@@ -47,18 +47,18 @@ def create_docx(model):
         require(len(lines)<=250 and all(len(line)<=1600 for line in lines),
                 "Markdown document exceeds line limits")
         for line in lines:
-            heading=re.match(r"^(#{1,4})\\s+(.+)$",line)
+            heading=re.match(r"^(#{1,4})\s+(.+)$",line)
             if heading:
                 doc.add_heading(heading.group(2).strip(),level=min(len(heading.group(1)),3))
                 continue
-            bullet=re.match(r"^\\s*[-*]\\s+(.+)$",line)
-            ordered=re.match(r"^\\s*[0-9]+[.]\\s+(.+)$",line)
+            bullet=re.match(r"^\s*[-*]\s+(.+)$",line)
+            ordered=re.match(r"^\s*[0-9]+[.]\s+(.+)$",line)
             label=bullet.group(1) if bullet else ordered.group(1) if ordered else line
             paragraph=doc.add_paragraph(style="List Bullet" if bullet else "List Number" if ordered else None)
-            for part in re.split(r"(\\*\\*[^*]+\\*\\*|\\*[^*]+\\*|\\x60[^\\x60]+\\x60)",label):
+            for part in re.split(r"(\*\*[^*]+\*\*|\*[^*]+\*|\x60[^\x60]+\x60)",label):
                 if not part: continue
                 run=paragraph.add_run(part[2:-2] if part.startswith("**") and part.endswith("**") else
-                                      part[1:-1] if part.startswith(("*","\\x60")) and part.endswith(("*","\\x60")) else part)
+                                      part[1:-1] if part.startswith(("*","\x60")) and part.endswith(("*","\x60")) else part)
                 if part.startswith("**") and part.endswith("**"):run.bold=True
                 elif part.startswith("*") and part.endswith("*"):run.italic=True
         out=io.BytesIO();doc.save(out);return out.getvalue()
