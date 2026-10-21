@@ -1,5 +1,6 @@
 import React,{useState} from 'react'
 import {Download,FileText} from 'lucide-react'
+import './chat-document-card.css'
 import {renderChatDocument,downloadChatDocument} from './chat-document-service.js'
 export default function ChatDocumentCard({document}){
  const [busy,setBusy]=useState(false),[error,setError]=useState('')
