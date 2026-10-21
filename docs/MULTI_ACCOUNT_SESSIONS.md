@@ -1,6 +1,6 @@
 # Workspace AI — local multi-account sessions
 
-**Source status:** Feature-branch implementation. Merging and automated CI do not establish production deployment or hosted tenant security.
+**Source status (October 21, 2026):** Local account-switcher source merged to `main` via [PR #50](https://github.com/GoreeCloud/workspace-ai/pull/50) at `1571e55a3c6d0bd4bb7637fe34ed204ff21a4e18`. [Merged-main CI](https://github.com/GoreeCloud/workspace-ai/actions/runs/39571137685) passed automated tests, build and synthetic browser acceptance. Actual two-identity OAuth switching, production installation, and hosted multi-user tenancy have **not** been verified.
 
 ## User workflow
 
