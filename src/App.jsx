@@ -6,6 +6,8 @@ import WorkspaceNavigation from './WorkspaceNavigation.jsx';
 import WorkspaceViews from './WorkspaceViews.jsx';
 import WorkspaceBackup from './WorkspaceBackup.jsx';
 import AccountSyncPanel from './AccountSyncPanel.jsx';
+import AccountProfile from './AccountProfile.jsx';
+import PlatformInstallPanel from './PlatformInstallPanel.jsx';
 import {useAccountSync} from './use-account-sync.js';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {prepareProjectDeletion} from './project-deletion.js';
@@ -340,12 +342,13 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
 <header className="modalHeader"><div><small>PREFERENCES</small><h2 id="settings-title">Settings & connections</h2><p id="settings-description">Customize your workspace and manage your AI connections.</p></div><button className="iconButton" onClick={()=>setSettings(false)} aria-label="Close settings"><X size={21}/></button></header>
 <nav className="settingsTabs" aria-label="Settings sections">
  {[
- ['connections','Connections'],['routing','Models & billing'],['appearance','Appearance'],['privacy','Privacy']
+ ['profile','My profile'],['connections','Connections'],['routing','Models & billing'],['appearance','Appearance'],['privacy','Privacy'],['platforms','Apps & devices']
  ].map(([key,label])=><button key={key} type="button" aria-current={settingsTab===key?'page':undefined}
  className={settingsTab===key?'active':''} onClick={()=>setSettingsTab(key)}>{label}</button>)}
 </nav>
 <div className="dialogBody">
-<section className="settingsPanel" hidden={settingsTab!=='connections'}>
+<section className="settingsPanel" hidden={settingsTab!=='profile'}><AccountProfile status={status}/></section>
+ <section className="settingsPanel" hidden={settingsTab!=='connections'}>
 <h3>01 · CONNECTIONS</h3><div className="connectionCard"><div className="connectionTop"><span className="providerIcon"><Sparkles size={20}/></span><div><strong>ChatGPT subscription</strong><small>Eligible plan allowance with your permission</small></div><span className={'pill '+(status.planEnabled?'active':'')}>{status.planEnabled?'Connected':status.connected?'Sign-in only':'Not connected'}</span></div>
 {status.connected&&<p className="connectedText"><CheckCircle size={16}/>{status.email||'ChatGPT account'}</p>}
 {Array.isArray(status.accounts)&&status.accounts.length>0&&<div className="accountSwitcher" aria-label="Saved ChatGPT accounts">
@@ -378,7 +381,8 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <p>Follows your device by default. Your preference is saved on this browser.</p>
 </div>
 </section>
-<section className="settingsPanel" hidden={settingsTab!=='privacy'}>
+<section className="settingsPanel" hidden={settingsTab!=='platforms'}><PlatformInstallPanel/></section>
+ <section className="settingsPanel" hidden={settingsTab!=='privacy'}>
 <h3>04 · DATA & PRIVACY</h3><p className="privacyInfo">Projects, memories, chats, agents and preferences stay on this device unless encrypted account sync is configured and enabled. ChatGPT login alone does not synchronize data. Credentials remain outside browser storage; AI requests use store: false.</p>
 <AccountSyncPanel sync={sync} busy={busy||Boolean(storageConflict)}/>
 <WorkspaceBackup chats={chats} workspace={workspace} onRestore={restoreWorkspace} busy={busy||storageConflict}/><div className="actions"><button className="outline" disabled={!chat} onClick={exportChat}><Download size={15}/>Export conversation</button><button className="outline" onClick={refresh}>Refresh status</button></div>
