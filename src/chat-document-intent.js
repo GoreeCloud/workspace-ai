@@ -28,14 +28,14 @@ export function documentWritingPrompt(request){
 export function normalizeDocumentSource(value){
  if(typeof value!=='string')throw Error('Document source must be text.')
  const md=value.trim()
- if(md.length<12||md.length>40000||md.includes('\u0000'))throw Error('Document is empty or exceeds 40,000 characters.')
+ if(md.length<12||md.length>12000||md.includes('\u0000'))throw Error('Document is empty or exceeds 12,000 characters.')
  return md+'\n'
 }
 export function latestDocument(messages){
  if(!Array.isArray(messages))return null
  for(let i=messages.length-1;i>=0;i--){
   const m=messages[i]
-  if(m?.role==='assistant'&&!m.error&&typeof m.document?.source==='string'&&m.document.source.length<=40000)
+  if(m?.role==='assistant'&&!m.error&&typeof m.document?.source==='string'&&m.document.source.length<=12000)
    return {title:m.document.title,source:m.document.source}
  }
  return null
