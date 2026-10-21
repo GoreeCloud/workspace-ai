@@ -45,7 +45,7 @@ export default function ToolActivity({ items = [] }) {
   if (entries.length === 0) return null
   return <section className="chatToolActivity" aria-label="Tool activity">
     <h4>Tool activity</h4>
-    <ul>{entries.map(item => {
+    <ul aria-live="polite" aria-relevant="additions text">{entries.map(item => {
       const source = Object.hasOwn(providers,item.provider) ? providers[item.provider] : { name: item.provider, Icon: Wrench, tone: 'default' }
       const StatusIcon = stateIcons[item.status] || AlertCircle
       const Icon = source.Icon
