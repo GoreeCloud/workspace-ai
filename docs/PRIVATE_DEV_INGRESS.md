@@ -59,6 +59,12 @@ Before any live activation, capture the existing container/network topology, Cad
 
 Caddy's Basic Authentication is a *temporary one-owner development gate*, not SSO, account isolation, or proof that the Workspace AI backend is safe for concurrent users. In particular, anyone with the gateway password would still share the backend's server-side account profile; continue using synthetic profiles and no API/OAuth credentials until proper per-user authorization and isolation are validated.
 
+## Certificate privacy and trust decision
+
+Private DNS does **not** imply an undiscoverable hostname. Issuing a publicly trusted, host-specific certificate through ACME DNS-01 may expose the development subdomain in public Certificate Transparency records; DNS-01 also uses public challenge TXT records even when no public A/AAAA record exists. If keeping the **hostname itself** confidential is required, review an appropriately managed wildcard certificate (only if the existing certificate and key lifecycle are suitable) or an internal CA before requesting a host-specific public certificate. Both approaches have different key-management risks.
+
+Caddy supports an internal CA with `tls internal`, but authorized client devices must explicitly trust its root certificate; never distribute a root CA private key, turn off certificate verification, or use `curl -k` as a permanent workaround. This is a decision gate, not a change to the existing Caddyfile or its current certificate authority. See the [Caddy Automatic HTTPS documentation](https://caddyserver.com/docs/automatic-https) and [Caddy TLS directive](https://caddyserver.com/docs/caddyfile/directives/tls).
+
 ## Mandatory ingress gates before a Caddy change
 
 1. Preserve the private/split-horizon DNS rewrite. Do not create a public A/AAAA record for this hostname.
