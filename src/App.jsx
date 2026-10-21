@@ -189,13 +189,15 @@ async function send(value=draft){
   const message={id:crypto.randomUUID(),role:'user',content:text,...(pending.length?{attachments:pending}:{})};
   const history=[...(chat?.messages||[]),message]; // Keep older messages visible.
   const requestHistory=[...scopedChatMessages(chat),message]; // Send only the current project segment.
+  let preparedMessages
+  try{preparedMessages=inferenceMessages(requestHistory.map(m=>({...m,content:messageWithAttachments(m)})),context)}catch(e){setError(report(e));return}
   const answer={id:crypto.randomUUID(),role:'assistant',content:''};
   if(!commitChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:activeProjectId||null,updatedAt:Date.now()},...v]))return;
   setCurrent(id);setDraft('');setAttachmentsDraft([]);setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
   try{
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
-      messages:inferenceMessages(requestHistory.map(m=>({...m,content:messageWithAttachments(m)})),context),images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
+      messages:preparedMessages,images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
     if(!response.body)throw Error('The server returned no stream');
