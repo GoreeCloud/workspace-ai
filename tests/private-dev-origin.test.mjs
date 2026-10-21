@@ -38,9 +38,9 @@ test('private host requires an exact HTTPS origin and explicit opt-in', () => {
   assert.equal(isolated.bindHost, '0.0.0.0')
 })
 
-function send(port, host, method = 'GET', origin, route = '/api/status', body) {
+function send(port, host, method = 'GET', origin, route = '/api/status', body, extraHeaders = {}) {
   return new Promise((resolve,reject) => {
-    const headers = {Host:host}
+    const headers = {Host:host, ...extraHeaders}
     if (origin !== undefined) headers.Origin = origin
     if (body !== undefined) headers['Content-Type'] = 'application/json'
     const req = httpRequest({host:'127.0.0.1',port,method,path:route,headers}, res => {
@@ -83,6 +83,8 @@ test('private development origin is enforced by the real server before API handl
     assert.equal((await send(port,'127.0.0.1:'+port)).status,403)
     assert.equal((await send(port,'workspace-ai-dev.goreecloud.com','POST','https://workspace-ai-dev.goreecloud.com.attacker.invalid','/api/chat','{}')).status,403)
     assert.equal((await send(port,'workspace-ai-dev.goreecloud.com.attacker.invalid')).status,403)
+    assert.equal((await send(port,'untrusted.invalid','GET',undefined,'/api/status',undefined,{'X-Forwarded-Host':'workspace-ai-dev.goreecloud.com','X-Forwarded-Proto':'https'})).status,403)
+    assert.equal((await send(port,'workspace-ai-dev.goreecloud.com','POST','https://attacker.invalid','/api/chat','{}',{'X-Forwarded-Host':'workspace-ai-dev.goreecloud.com','X-Forwarded-Proto':'https'})).status,403)
     assert.equal((await send(port,'workspace-ai-dev.goreecloud.com','POST',undefined,'/api/chat','{}')).status,403)
     assert.equal((await send(port,'workspace-ai-dev.goreecloud.com','POST','https://attacker.invalid','/api/chat','{}')).status,403)
     assert.equal((await send(port,'workspace-ai-dev.goreecloud.com','POST',DEV,'/api/chat','{}')).status,400)
