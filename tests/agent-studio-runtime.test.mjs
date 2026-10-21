@@ -30,6 +30,42 @@ test('agent model requests never enable tool execution or fallback',async()=>{
  const results=await executeAgentTeam({agents:[agent,{...agent,id:'agent_b',name:'Reviewer'}],projectId:'alpha',task:'Review',fetcher:mock})
  assert.deepEqual(results.map(r=>r.output),['Completed','Completed'])
 })
+test('agent inference cancels unbounded undelimited streams without tool calls',async()=>{
+ let cancelled=false
+ const fetcher=async(_url,opts)=>{
+  assert.equal(JSON.parse(opts.body).allowApiFallback,false)
+  return {ok:true,body:new ReadableStream({
+   start(sink){sink.enqueue(new TextEncoder().encode('x'.repeat(40000)))},
+   cancel(){cancelled=true}
+  })}
+ }
+ await assert.rejects(queryAgent({agent,task:'Audit synthetic data',fetcher}),/event exceeded limit/)
+ assert.equal(cancelled,true)
+})
+
+test('agent inference rejects oversized deltas and closes upstream streams',async()=>{
+ let cancelled=false
+ const fetcher=async()=>({ok:true,body:new ReadableStream({
+  start(sink){sink.enqueue(new TextEncoder().encode(JSON.stringify({type:'delta',text:'x'.repeat(24001)})+String.fromCharCode(10)))},
+  cancel(){cancelled=true}
+ })})
+ await assert.rejects(queryAgent({agent,task:'Summarize',fetcher}),/reply exceeded limit/)
+ assert.equal(cancelled,true)
+})
+
+test('agent inference handles fragmented stream events and rejects missing completion',async()=>{
+ const encoder=new TextEncoder(), nl=String.fromCharCode(10)
+ const stream=(pieces)=>async()=>({ok:true,body:new ReadableStream({
+  start(sink){for(const piece of pieces)sink.enqueue(encoder.encode(piece));sink.close()}
+ })})
+ assert.equal(await queryAgent({agent,task:'Summarize',fetcher:stream([
+  '{"type":"del','ta","text":"Hello"}'+nl+'{"type":"complete"}'+nl
+ ])}),'Hello')
+ await assert.rejects(queryAgent({agent,task:'Summarize',fetcher:stream([
+  '{"type":"delta","text":"Incomplete"}'+nl
+ ])}),/ended unexpectedly/)
+})
+
 test('agent backups preserve valid project agents and skip orphaned agents',()=>{
  const workspace={projects,pinned:[],collapsed:false,expanded:{},agents:[agent]}
  const data=createWorkspaceBackup([],workspace)
