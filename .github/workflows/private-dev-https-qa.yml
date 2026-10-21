@@ -1,0 +1,54 @@
+name: Private Development HTTPS QA
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-https-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare local synthetic bcrypt tooling
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/private-dev-qa-venv"
+          "$RUNNER_TEMP/private-dev-qa-venv/bin/pip" install --disable-pip-version-check bcrypt==4.2.1
+          echo "$RUNNER_TEMP/private-dev-qa-venv/bin" >> "$GITHUB_PATH"
+
+      - name: Provision isolated temporary ingress network
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create --internal --driver bridge goreecloud-workspace-ai-private-ingress
+          docker compose -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.ingress.yaml config --quiet
+
+      - name: Start synthetic private backend
+        run: docker compose -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.ingress.yaml up --build --detach --wait --wait-timeout 180
+
+      - name: Verify backend and network isolation
+        run: bash scripts/private-dev-runtime-check.sh
+
+      - name: Rehearse private TLS and authentication with disposable credentials
+        env:
+          GOREECLOUD_CADDY_IMAGE: caddy:2.10.2-alpine
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/private-dev-qa-gateway-rehearsal.sh
+          docker pull "$GOREECLOUD_CADDY_IMAGE"
+          bash scripts/private-dev-qa-gateway-rehearsal.sh
+          test -z "$(docker ps --all --format '{{.Names}}' | grep '^goreecloud-workspace-ai-qa-rehearsal-' || true)"
+          test "$(docker network inspect goreecloud-workspace-ai-private-ingress --format '{{len .Containers}}')" = 1
+
+      - name: Remove synthetic test resources
+        if: always()
+        shell: bash
+        run: |
+          docker compose -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.ingress.yaml down --remove-orphans || true
+          docker network rm goreecloud-workspace-ai-private-ingress || true
