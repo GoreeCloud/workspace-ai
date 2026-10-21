@@ -42,7 +42,9 @@ For optional API access, open **Settings & connections → OpenAI API**, paste y
 
 Workspace AI's source includes a Progressive Web App manifest and public-assets-only service worker for supported desktop and mobile browsers. This is a development install option, not a hosted cross-device service: the bundled server still binds to `127.0.0.1` and requires a separate secure authenticated deployment before another phone can reach it.
 
-`desktop/` contains experimental Electron host and Linux AppImage/DEB and Windows NSIS/portable build targets. **No signed or tested native installers, APK, AAB or IPA have been released by the source merge.** Electron dependencies and OS-specific build/release verification remain separate work. See [platform targets and release gates](docs/PLATFORM_TARGETS.md).
+**Mandatory native-platform policy (owner directive, October 21, 2026):** Every GoreeCloud application and service must have a real native implementation for each operating system it supports, including Linux, Windows, Android, iOS, iPadOS and other declared platforms. A browser app, PWA, WebView, or Electron-style wrapper alone **does not meet the native-app requirement**. Shared code and supplementary web interfaces are permitted, but do not replace true native frontends or OS-managed services.
+
+`desktop/` currently contains an experimental Electron host and unsigned Linux AppImage/DEB and Windows NSIS/portable **QA packaging**. These wrappers are not native implementation completion. The Android/iOS PWA likewise does not satisfy the native mobile requirement. **No completed, signed or device-validated native platform release is available from these builds.** See [native-platform criteria and release gates](docs/PLATFORM_TARGETS.md).
 
 ## Workspace navigation and integration status
 
