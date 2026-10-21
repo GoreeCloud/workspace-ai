@@ -50,3 +50,19 @@ export function createBrowserStorageGuard(storage,keys) {
  }
  return {check,watch,write,restore}
 }
+
+export function browserStorageLoadProblem(storage,chatsKey,workspaceKey) {
+ try {
+  const chats=storage.getItem(chatsKey)
+  if(chats!==null&&!Array.isArray(JSON.parse(chats)))throw Error('Invalid saved conversations')
+  const workspace=storage.getItem(workspaceKey)
+  if(workspace!==null) {
+   const value=JSON.parse(workspace)
+   if(!value||typeof value!=='object'||Array.isArray(value)||
+    !Array.isArray(value.projects)||!Array.isArray(value.pinned))throw Error('Invalid saved workspace')
+  }
+  return null
+ }catch {
+  return 'Saved Workspace AI browser data is unreadable or malformed. This tab is read-only so the original stored data is not overwritten. Preserve or repair it before reloading.'
+ }
+}
