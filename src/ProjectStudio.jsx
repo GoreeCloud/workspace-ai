@@ -78,7 +78,8 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
     <textarea id="project-memory" rows={6} maxLength={4000} value={project.memory||''} onChange={e=>{update({memory:e.target.value});setNotice('')}} placeholder="Facts and preferences retained only for this project."/>
     <div className="actions"><button className="outline" type="button" disabled={!project.memory} onClick={()=>{
      if(!window.confirm('Delete all memory notes for '+project.name+'? This clears only this project’s saved notes and cannot be undone.'))return
-     update({memory:''});setError('');setNotice('Memory deleted from '+project.name+'.')
+     if(update({memory:''})){setError('');setNotice('Memory deleted from '+project.name+'.')}
+     else{setNotice('');setError('Memory was not deleted because browser storage rejected the change.')}
     }}><Trash2 size={15}/> Delete project memory</button></div>
     <p className="projectHint">Memory is never shared between projects. You can edit or delete these notes even when memory is disabled. Disabling memory pauses their use without erasing them. Deletion affects future requests, not past conversations or previously exported backups.</p>
     {projects.filter(p=>p.id!==project.id).length>0&&<><h4>Share reference files (optional)</h4>
