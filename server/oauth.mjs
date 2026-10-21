@@ -87,7 +87,7 @@ export async function exchangeCode({ code, issuedId, attempt }) {
 export async function getPlanToken(expectedAccountId) {
   const profile = await readProfile()
   const account = profile.account
-  if (expectedAccountId!==undefined && accountId(account?.subject)!==expectedAccountId)throw Error('Account changed; reload before using the plan')
+  if (expectedAccountId!==undefined && (account?.subject?accountId(account.subject):null)!==expectedAccountId)throw Error('Account changed; reload before using the plan')
   if (!account?.access_token || !account.scopes?.includes('chatgpt.tokens.use.direct')) return null
   if (account.expires_at > Date.now() + 120_000) return account.access_token
   if (!account.refresh_token) return null
