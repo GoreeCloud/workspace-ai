@@ -10,6 +10,7 @@ import { attachIntegrationRoutes } from './integration-routes.mjs'
 import {attachMcpApprovalRoutes} from './mcp-approval-routes.mjs'
 import {attachMcpLiveRoutes} from './mcp-live-routes.mjs'
 import {attachGoogleRoutes} from './google-routes.mjs'
+import {attachAgentRoutes} from './agent-routes.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
@@ -46,6 +47,7 @@ const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
 const mcpIntegration=attachIntegrationRoutes(app,localOrigins,{onMcpChange:provider=>mcpApproval.revokeProvider(provider)})
 attachMcpLiveRoutes(app,localOrigins,{broker:mcpApproval,...mcpIntegration,providerReady:mcpIntegration.isMcpReady})
 attachGoogleRoutes(app,localOrigins)
+attachAgentRoutes(app,localOrigins,{getApiKey:()=>environmentApiKey,model:apiModel})
 const credentialSettings = attachCredentialSettings(app, {
   allowedOrigins: new Set([clientOrigin, 'http://127.0.0.1:5173']),
   getCredential: () => apiKey,
