@@ -1,5 +1,6 @@
 // Explicit user-initiated REST calls only; no autonomous agent grant.
 import {normalizeImageRequest,providerModelFor} from '../src/smart-image-policy.js';
+import {createHash} from 'node:crypto';
 const API='https://api.ideogram.ai/v2/image/generate/';
 const ALLOWED=new Set(['ideogram-4-5','nano-banana-2-1','gpt-image-2-5-flare','gpt-image-2-5-sunburst']);
 export function safeImageUrl(value){
@@ -44,6 +45,8 @@ export async function callIdeogram({key,request,dryRun=false,fetchImpl=fetch}={}
 }
 export function attachSmartImageRoutes(app,origins,{environmentKey=process.env.WORKSPACE_IDEOGRAM_API_KEY||'',invoke=callIdeogram}={}){
  let sessionKey=null,active=0,credentialRevision=0;
+ // Hold only a credential-scoped digest while a paid generation is in flight.
+ const activeGenerations=new Set();
  const key=()=>sessionKey||environmentKey;
  const status=()=>({configured:!!key(),source:sessionKey?'session':environmentKey?'environment':null,
   models:['ideogram-4-5','gpt-image-2-5','nano-banana-2-1']});
@@ -64,13 +67,17 @@ export function attachSmartImageRoutes(app,origins,{environmentKey=process.env.W
   if(!allowed(req,res))return;
   if(!key())return res.status(409).json({error:'Configure an Ideogram key first.'});
   let request;try{request=normalizeImageRequest(req.body)}catch(e){return res.status(400).json({error:e.message})}
+  const credential=key(),issuedRevision=credentialRevision;
+  const operationId=dryRun?null:createHash('sha256').update(JSON.stringify([credential,issuedRevision,request])).digest('hex');
+  if(operationId&&activeGenerations.has(operationId))return res.status(409).json({error:'An identical image generation is already running. Wait for its result before trying again.'});
   if(active>=2)return res.status(429).json({error:'Too many concurrent image requests.'});
-  const credential=key(),issuedRevision=credentialRevision;active++;
+  if(operationId)activeGenerations.add(operationId);
+  active++;
   try {const result=await invoke({key:credential,request,dryRun});
    if(key()!==credential||credentialRevision!==issuedRevision)return res.status(409).json({error:'Credential changed during generation.'});
    return res.json(result);
   }catch(e){return res.status(e.status||502).json({error:String(e.message||'Image request failed.').slice(0,210)})}
-  finally {active--;}
+  finally {active--;if(operationId)activeGenerations.delete(operationId);}
  });
  return {clearSession(){sessionKey=null;credentialRevision++},activeCount(){return active}};
 }
