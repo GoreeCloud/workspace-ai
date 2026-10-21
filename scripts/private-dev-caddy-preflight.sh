@@ -17,8 +17,11 @@ fi
 work="$(mktemp -d "${TMPDIR:-/tmp}/goreecloud-workspace-ai-caddy-qa.XXXXXXXX")"
 chmod 700 "$work"
 cleanup() {
-  rm -f "$work/Caddyfile" "$work/validation.env" "$work/validation.log"
-  rmdir "$work/data" "$work/config" "$work" 2>/dev/null || true
+  # Only remove the exact ephemeral mktemp directory created above.
+  case "$work" in
+    "${TMPDIR:-/tmp}"/goreecloud-workspace-ai-caddy-qa.????????) rm -rf -- "$work" ;;
+    *) echo "WARNING: refusing cleanup of an unexpected path" >&2 ;;
+  esac
 }
 trap cleanup EXIT
 mkdir -m 700 "$work/data" "$work/config"
