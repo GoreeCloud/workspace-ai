@@ -244,6 +244,18 @@ try {
   assert.equal(await evaluate("document.querySelector('.connectionShort')?.textContent"),'Offline')
   assert.ok(await evaluate("(()=>{const n=document.querySelector('.connectionShort');return getComputedStyle(n).display!=='none'&&n.getBoundingClientRect().width>0})()"),'Mobile connection text is visible')
   assert.equal(await evaluate("document.querySelector('.connected')?.getAttribute('aria-label')"),'Not connected')
+  // Synthetic document follow-up: create Markdown from saved Word source while AI is offline.
+  await evaluate("localStorage.setItem('workspace-ai-history-v1', \"[{\\\"id\\\":\\\"fixture-doc\\\",\\\"title\\\":\\\"Generated document fixture\\\",\\\"updatedAt\\\":1750000000000,\\\"projectId\\\":null,\\\"messages\\\":[{\\\"id\\\":\\\"fixture-u\\\",\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Create a Word document\\\"},{\\\"id\\\":\\\"fixture-a\\\",\\\"role\\\":\\\"assistant\\\",\\\"content\\\":\\\"# Systems\\\\n\\\\nOriginal content.\\\",\\\"document\\\":{\\\"title\\\":\\\"Systems\\\",\\\"name\\\":\\\"Systems.docx\\\",\\\"format\\\":\\\"docx\\\",\\\"bytes\\\":4200,\\\"source\\\":\\\"# Systems\\\\n\\\\nOriginal content.\\\"}}]}]\")")
+  await send('Page.reload',{ignoreCache:true})
+  await wait("document.querySelector('.workspaceNavChildren button[title=\"Generated document fixture\"]')!==null")
+  await evaluate("document.querySelector('.workspaceNavChildren button[title=\"Generated document fixture\"]').click()")
+  await wait("document.querySelector('.chatDocumentCard strong')?.textContent==='Systems.docx'")
+  await evaluate("(()=>{const t=document.querySelector('textarea[aria-label=\"Message to Workspace AI\"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(t,'Create a Markdown version of that document');t.dispatchEvent(new Event('input',{bubbles:true}))})()")
+  await wait("document.querySelector('button[aria-label=\"Send message\"]')?.disabled===false")
+  await evaluate("document.querySelector('button[aria-label=\"Send message\"]').click()")
+  await wait("[...document.querySelectorAll('.chatDocumentCard strong')].some(n=>n.textContent==='Systems.md')")
+  assert.equal(await evaluate("window.__chatFileCalls"),1)
+  assert.deepEqual(exceptions,[],'Chat document conversion browser workflow has no exceptions')
   assert.deepEqual(exceptions,[],'Browser JavaScript exceptions')
   console.log(JSON.stringify({passed:true,repositoryBrowser:true,issues:true,pullRequests:true,pagination:true,dropbox:true,mobile:true}))
 } finally {
