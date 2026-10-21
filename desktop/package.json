@@ -48,7 +48,8 @@
         "AppImage",
         "deb"
       ],
-      "category": "Utility"
+      "category": "Utility",
+      "icon": "../public/icons/icon-512.png"
     },
     "win": {
       "target": [
