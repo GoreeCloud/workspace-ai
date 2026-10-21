@@ -1,0 +1,19 @@
+{
+  "id": "/",
+  "name": "GoreeCloud Workspace AI",
+  "short_name": "Workspace AI",
+  "description": "Local-first AI workspace for chats, projects and agents",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#15172a",
+  "theme_color": "#5145d9",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
