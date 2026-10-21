@@ -25,7 +25,7 @@ test('integration routes protect origins, session secrets, health checks and MCP
  try {
   const initial=await req('')
   assert.equal(initial.status,200)
-  assert.equal(initial.body.services.length,9)
+  assert.equal(initial.body.services.length,16)
   assert.ok(initial.body.services.every(s=>s.connected===false&&s.hasSessionToken===false))
   assert.ok(initial.body.services.every(s=>s.tools.every(t=>t.executable===false)))
   assert.equal((await req('/todoist/connect','POST',{token},{Origin:'https://malicious.example','Content-Type':'application/json'})).status,403)
