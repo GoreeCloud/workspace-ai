@@ -64,6 +64,10 @@ Open **Agents** to create project-specific agents, configure instructions and ro
 
 **Optional scheduled agents:** A local server can enable owner-key protected schedules with WORKSPACE_AI_ENABLE_SCHEDULED_AGENTS=true, WORKSPACE_AI_AGENT_OWNER_KEY (32+ random characters), and a separately configured environment OPENAI_API_KEY. Scheduling is off by default, at most eight runs occur within 24 hours, and unattended runs have no tools or browser memory. Jobs keep independent snapshots and must be removed separately if a project is deleted. See [Agent Studio design, security and limitations](docs/AGENT_STUDIO.md).
 
+## Account sync (opt-in development)
+
+Sign-in alone does not synchronize browser data. Local-only projects and memories can be lost when device storage is cleared. An encrypted, account-verified shared-gateway sync pathway is present in source, but requires a separately deployed HTTPS gateway and a user-held recovery passphrase. No production sync service is currently configured or claimed. Seven additional optional MCP catalog entries support discovery only, not tool execution. See [Account sync](docs/ACCOUNT_SYNC.md).
+
 ## Browser-local backup and shortcuts
 
 Open **Settings & connections → Privacy** to download a JSON backup or choose an existing Workspace AI JSON backup for restore. Imported archives are validated before changes. **Merge** preserves existing conversations when their IDs conflict; **Replace** asks for confirmation and replaces the browser-local conversations, projects, and pins. An import respects the application's 50-conversation limit; the UI reports conversations skipped during a merge. If browser storage is full, restoration reports an error and attempts to roll back both local storage keys.
