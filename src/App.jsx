@@ -178,21 +178,24 @@ function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.mes
 async function signIn(){try{const r=await api('/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
 async function signOut(){if(!confirm('Disconnect ChatGPT? Account sync will stop on this device.'))return;sync.keepLocal();try{const r=await api('/api/auth/disconnect',{});await refresh();await sync.refresh();if(r.warning)setError(r.warning)}catch(e){setError(report(e))}}
 async function send(value=draft){
-  const text=value.trim();
+  let pending;try{pending=normalizeChatAttachments(attachmentsDraft)}catch(e){setError(report(e));return}
+  const images=imageInputsForMessage({attachments:pending});
+  const text=value.trim()||(pending.length?'Please review the attached content.':'');
   if(!text||!ready||busy||storageConflict)return;
+  if(images.length&&provider!=='api'){setError('Images require the separately billed OpenAI API. Choose OpenAI API under Models & billing before sending.');return}
   if(!chat&&chatsRef.current.length>=50){setError('Workspace AI stores at most 50 conversations. Delete an old chat before starting another.');return}
   const id=chat?.id||crypto.randomUUID();
   const context=projectContext(workspace,activeProjectId,text);
-  const message={id:crypto.randomUUID(),role:'user',content:text};
+  const message={id:crypto.randomUUID(),role:'user',content:text,...(pending.length?{attachments:pending}:{})};
   const history=[...(chat?.messages||[]),message]; // Keep older messages visible.
   const requestHistory=[...scopedChatMessages(chat),message]; // Send only the current project segment.
   const answer={id:crypto.randomUUID(),role:'assistant',content:''};
   if(!commitChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:activeProjectId||null,updatedAt:Date.now()},...v]))return;
-  setCurrent(id);setDraft('');setError('');setBusy(true);
+  setCurrent(id);setDraft('');setAttachmentsDraft([]);setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
   try{
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({
-      messages:inferenceMessages(requestHistory,context),preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
+      messages:inferenceMessages(requestHistory.map(m=>({...m,content:messageWithAttachments(m)})),context),images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
     if(!response.body)throw Error('The server returned no stream');
