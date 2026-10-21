@@ -141,6 +141,22 @@ The executable check was preserved at `scripts/private-dev-qa-gateway-check.sh` 
 
 For future QA runs, always match the Caddy QA container user/group to the host's owner of the restricted QA data directory; otherwise certificate-authority creation may fail with `permission denied`. Keep the QA CA private key and synthetic password restricted to temporary local files. Destroy QA-specific containers, network attachments, keys and test credentials once they are no longer needed, without touching the shared Caddy container, production secrets, or unrelated network state.
 
+## Verified non-mutating Caddy preflight and self-cleaning rehearsal
+
+The full VPS Caddyfile (existing sites plus the *proposed* development route) was copied into a restricted temporary candidate and validated with the **exact custom Caddy image** `goreecloud/caddy:2.11.4-porkbun-v0.3.1`. The validation container used **no network**, dummy DNS API environment variables, and a synthetic bcrypt password. Result: `Valid configuration`. This proves Caddy syntax and module compatibility only; it neither provisions real credentials/certificates nor reloads or updates live Caddy.
+
+```sh
+bash scripts/private-dev-caddy-preflight.sh
+```
+
+The test procedure is also packaged as a one-shot private gateway rehearsal, which generates fresh synthetic credentials in a restricted temporary directory, starts a separate **no-host-port** Caddy test container on the existing internal development network, verifies TLS/authentication/Origin behavior, and cleans up its QA container, temporary passwords and internal-CA material on exit.
+
+```sh
+bash scripts/private-dev-qa-gateway-rehearsal.sh
+```
+
+Both scripts **passed on the VPS**. After the dedicated rehearsal passed, the earlier manually created QA Caddy container and its synthetic credentials/certificate authority material were also removed. The private development backend remains running and isolated; the additional test gateway is no longer running. These scripts are not permission to activate or modify the shared Caddy service.
+
 ## Status and recovery
 
 **Implemented in source branch:** opt-in strict development origin, backend Host/Origin enforcement, localhost default and regression tests.
