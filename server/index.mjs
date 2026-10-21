@@ -13,6 +13,7 @@ import {attachGoogleRoutes} from './google-routes.mjs'
 import {attachAgentRoutes} from './agent-routes.mjs'
 import {attachAccountSyncRelay} from './account-sync-relay.mjs'
 import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
+import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
 
 const app = express()
 const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
@@ -64,11 +65,12 @@ app.get('/api/status', async (_req, res) => {
   res.json({ ...publicStatus(await readProfile(), Boolean(apiKey)), apiKeySource, apiVerification: credentialSettings.getVerification() })
 })
 
-app.get('/api/auth/start', async (_req, res) => {
+app.get('/api/auth/start', async (req, res) => {
   const profile = await readProfile()
   const url = makeAttempt({
     hostId: await getHostId(), callback,
-    current: profile.account?.client_id ? profile.account : null
+    current: profile.account?.client_id ? profile.account : null,
+    allowOtherAccount:req.query.mode==='add'
   })
   res.json({ url })
 })
@@ -84,7 +86,7 @@ app.get('/auth/callback', async (req, res) => {
       code: req.query.code, issuedId: typeof req.query.client_id === 'string' ? req.query.client_id : '',
       attempt
     })
-    await updateProfile(profile => ({ ...profile, account }))
+    await updateProfile(profile => rememberAccount(profile,account))
   } catch (reason) {
     error = reason instanceof Error ? reason.message : 'Unknown authorization error.'
   }
@@ -92,16 +94,32 @@ app.get('/auth/callback', async (req, res) => {
   res.redirect(303, clientOrigin + '/?auth=' + (error ? 'failed' : 'connected'))
 })
 
-app.post('/api/auth/disconnect', async (_req, res) => {
-  const revoked = await disconnectAccount()
-  res.json({ revoked, warning: revoked ? null : 'Local credentials cleared; remote revocation was not confirmed. Disconnect this app in ChatGPT Settings.' })
+app.post('/api/auth/disconnect', async (req, res) => {
+  try{
+    const revoked=await disconnectAccount(req.body?.accountId)
+    res.json({revoked,warning:revoked?null:'Local credentials cleared; remote revocation was not confirmed. Disconnect this app in ChatGPT Settings.'})
+  }catch(e){res.status(409).json({error:String(e.message).slice(0,190)})}
 })
+app.post('/api/auth/switch', async (req,res) => {
+ try{
+  const selected=req.body?.accountId
+  if(!(selected===null||typeof selected==='string'))return res.status(400).json({error:'Select a saved account or local-only guest'})
+  const updated=await updateProfile(profile=>selectAccount(profile,selected))
+  return res.json({accountId:activeAccountId(updated),connected:Boolean(updated.account?.access_token)})
+ }catch(e){return res.status(409).json({error:String(e.message).slice(0,190)})}
+})
+function verifyActiveAccount(req,profile){
+ const submitted=req.headers['x-workspace-account-id']||null
+ return submitted===activeAccountId(profile)
+}
 
-app.get('/api/models', async (_req, res) => {
+app.get('/api/models', async (req, res) => {
+  const p=await readProfile()
+  if(!verifyActiveAccount(req,p))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
   const models = []
   let error = null
   try {
-    const token = await getPlanToken()
+    const token = await getPlanToken(activeAccountId(p))
     if (token) {
       const response = await fetch(endpoint + '/models', {
         headers: { Authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(12000)
@@ -142,6 +160,8 @@ app.post('/api/chat', async (req, res) => {
     return res.status(400).json({ error: 'Invalid conversation or provider selection.' })
   }
   const profile = await readProfile()
+  if(!verifyActiveAccount(req,profile))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
+  const expectedAccount=activeAccountId(profile)
   const planEnabled = Boolean(profile.account?.scopes?.includes('chatgpt.tokens.use.direct') && profile.account?.access_token)
   if (preference === 'plan' && planEnabled && !validModel(requestedModel)) return res.status(400).json({ error: 'Select a valid account model.' })
   let provider = chooseRoute({ preference, planEnabled: planEnabled && validModel(requestedModel), apiConfigured: Boolean(apiKey), fallbackAllowed })
@@ -153,7 +173,7 @@ app.post('/api/chat', async (req, res) => {
   const aborter = new AbortController()
   res.on('close', () => aborter.abort())
   const requestWith = async (route) => {
-    const token = route === 'plan' ? await getPlanToken() : apiKey
+    const token = route === 'plan' ? await getPlanToken(expectedAccount) : apiKey
     if (!token) throw new Error(route === 'plan' ? 'Sign in again to renew ChatGPT plan access.' : 'OpenAI API key is missing.')
     const model = route === 'plan' ? requestedModel : apiModel
     const response = await fetch(endpoint + '/responses', {
