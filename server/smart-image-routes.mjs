@@ -3,6 +3,9 @@ import {normalizeImageRequest,providerModelFor} from '../src/smart-image-policy.
 import {createHash} from 'node:crypto';
 const API='https://api.ideogram.ai/v2/image/generate/';
 const ALLOWED=new Set(['ideogram-4-5','nano-banana-2-1','gpt-image-2-5-flare','gpt-image-2-5-sunburst']);
+// Explicit 1K output presets: Ideogram 4.5 accepts 'size', not 'aspect_ratio'.
+// These values are bounded to advertised text-to-image size presets.
+export const IDEOGRAM_45_SIZES=Object.freeze({'1:1':'1024x1024','16:9':'1280x720','9:16':'720x1280','4:3':'1152x864','3:4':'864x1152'});
 export function safeImageUrl(value){
  if(typeof value!=='string'||value.length>2048)return null;
  try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&(u.hostname==='ideogram.ai'||u.hostname.endsWith('.ideogram.ai'))?u.href:null}catch{return null}
@@ -11,8 +14,11 @@ export function buildImageRequest(payload){
  const request=normalizeImageRequest(payload),id=providerModelFor(request);
  if(!ALLOWED.has(id))throw Error('Unsupported provider model.');
  const body={prompt:request.prompt,num_images:request.numImages,async:false};
- if(request.aspectRatio!=='auto')body.aspect_ratio=request.aspectRatio;
- if(id.startsWith('gpt-image-2-5')&&/transparent|alpha channel|cutout|no background/i.test(request.prompt))body.background='transparent';
+ if(request.aspectRatio!=='auto'){
+  if(id==='ideogram-4-5')body.size=IDEOGRAM_45_SIZES[request.aspectRatio];
+  else body.aspect_ratio=request.aspectRatio;
+ }
+ if((id==='ideogram-4-5'||id.startsWith('gpt-image-2-5'))&&/transparent|alpha channel|cutout|no background/i.test(request.prompt))body.background='transparent';
  if(id==='ideogram-4-5')body.quality=request.priority==='quality'?'high':request.priority==='speed'?'low':'medium';
  else if(id==='nano-banana-2-1')body.resolution_tier=request.priority==='quality'?'2K':'1K';
  else body.quality=request.priority==='speed'?'low':request.priority==='quality'?'high':'medium';
