@@ -20,3 +20,23 @@ export function documentIntent(prompt,previous=null){
  const title=value.match(/\b(?:about|on|titled|called|regarding)\s+(.{3,160}?)(?:[.!?]|$)/i)?.[1]?.trim()||'Document'
  return {kind:'create',format,title,filename:documentFilename(title,format)}
 }
+
+export function documentWritingPrompt(request){
+ if(request?.kind!=='create')throw Error('No document requested.')
+ return 'Produce the requested document as polished Markdown. Begin with a single # title and use appropriate ## sections, lists and tables. Respond with document content only: no preface, code fence or fictitious download. Ground technical claims in supplied sources, label unknown internal details and assumptions. Workspace AI will validate and attach the file.'
+}
+export function normalizeDocumentSource(value){
+ if(typeof value!=='string')throw Error('Document source must be text.')
+ const md=value.trim()
+ if(md.length<12||md.length>40000||md.includes('\u0000'))throw Error('Document is empty or exceeds 40,000 characters.')
+ return md+'\n'
+}
+export function latestDocument(messages){
+ if(!Array.isArray(messages))return null
+ for(let i=messages.length-1;i>=0;i--){
+  const m=messages[i]
+  if(m?.role==='assistant'&&!m.error&&typeof m.document?.source==='string'&&m.document.source.length<=40000)
+   return {title:m.document.title,source:m.document.source}
+ }
+ return null
+}
