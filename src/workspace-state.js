@@ -11,6 +11,7 @@ export const NAV_SECTIONS=[
  {id:'prompts',label:'Prompts',icon:'book-open'},
  {id:'pinned',label:'Pinned',icon:'pin'},
  {id:'chats',label:'All Chats',icon:'messages-square'},
+ {id:'archived',label:'Archived',icon:'archive'},
  {id:'settings',label:'Settings',icon:'settings-2'}
 ]
 export const BLANK_WORKSPACE={projects:[],projectOrder:[],pinnedProjects:[],agents:[],prompts:[],pinned:[],preferences:{appearance:'system'},collapsed:false,expanded:{projects:true,agents:true,prompts:true,pinned:true,chats:true}}
