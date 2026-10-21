@@ -36,6 +36,14 @@ To connect a ChatGPT subscription, open **Settings & connections** and choose **
 
 For optional API access, open **Settings & connections → OpenAI API**, paste your key into the password field, and select **Use API key**. Workspace AI performs an automatic **GET /v1/models** authorization check (not a paid inference call); **Verify connection** lets you retry. A successful check proves that OpenAI accepts the key for listing models, **not** that the account has available credits, inference permissions, or access to a specific model. The result distinguishes rejected, restricted, and temporarily unavailable checks. This key stays in the local server's memory only, is not returned to the browser, and must be entered again after a server restart. For persistent configuration instead copy `.env.example` to `.env`, set `OPENAI_API_KEY`, and restart. In Settings choose API-only or opt into automatic fallback. API usage is billed separately and is **not** included with ordinary ChatGPT Plus.
 
+## Account profiles and platform installations
+
+**My profile** in Settings displays the verified account display name or email, with optional locally chosen profile pictures. Pictures are browser-only and scoped to the selected Workspace AI account; they do not upload to ChatGPT or automatically sync. The new **Apps & devices** category provides installation guidance and the current backend limitations.
+
+Workspace AI's source includes a Progressive Web App manifest and public-assets-only service worker for supported desktop and mobile browsers. This is a development install option, not a hosted cross-device service: the bundled server still binds to `127.0.0.1` and requires a separate secure authenticated deployment before another phone can reach it.
+
+`desktop/` contains experimental Electron host and Linux AppImage/DEB and Windows NSIS/portable build targets. **No signed or tested native installers, APK, AAB or IPA have been released by the source merge.** Electron dependencies and OS-specific build/release verification remain separate work. See [platform targets and release gates](docs/PLATFORM_TARGETS.md).
+
 ## Workspace navigation and integration status
 
 The sidebar supports Projects, **Prompts** (a searchable browser-local reusable prompt library for chats and Project-scoped drafts), pins, All Chats search, a seven-provider API dashboard, and a two-provider MCP dashboard. See [Saved Prompts](docs/SAVED_PROMPTS.md). Connection badges are based on real server checks, not on whether a service appears in the catalog. Projects can import browser-local text files and read-only Dropbox text snapshots. The project editor also supports multiple independent MCP account *profiles* per provider, per-account tool and resource scopes, and separately editable/exportable private memories; profile labels and scopes are not authenticated connections or executable access grants. Google Drive import and ChatGPT Projects import remain unsupported.
@@ -82,7 +90,7 @@ Workspace AI uses **GoreeCloud UI (GC UI)**, the platform-wide design authority 
 
 The included `src/gc-ui-tokens.css` is a pinned snapshot of the first-party GC UI alpha token stylesheet, distributed under its own Apache-2.0 license at `licenses/GC-UI-APACHE-2.0.txt`. GC UI's component registry remains experimental; this repo does not claim a stable React component package.
 
-Settings separates **Connections**, **Models & billing**, **Appearance**, and **Privacy** into accessible navigation sections instead of one long obscured form. The Appearance section provides **System**, **Light**, and **Dark** modes. The selected theme is stored in this browser and works without an external theme service. Dialog focus is contained while open and returned to the previous control after closing. Visual/accessibility testing on actual devices remains a release gate.
+Settings separates **My profile**, **Connections**, **Models & billing**, **Appearance**, **Privacy**, and **Apps & devices** into accessible navigation sections instead of one long obscured form. The Appearance section provides **System**, **Light**, and **Dark** modes. The selected theme is stored in this browser and works without an external theme service. Dialog focus is contained while open and returned to the previous control after closing. Visual/accessibility testing on actual devices remains a release gate.
 
 ## Security and scope
 
