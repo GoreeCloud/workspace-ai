@@ -1,7 +1,7 @@
 // Project risk settings are not bearer credentials. The server must independently
 // classify, authenticate and approve operations before any future MCP execution.
 export const MCP_RISK_TIERS=Object.freeze(['low','medium','high','critical'])
-export const MCP_PROVIDERS=Object.freeze(['remote-desktop-commander','firecrawl'])
+export const MCP_PROVIDERS=Object.freeze(['remote-desktop-commander','firecrawl','todoist-mcp','google-drive-mcp','gmail-mcp','github-mcp','dropbox-mcp','linear-mcp','notion-mcp'])
 const index=Object.fromEntries(MCP_RISK_TIERS.map((v,i)=>[v,i]))
 const REGISTRY={
  'remote-desktop-commander':{'devices.list':{mode:'read',risk:'low'},'process.execute':{mode:'write',risk:'critical'}},
