@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises'
+import {constants as fsConstants} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
@@ -21,13 +22,30 @@ export function createAgentScheduler({file=schedulerPath(),infer,now=()=>Date.no
  const serialized=fn=>{const next=tail.then(fn);tail=next.catch(()=>{});return next}
  async function load(){
   if(initialized)return
+  let recovered=false
   try{
-   const st=await fs.lstat(file)
-   if(!st.isFile()||st.isSymbolicLink()||(st.mode&0o077)!==0||st.size>131072)throw Error('Unsafe scheduled-agent storage')
-   const saved=JSON.parse(await fs.readFile(file,'utf8'))
-   if(!Array.isArray(saved.jobs)||saved.jobs.length>MAX_JOBS||!Array.isArray(saved.runs)||saved.runs.length>MAX_RUNS)throw Error('Invalid scheduled-agent state')
-   state={jobs:saved.jobs.map(job=>({...validateScheduledJob(job),id:job.id,nextAt:job.nextAt,createdAt:job.createdAt})),runs:saved.runs}
+   const fd=await fs.open(file,fsConstants.O_RDONLY|(fsConstants.O_NOFOLLOW||0))
+   let saved
+   try{
+    const st=await fd.stat()
+    if(!st.isFile()||(st.mode&0o077)!==0||st.size>131072)throw Error('Unsafe scheduled-agent storage')
+    saved=JSON.parse(await fd.readFile('utf8'))
+   }finally{await fd.close()}
+   if(!saved||!Array.isArray(saved.jobs)||saved.jobs.length>MAX_JOBS||!Array.isArray(saved.runs)||saved.runs.length>MAX_RUNS)throw Error('Invalid scheduled-agent state')
+   state={jobs:saved.jobs.map(job=>{
+    if(!id(job.id)||!Number.isFinite(job.nextAt)||!Number.isFinite(job.createdAt))throw Error('Invalid stored scheduled-agent job')
+    return {...validateScheduledJob(job),id:job.id,nextAt:job.nextAt,createdAt:job.createdAt}
+   }),runs:saved.runs.map(run=>{
+    if(!id(run.id)||!id(run.jobId)||!id(run.projectId)||!Number.isFinite(run.startedAt))throw Error('Invalid stored scheduled-agent run')
+    if(run.status==='running'){
+     recovered=true
+     return {...run,status:'failed',error:'Interrupted by a previous server shutdown. Completion is unknown.',finishedAt:now()}
+    }
+    if(run.status!=='completed'&&run.status!=='failed')throw Error('Unknown saved run status')
+    return run
+   })}
   }catch(e){if(e.code!=='ENOENT')throw e}
+  if(recovered)await save()
   initialized=true
  }
  async function save(){
@@ -57,6 +75,16 @@ export function createAgentScheduler({file=schedulerPath(),infer,now=()=>Date.no
   if(original===state.jobs.length)throw Error('Unknown schedule')
   await save()
  }
+ async function removeProject(projectId){
+  await load()
+  if(!id(projectId))throw Error('Invalid scheduled project identity')
+  const jobs=state.jobs.filter(job=>job.projectId===projectId)
+  const runs=state.runs.filter(run=>run.projectId===projectId)
+  state.jobs=state.jobs.filter(job=>job.projectId!==projectId)
+  state.runs=state.runs.filter(run=>run.projectId!==projectId)
+  if(jobs.length||runs.length)await save()
+  return {projectId,removedJobs:jobs.length,removedRuns:runs.length}
+ }
  async function run(jobId){
   await load();if(running)throw Error('Scheduled agent is already running')
   const job=state.jobs.find(x=>x.id===jobId);if(!job)throw Error('Unknown schedule')
@@ -77,7 +105,7 @@ export function createAgentScheduler({file=schedulerPath(),infer,now=()=>Date.no
   if(!next)return null
   return run(next.id)
  }
- return {list,add:v=>serialized(()=>add(v)),change:(id,patch)=>serialized(()=>change(id,patch)),remove:id=>serialized(()=>remove(id)),run:id=>serialized(()=>run(id)),tick:()=>serialized(tick)}
+ return {list,add:v=>serialized(()=>add(v)),change:(id,patch)=>serialized(()=>change(id,patch)),remove:id=>serialized(()=>remove(id)),removeProject:projectId=>serialized(()=>removeProject(projectId)),run:id=>serialized(()=>run(id)),tick:()=>serialized(tick)}
 }
 export async function apiOnlyAgentInference({agent,task,apiKey,model='gpt-5-mini',fetcher=fetch}){
  if(!apiKey)throw Error('A separately billed environment OpenAI API key is required')

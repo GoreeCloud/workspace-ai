@@ -21,6 +21,7 @@ export function attachAgentRoutes(app,origins,{getApiKey=()=>'',model='gpt-5-min
  app.post('/api/agents/schedules',authorized,route(req=>service.add(req.body)))
  app.patch('/api/agents/schedules/:id',authorized,route(req=>service.change(req.params.id,req.body)))
  app.delete('/api/agents/schedules/:id',authorized,route(async req=>{await service.remove(req.params.id);return {deleted:true}}))
+ app.delete('/api/agents/projects/:projectId/schedules',authorized,route(req=>service.removeProject(req.params.projectId)))
  app.post('/api/agents/schedules/:id/run',authorized,route(req=>{
   if(!getApiKey())throw Error('Environment OpenAI API key required')
   return service.run(req.params.id)
