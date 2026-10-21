@@ -198,6 +198,11 @@ try {
   await evaluate('window.scrollTo(0,0)')
   await delay(150)
   await capture('smart-images-mobile.png')
+  await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
+  await wait("document.querySelector('.connected')!==null")
+  assert.equal(await evaluate("document.querySelector('.connectionShort')?.textContent"),'Offline')
+  assert.ok(await evaluate("(()=>{const n=document.querySelector('.connectionShort');return getComputedStyle(n).display!=='none'&&n.getBoundingClientRect().width>0})()"),'Mobile connection text is visible')
+  assert.equal(await evaluate("document.querySelector('.connected')?.getAttribute('aria-label')"),'Not connected')
   assert.deepEqual(exceptions,[],'Browser JavaScript exceptions')
   console.log(JSON.stringify({passed:true,repositoryBrowser:true,issues:true,pullRequests:true,pagination:true,dropbox:true,mobile:true}))
 } finally {

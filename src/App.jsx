@@ -9,6 +9,7 @@ import AccountSyncPanel from './AccountSyncPanel.jsx';
 import AccountProfile from './AccountProfile.jsx';
 import PlatformInstallPanel from './PlatformInstallPanel.jsx';
 import {useAccountSync} from './use-account-sync.js';
+import {workspaceJson} from './workspace-api.js';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {prepareProjectDeletion} from './project-deletion.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
@@ -27,7 +28,7 @@ const KEY=accountScopedKey('workspace-ai-history-v1');
 const ACTIVE_WORKSPACE_KEY=accountScopedKey(WORKSPACE_KEY);
 const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}};
 function report(error){return error instanceof Error?error.message:String(error)}
-async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});const json=await r.json();if(!r.ok)throw Error(json.error||'Request failed');return json}
+async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};return workspaceJson(url,{data,headers:extra})}
 export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
@@ -299,7 +300,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
    <button type="button" onClick={()=>{setChatMenuOpen(false);setSettingsTab('connections');setSettings(true)}}>Settings</button>
    <button type="button" className="chatDangerAction" disabled={!chat||busy} onClick={()=>{setChatMenuOpen(false);remove(chat.id)}}>Delete chat</button>
   </div>}
- </div>:<><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></>}
+ </div>:<><span className="connected" aria-label={status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'} title={status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}><i aria-hidden="true" className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i><span className="connectionLong">{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><span className="connectionShort">{status.planEnabled?'Plan':status.apiConfigured?'API':'Offline'}</span></span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></>}
  </div></header>
  {sync.state!=='enabled'&&<div className="notice" role="status"><ShieldCheck size={16}/><span>Local device data only. Signing in does not automatically sync projects, memories or chats to other devices; lost browser data may not be recoverable.</span><button type="button" onClick={()=>{setSettingsTab('privacy');setSettings(true)}}>Data &amp; sync</button></div>}
  {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
