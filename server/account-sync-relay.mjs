@@ -24,6 +24,7 @@ export function attachAccountSyncRelay(app,origins,{gateway=validateSyncGatewayU
   let p
   try{p=await profile()}catch{return res.status(503).json({error:'Account unavailable'})}
   if(!p.account?.subject||!p.account?.id_token)return res.status(401).json({error:'Sign in to enable account sync'})
+  if(req.headers['x-workspace-account-id']!==createHash('sha256').update(p.account.subject).digest('hex').slice(0,24))return res.status(409).json({error:'Account identity mismatch'})
   if(req.method==='PUT'){
    const body=JSON.stringify(req.body)
    if(Buffer.byteLength(body)>16*1024*1024)return res.status(413).json({error:'Encrypted snapshot exceeds sync limit'})
