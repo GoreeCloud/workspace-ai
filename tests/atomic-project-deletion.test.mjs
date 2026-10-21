@@ -54,7 +54,7 @@ test('app and project editor perform one combined storage transaction',()=>{
  const app=readFileSync(new URL('../src/App.jsx',import.meta.url),'utf8')
  const views=readFileSync(new URL('../src/WorkspaceViews.jsx',import.meta.url),'utf8')
  assert.match(app,/prepareProjectDeletion\(chatsRef\.current,workspaceRef\.current,projectId\)/)
- assert.match(app,/storageGuard\.current\.restore\(\(\)=>persistWorkspaceRestore\(localStorage,KEY,WORKSPACE_KEY,next\)\)/)
+ assert.match(app,/storageGuard\.current\.restore\(\(\)=>persistWorkspaceRestore\(localStorage,KEY,ACTIVE_WORKSPACE_KEY,next\)\)/)
  assert.match(views,/onDeleteProject\?\.\(project\.id\)/)
  assert.doesNotMatch(views,/chats\.filter\(c=>c\.projectId===project\.id\)\.forEach/)
 })

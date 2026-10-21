@@ -2,6 +2,7 @@ import {useEffect,useRef,useState} from 'react'
 import {createWorkspaceBackup,parseWorkspaceBackup} from './workspace-backup.js'
 import {encryptAccountSnapshot,decryptAccountSnapshot} from './account-sync-crypto.js'
 import {accountImportPlan,LOCAL_SYNC_OWNER_KEY} from './account-sync-consent.js'
+import {accountScopedKey} from './account-workspace-scope.js'
 async function call(path,body,accountId){
  const r=await fetch(path,body?{method:'PUT',headers:{'Content-Type':'application/json',...(accountId?{'X-Workspace-Account-Id':accountId}:{})},body:JSON.stringify(body)}:{method:'GET',headers:accountId?{'X-Workspace-Account-Id':accountId}:{}})
  const value=await r.json()
@@ -26,10 +27,10 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
  const syncPrefs=()=>({appearance:['light','dark','system'].includes(preferences.appearance)?preferences.appearance:'system'})
  const currentPayload=()=>({...snapshot(),preferences:syncPrefs()})
  const savedAccountId=()=>{
-  try{return localStorage.getItem(LOCAL_SYNC_OWNER_KEY)}catch{return null}
+  try{return localStorage.getItem(accountScopedKey(LOCAL_SYNC_OWNER_KEY))}catch{return null}
  }
  const markOwner=accountId=>{
-  try{localStorage.setItem(LOCAL_SYNC_OWNER_KEY,accountId)}
+  try{localStorage.setItem(accountScopedKey(LOCAL_SYNC_OWNER_KEY),accountId)}
   catch{setMessage('Sync succeeded, but the browser could not remember this account binding. Keep a separate backup.')}
  }
  const refresh=async()=>{

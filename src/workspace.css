@@ -296,3 +296,11 @@
 .settingsCategoryCard small{color:var(--gc-text-soft);margin-top:6px;font-size:11px;line-height:1.45}
 .settingsCategoryIcon{color:var(--gc-brand)}
 @media(max-width:600px){.chatHeaderTitle{max-width:50vw}.chatSearchBar{margin-inline:12px}.chatAttachmentPreview{max-width:170px}.projectNavGroupTitle .projectNavAction{width:26px}}
+
+/* Saved identities remain device-local and account switching requires a reload. */
+.accountSwitcher{display:grid;gap:9px;margin:13px 0;padding:13px;border:1px solid var(--gc-outline,#ddd);border-radius:12px}
+.accountSwitcher>strong{font-size:12px}
+.accountSwitcherRow{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;padding:7px 0;border-bottom:1px solid var(--gc-outline,#ddd)}
+.accountSwitcherRow span{min-width:0;overflow-wrap:anywhere;font-size:12px}
+.accountSwitcherRow button{flex:none}
+@media(max-width:480px){.accountSwitcherRow{align-items:flex-start;flex-wrap:wrap}.accountSwitcherRow button{margin-left:auto}}

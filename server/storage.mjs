@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { constants as fsConstants, promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import {activeAccountId,publicAccounts} from './account-profiles.mjs'
 
 const directory = path.join(os.homedir(), '.config', 'workspace-ai')
 const filename = path.join(directory, 'credentials.json')
@@ -94,6 +95,8 @@ export function publicStatus(profile, apiConfigured = false) {
   const account = profile.account
   return {
     connected: Boolean(account?.subject && account?.access_token),
+    accountId:activeAccountId(profile),
+    accounts:publicAccounts(profile),
     planEnabled: Boolean(account?.scopes?.includes('chatgpt.tokens.use.direct')),
     email: account?.email || null,
     apiConfigured,
