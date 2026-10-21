@@ -1,8 +1,8 @@
 import {useEffect,useRef,useState} from 'react'
 import {createWorkspaceBackup,parseWorkspaceBackup} from './workspace-backup.js'
 import {encryptAccountSnapshot,decryptAccountSnapshot} from './account-sync-crypto.js'
-async function call(path,body){
- const r=await fetch(path,body?{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{method:'GET'})
+async function call(path,body,accountId){
+ const r=await fetch(path,body?{method:'PUT',headers:{'Content-Type':'application/json',...(accountId?{'X-Workspace-Account-Id':accountId}:{})},body:JSON.stringify(body)}:{method:'GET',headers:accountId?{'X-Workspace-Account-Id':accountId}:{}})
  const value=await r.json()
  if(!r.ok)throw Object.assign(Error(value.error||'Account sync unavailable'),{status:r.status})
  return value
@@ -14,6 +14,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
  const enabled=state==='enabled'
  const locked=useRef(false)
  const remoteRef=useRef(null)
+ const activeAccountRef=useRef(null)
  const active=useRef(false)
  const disabledRef=useRef(false)
  const snapshot=()=>createWorkspaceBackup(chats,workspace)
@@ -21,6 +22,10 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
  const refresh=async()=>{
   try{
    const status=await call('/api/sync/status')
+   if(activeAccountRef.current&&status.accountId!==activeAccountRef.current){
+    active.current=false;disabledRef.current=true;setState('conflict');setMessage('The logged-in account changed. Sync stopped to protect project privacy.');return status
+   }
+   if(status.authenticated)activeAccountRef.current=status.accountId
    setAvailable(status.available===true);setIdentity(status.authenticated?{email:status.email||'Signed-in account',accountId:status.accountId}:null)
    if(!status.available||!status.authenticated){
     active.current=false;disabledRef.current=true;setState('local');setPassphrase('');setRevision(null);revisionRef.current=null
@@ -31,7 +36,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
  useEffect(()=>{mounted.current=true;refresh();return()=>{mounted.current=false}},[])
  const send=async(session,expected)=>{
   const envelope=await encryptAccountSnapshot({...snapshot(),preferences:syncPrefs()},session)
-  const response=await call('/api/sync/snapshot',{envelope,expectedRevision:expected})
+  const response=await call('/api/sync/snapshot',{envelope,expectedRevision:expected},activeAccountRef.current)
   revisionRef.current=response.revision;setRevision(response.revision);setMessage('Encrypted workspace synchronized.')
   return response
  }
@@ -41,7 +46,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
   try{
    const status=await refresh()
    if(!status?.available||!status?.authenticated)throw Error('Account sync requires a signed-in account and configured shared server')
-   const remote=await call('/api/sync/snapshot')
+   const remote=await call('/api/sync/snapshot',undefined,status.accountId)
    if(remote.envelope){
     const payload=await decryptAccountSnapshot(remote.envelope,secret)
     const archived=parseWorkspaceBackup(JSON.stringify(payload))
