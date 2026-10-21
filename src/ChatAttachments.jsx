@@ -12,6 +12,7 @@ export default function ChatAttachments({items,onChange,onError,disabled=false,o
    if(items.length+selected.length>MAX_CHAT_ATTACHMENTS)throw Error('A message supports at most '+MAX_CHAT_ATTACHMENTS+' attachments')
    const prepared=[]
    for(const file of selected)prepared.push(file.type.startsWith('image/')?await imageFromFile(file):await textFromFile(file))
+   if([...items,...prepared].filter(a=>a.kind==='image').length>2)throw Error('Add at most two images per message')
    onChange([...items,...prepared])
   }catch(e){onError(String(e.message||e))}
  }
@@ -27,8 +28,8 @@ export default function ChatAttachments({items,onChange,onError,disabled=false,o
    </div>}
   </div>
   <input ref={camera} type="file" accept="image/*" capture="environment" hidden aria-label="Capture photo" onChange={e=>void upload(e.target)}/>
-  <input ref={photos} type="file" accept="image/jpeg,image/png,image/webp" multiple hidden aria-label="Choose photos" onChange={e=>void upload(e.target)}/>
-  <input ref={files} type="file" accept="image/jpeg,image/png,image/webp,.txt,.md,.csv,.json,.log,.yaml,.yml,.xml,.js,.ts,.py,.html,.css" multiple hidden aria-label="Choose files" onChange={e=>void upload(e.target)}/>
+  <input ref={photos} type="file" accept="image/*" multiple hidden aria-label="Choose photos" onChange={e=>void upload(e.target)}/>
+  <input ref={files} type="file" accept="image/*,.txt,.md,.csv,.json,.log,.yaml,.yml,.xml,.js,.ts,.py,.html,.css" multiple hidden aria-label="Choose files" onChange={e=>void upload(e.target)}/>
   {items.length>0&&<div className="chatAttachmentPreview" aria-label="Pending attachments">
    {items.map((item,i)=><div className="chatAttachmentChip" key={i}>
     {item.kind==='image'?<img src={item.dataUrl} alt={'Preview: '+item.name}/>:<FileText size={20}/>}
