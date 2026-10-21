@@ -26,8 +26,9 @@ export function downloadChatDocument(file){
  const blob=new Blob([file.bytesBuffer],{type:file.mime||'application/octet-stream'})
  const url=URL.createObjectURL(blob)
  const link=document.createElement('a')
- link.href=url;link.download=file.name;link.click()
- setTimeout(()=>URL.revokeObjectURL(url),2000)
+ link.href=url;link.download=file.name
+ document.body.append(link)
+ try{link.click()}finally{link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
 }
 export function chatDocumentMetadata(file,source,title){
  return {title,format:file.format,name:file.name,bytes:file.bytes,source:normalizeDocumentSource(source)}
