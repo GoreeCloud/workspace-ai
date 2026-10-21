@@ -51,10 +51,10 @@ export default function ProjectMemoryManager({project,onUpdate,busy=false}){
   <h4>Individual memories ({entries.length}/{MAX_PROJECT_MEMORY_ENTRIES})</h4>
   {entries.map(entry=><div key={entry.id} className="projectMcpProvider">
     <label>Memory title
-     <input aria-label={'Memory title '+entry.id} value={entry.title} maxLength={90} disabled={busy} onChange={e=>{if(e.target.value.trim())editEntry(entry.id,'title',e.target.value)}}/>
+     <input key={entry.id+'-title-'+entry.updatedAt} aria-label={'Memory title '+entry.id} defaultValue={entry.title} maxLength={90} disabled={busy} onBlur={e=>{if(e.target.value!==entry.title)editEntry(entry.id,'title',e.target.value)}}/>
     </label>
     <label>Memory content
-     <textarea aria-label={'Memory content '+entry.id} rows={3} maxLength={1200} value={entry.content} disabled={busy} onChange={e=>{if(e.target.value.trim())editEntry(entry.id,'content',e.target.value)}}/>
+     <textarea key={entry.id+'-content-'+entry.updatedAt} aria-label={'Memory content '+entry.id} rows={3} maxLength={1200} defaultValue={entry.content} disabled={busy} onBlur={e=>{if(e.target.value!==entry.content)editEntry(entry.id,'content',e.target.value)}}/>
     </label>
     <button type="button" className="outline" disabled={busy} onClick={()=>deleteEntry(entry.id)}><Trash2 size={14}/> Delete this memory</button>
    </div>)}
