@@ -66,7 +66,8 @@ test('malformed boundary values are rejected in backup and fail closed in infere
 })
 test('AI request and memory capture wiring honor the context boundary',()=>{
  const app=readFileSync(new URL('../src/App.jsx',import.meta.url),'utf8')
- assert.match(app,/inferenceMessages\(requestHistory,context\)/)
+ assert.match(app,/inferenceMessages\(requestHistory\.map/) 
+ assert.match(app,/messageWithAttachments\(m\)/)
  assert.match(app,/moveChatToProject\(c,safeId\)/)
  assert.match(app,/messageIndex>=conversationContextStart\(chat\)/)
 })
