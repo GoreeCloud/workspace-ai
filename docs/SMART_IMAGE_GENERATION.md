@@ -9,7 +9,7 @@ Open **Smart Images** in Workspace AI's navigation. Enter an image prompt and ch
 - **Smart (Auto):** selects one generator based on the request. Typography, wordmarks and posters favor **Ideogram 4.5**; photo-realistic or transparent-background requests favor **GPT Image 2.5**; storyboard and infographic prompts favor **Nano Banana 2.1**. These are explainable heuristics, **not** a measured best-quality guarantee.
 - **Manual:** select Ideogram 4.5, GPT Image 2.5 or Nano Banana 2.1 and keep that choice. GPT Image 2.5 uses the **Flare** variant for Speed or **Sunburst** otherwise.
 
-Select **Priority**, **Aspect ratio** and **Count** (1–4). Use **Check price (free dry run)** to request an unbilled Ideogram quote before explicitly clicking **Generate image**, which may consume API credits. There is no automatic provider retry or model fallback. The service also rejects identical concurrently running paid requests to help prevent double-submits.
+Select **Priority**, **Aspect ratio** and **Count** (1–4). For Ideogram 4.5, the server maps the selected aspect ratio to its supported `size` presets (1024×1024, 1280×720, 720×1280, 1152×864 or 864×1152); GPT Image 2.5 and Nano Banana 2.1 instead use `aspect_ratio`. Output sizes may differ between models. Use **Check price (free dry run)** to request an unbilled Ideogram quote before explicitly clicking **Generate image**, which may consume API credits. There is no automatic provider retry or model fallback. The service also rejects identical concurrently running paid requests to help prevent double-submits.
 
 ## Credentials and integration
 
