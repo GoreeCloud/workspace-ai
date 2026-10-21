@@ -6,11 +6,11 @@ Development branch, **not merged or deployed**.
 
 Ideogram v2 documents direct generation for Ideogram 4.5, GPT Image 2.5 (Flare and Sunburst), and Nano Banana 2.1 through one server-side API integration. Direct REST calls should require an explicit user action; MCP agent execution must remain independently authorized.
 
-## Prepared, not yet integrated
+## Integrated on development branch (not released)
 
-A complete local implementation package contains Smart/Manual routing, REST price-only dry runs and generation, session-memory credentials, image URL checks, a responsive editor, an installer, and nine passing isolated tests. Applying this package to a Workspace AI-compatible fixture passed. Full repository CI, real Ideogram calls, live browser QA and native-app acceptance **have not** been completed.
+The checked-in Workspace AI development branch now contains Smart/Manual routing, REST price-only dry runs and generation, session-memory credentials, image URL checks, a responsive editor, an installer, and nine passing isolated tests. Local Node tests and the Vite production build passed; actual provider generation and device QA have not been run. Full repository CI, real Ideogram calls, live browser QA and native-app acceptance **have not** been completed.
 
-The authorized developer laptop connection was intermittent during integration; only branch scaffolding has been pushed. Do not merge this branch or present it as a working feature until the reviewed package is applied and verified in the actual repository.
+The authorized developer laptop connection was intermittent during integration; the feature implementation was pushed as commit 2ff0bee. Do not merge this branch or present it as a working feature until the reviewed package is applied and verified in the actual repository.
 
 ## Next actions
 
