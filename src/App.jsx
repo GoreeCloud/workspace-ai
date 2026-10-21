@@ -219,6 +219,10 @@ async function send(value=draft){
   const requestHistory=[...scopedChatMessages(chat),message]; // Send only the current project segment.
   let preparedMessages
   try{preparedMessages=inferenceMessages(requestHistory.map(m=>({...m,content:messageWithAttachments(m)})),context)}catch(e){setError(report(e));return}
+  if(documentRequest?.kind==='create'){
+   const last=preparedMessages.at(-1)
+   preparedMessages=[...preparedMessages.slice(0,-1),{...last,content:last.content+'\n\n'+documentWritingPrompt(documentRequest)}]
+  }
   const answer={id:crypto.randomUUID(),role:'assistant',content:''};
   if(!commitChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:activeProjectId||null,updatedAt:Date.now()},...v]))return;
   setCurrent(id);setDraft('');setAttachmentsDraft([]);setError('');setBusy(true);
