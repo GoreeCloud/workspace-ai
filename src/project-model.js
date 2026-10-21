@@ -1,4 +1,6 @@
 import {normalizeMcpPolicies} from './mcp-risk-policy.js'
+import {normalizeMcpAccounts} from './project-mcp-accounts.js'
+import {normalizeProjectMemoryEntries} from './project-memory-entries.js'
 import {validateLinkedSource,MAX_LINKED_SOURCES} from './project-linked-source.js'
 // Project workspaces: validated browser-local metadata and explicit sharing only.
 export const PROJECT_GLYPHS = ['folder','sparkles','code','book','briefcase','flask','rocket','globe','heart','shield','palette','database']
@@ -12,7 +14,7 @@ const list = (a,n) => Array.isArray(a) ? a.filter(v=>typeof v==='string').slice(
 export const ACCEPT_TEXT_FILES = '.txt,.md,.markdown,.csv,.tsv,.json,.yaml,.yml,.log,.js,.jsx,.ts,.tsx,.py,.html,.css,.xml,.sql'
 const extensions = new Set(ACCEPT_TEXT_FILES.split(','))
 export function newProject(id,name,createdAt=Date.now()) {
- return {id,name,createdAt,icon:'folder',instructions:'',memoryEnabled:false,memory:'',shareFilesWith:[],api:[],mcp:[],mcpPolicies:{},files:[],linkedSources:[]}
+ return {id,name,createdAt,icon:'folder',instructions:'',memoryEnabled:true,memory:'',memoryEntries:[],shareFilesWith:[],api:[],mcp:[],mcpPolicies:{},mcpAccounts:[],files:[],linkedSources:[]}
 }
 export function normalizeProject(project) {
  if (!project || typeof project !== 'object' || Array.isArray(project) || typeof project.id!=='string' || !project.id || project.id.length>160 ||
@@ -20,8 +22,10 @@ export function normalizeProject(project) {
  const data = newProject(project.id,project.name,Number.isFinite(project.createdAt) ? project.createdAt : 0)
  data.icon = PROJECT_GLYPHS.includes(project.icon) ? project.icon : 'folder'
  data.instructions = text(project.instructions,4000)
- data.memoryEnabled = project.memoryEnabled === true
+ data.memoryEnabled = project.memoryEnabled !== false
  data.memory = text(project.memory,4000)
+ data.memoryEntries = normalizeProjectMemoryEntries(project.memoryEntries)
+ data.mcpAccounts = normalizeMcpAccounts(project.mcpAccounts)
  data.shareFilesWith = [...new Set(list(project.shareFilesWith,100))]
  data.api = [...new Set(list(project.api,PROJECT_API_SERVICES.length))].filter(v=>PROJECT_API_SERVICES.includes(v))
  data.mcp = [...new Set(list(project.mcp,PROJECT_MCP_SERVICES.length))].filter(v=>PROJECT_MCP_SERVICES.includes(v))
