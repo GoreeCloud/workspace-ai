@@ -41,7 +41,7 @@ export default function EngineeringStudio({workspace,onWorkspace}){
  }
  return <main className="workspacePage docStudio" aria-label="Engineering work orders">
   <div className="workspacePageTop"><div><h1>Engineering Studio</h1><p>Prepare structured, GoreeCloud-compliant build work orders for project agents and verified development pipelines.</p></div><span className="docTag">Planning foundation</span></div>
-  <div className="documentCapabilities">
+  <div className="documentCapabilities" role="region" aria-label="Engineering capabilities" tabIndex={0}>
    <div><Workflow size={20}/><strong>Four engineering roles</strong><small>Architecture, implementation, verification, coordination</small></div>
    <div><ShieldCheck size={20}/><strong>Release evidence gates</strong><small>Native builds, security checks, accessibility and rollback</small></div>
    <div><GitBranch size={20}/><strong>GoreeCloud repositories</strong><small>Explicit GitHub target; plan export doesn't modify code</small></div>

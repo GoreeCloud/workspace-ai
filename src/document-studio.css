@@ -6,6 +6,7 @@
 .docTag{display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;border:1px solid var(--gc-outline);background:var(--gc-surface-tonal);color:var(--gc-text-soft);border-radius:30px;padding:7px 12px;font-size:11px;font-weight:650}
 .documentCapabilities{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px}
 .documentCapabilities>div{display:flex;flex-direction:column;align-items:flex-start;gap:8px;border:1px solid var(--gc-outline);background:var(--gc-surface-raised);border-radius:16px;padding:17px;min-width:0}
+.documentCapabilities:focus-visible{outline:2px solid var(--gc-brand);outline-offset:2px}
 .documentCapabilities svg{color:var(--gc-brand)}
 .documentCapabilities strong{font-size:13px;color:var(--gc-text)}
 .documentCapabilities small{font-size:11px;line-height:1.5;color:var(--gc-text-soft)}
@@ -53,6 +54,6 @@
 .documentPhase div{display:flex;flex-direction:column;gap:4px}
 .documentPhase strong{font-size:12px;color:var(--gc-text)}
 .documentPhase small{font-size:11px;color:var(--gc-text-soft);line-height:1.45}
-@media(max-width:730px){.documentCapabilities{grid-template-columns:1fr;gap:8px}.docPanel{padding:16px}.docPanelTop{flex-wrap:wrap}.documentPhases,.engineeringForm{grid-template-columns:1fr}.docStudio{padding:22px 15px 80px}}
+@media(max-width:730px){.documentCapabilities{display:flex;gap:9px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;padding-bottom:9px;margin-bottom:13px}.documentCapabilities>div{flex:0 0 min(78vw,285px);scroll-snap-align:start;min-width:0}.docPanel{padding:16px}.docPanelTop{flex-wrap:wrap}.documentPhases,.engineeringForm{grid-template-columns:1fr}.docStudio{padding:22px 15px 80px}}
 @media(prefers-reduced-motion:reduce){.docStudio *{scroll-behavior:auto!important}}
 @media(forced-colors:active){.documentCapabilities>div,.docPanel,.documentPhase{border:1px solid CanvasText}}

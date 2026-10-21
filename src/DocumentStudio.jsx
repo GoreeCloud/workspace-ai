@@ -126,7 +126,7 @@ export default function DocumentStudio(){
   <div className="workspacePageTop"><div><h1>Documents</h1>
    <p>Create, inspect and edit local files. Originals stay on your device, and content is not automatically sent to the AI model.</p></div>
    <span className="docTag">Local conversion workspace</span></div>
-  <div className="documentCapabilities">
+  <div className="documentCapabilities" role="region" aria-label="Document capabilities" tabIndex={0}>
    <div><FileCode2 size={21}/><strong>Source & text</strong><small>Markdown, JSON, CSV, TXT, HTML, code and other text files</small></div>
    <div><FileSpreadsheet size={21}/><strong>Office documents</strong><small>DOCX, XLSX and PPTX creation plus targeted edits</small></div>
    <div><FileText size={21}/><strong>PDF documents</strong><small>Page text preview, text-page creation, append and rotate</small></div>
