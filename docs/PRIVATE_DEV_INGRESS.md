@@ -103,6 +103,23 @@ For an ingress that requires authentication, unauthenticated responses should be
 
 Also verify blocked/non-NetBird clients, invalid/missing Origin on unsafe methods, mismatched Host, browser navigation, relevant mobile viewport, OAuth redirects *only after registration*, DNS/tunnel disconnects, reload/rollback, and logs that do not expose private data. `npm run check` and `node --test tests/private-dev-origin.test.mjs` verify source behavior, not live tunnel security.
 
+## Verified isolated VPS smoke (October 21, 2026)
+
+The isolated synthetic development backend was **built and launched on `goreecloud-vps-01`** from source commit `deda6ca275bd9c8eadf054a1b3320eb14b68eb07` in a separate development checkout. The Docker backend became healthy, recovered to healthy after a controlled development-only container restart, retained a read-only root and empty port bindings, and remained on its internal private smoke network. The actual backend returned HTTP 200 for the approved host and HTTP 403 for invalid Host and unauthorized/missing Origin cases.
+
+`bash scripts/private-dev-runtime-check.sh` was then executed on the VPS against the running development container from script commit `ff609faad7b00b8da2ad22e1ccfcf18987e667d2`, returning **PASS** for runtime isolation, empty credentials/account state, and all four HTTP cases. The same script is also invoked during the isolated GitHub Actions Docker CI job.
+
+To revalidate an existing isolated development deployment without mutating containers or proxy settings:
+
+```sh
+cd /path/to/verified/workspace-ai-development-checkout
+bash scripts/private-dev-runtime-check.sh
+```
+
+The script refuses missing/unhealthy containers, public port bindings, writable root filesystems, unexpected/noninternal networks, nonempty account credentials, or incorrect HTTP denial behavior. It does **not** verify the private hostname's TLS, Caddy login, browser operation, DNS split-horizon behavior, AI API egress, model responses, real user accounts or native applications.
+
+**Live private HTTPS ingress remains pending.** No shared Caddyfile rewrite/reload, public DNS mutation, private proxy network membership change, or credentials provisioning was performed as part of this VPS smoke run. A later ingress deployment needs its own snapshot, isolated network checks, authenticated-user testing, TLS chain verification, and rollback evidence.
+
 ## Status and recovery
 
 **Implemented in source branch:** opt-in strict development origin, backend Host/Origin enforcement, localhost default and regression tests.
