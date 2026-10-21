@@ -1,5 +1,6 @@
 // Local sign-in relay: ID tokens are never sent to the browser or stored in sync files.
 import {readProfile} from './storage.mjs'
+import {createHash} from 'node:crypto'
 export function validateSyncGatewayURL(input){
  if(typeof input!=='string'||!input)return null
  try{
@@ -13,6 +14,7 @@ export function attachAccountSyncRelay(app,origins,{gateway=validateSyncGatewayU
  const status=async()=>{
   const p=await profile()
   return {available:!!gateway,authenticated:!!(p.account?.subject&&p.account?.id_token),email:p.account?.email||null,
+   accountId:p.account?.subject?createHash('sha256').update(p.account.subject).digest('hex').slice(0,24):null,
    mode:gateway?'available':'local-only',encryption:'passphrase-required'}
  }
  app.get('/api/sync/status',async(_req,res)=>{try{res.json(await status())}catch{res.status(503).json({error:'Account state unavailable'})}})
