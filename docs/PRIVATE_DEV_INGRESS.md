@@ -32,6 +32,23 @@ WORKSPACE_AI_PRIVATE_DEV_ISOLATED_CONTAINER=true
 
 Never publish container port 3031 to a public host address, use `--network host`, or treat the self-declared isolation variable as a substitute for checking Docker port mappings, firewall rules, and network membership. Keep profiles, credentials, storage, and test fixtures independent from production.
 
+## Isolated Docker smoke environment (source and CI validated)
+
+The reviewed development branch includes `deploy/private-dev/Dockerfile` and `deploy/private-dev/compose.yaml`. The Compose project uses an **internal Docker network, no published host ports, an unprivileged runtime user, no credentials, read-only root filesystem and ephemeral storage**. It is intentionally **not connected to the shared Caddy proxy**, so it cannot make the HTTPS hostname available by itself.
+
+To run a synthetic, unauthenticated backend smoke test on an explicitly authorized development host, from a clean checkout at the verified PR commit:
+
+```sh
+docker compose -f deploy/private-dev/compose.yaml config --quiet
+docker compose -f deploy/private-dev/compose.yaml up --build -d --wait --wait-timeout 180
+docker compose -f deploy/private-dev/compose.yaml ps
+docker compose -f deploy/private-dev/compose.yaml down --remove-orphans
+```
+
+Before and after deployment, inspect `docker port <container-id>` (must be empty), `docker inspect` for `ReadonlyRootfs=true`, internal network ownership/membership, and absence of production storage mounts. **Do not insert API keys, OAuth tokens, user data, a persistent browser profile, or Caddy connectivity into this smoke environment.** Its HTTP healthcheck is container-internal and verifies only that the synthetic backend starts.
+
+GitHub Actions includes an independent Docker Compose smoke job that builds the image, checks health, verifies **no published port**, tests a valid Host and denial of invalid Host/Origin, and removes resources afterward. CI is not evidence of VPS deployment, NetBird ingress, certificate trust, browser UX, or owner-specific authentication.
+
 ## Mandatory ingress gates before a Caddy change
 
 1. Preserve the private/split-horizon DNS rewrite. Do not create a public A/AAAA record for this hostname.
