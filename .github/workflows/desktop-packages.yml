@@ -1,0 +1,62 @@
+name: Unsigned desktop qualification
+on:
+  pull_request:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop-packages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Unsigned ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            runner: ubuntu-latest
+          - platform: windows
+            runner: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Restore locked application dependencies
+        run: npm ci
+      - name: Validate app source and build assets
+        run: npm run check
+      - name: Validate desktop sources
+        run: |
+          node --check desktop/main.cjs
+          node --check desktop/backend-startup.cjs
+          node --check desktop/navigation.cjs
+      - name: Install experimental packaging tools
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+      - name: Build unsigned development package
+        working-directory: desktop
+        run: npm run package:${{ matrix.platform }}
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: 'false'
+      - name: Report artifact hashes
+        shell: bash
+        run: |
+          set -euo pipefail
+          find desktop/release -type f \( -name '*.AppImage' -o -name '*.deb' -o -name '*.exe' \) -print0 | xargs -0 -r sha256sum
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workspace-ai-${{ matrix.platform }}-UNSIGNED-QA
+          path: |
+            desktop/release/*.AppImage
+            desktop/release/*.deb
+            desktop/release/*.exe
+          if-no-files-found: error
+          retention-days: 3
