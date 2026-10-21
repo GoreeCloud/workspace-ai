@@ -30,6 +30,34 @@ test('oversized local credential profiles fail closed without parsing or overwri
   }
 })
 
+test('credential reader enforces byte cap even if file grows after stat', async () => {
+  const home = await mkdtemp(path.join(tmpdir(), 'workspace-ai-growth-'))
+  try {
+    const script = [
+      "import assert from 'node:assert/strict'",
+      "import {promises as fs} from 'node:fs'",
+      "import path from 'node:path'",
+      "import {readProfile} from './server/storage.mjs'",
+      "await fs.mkdir(path.join(process.env.HOME,'.config','workspace-ai'),{recursive:true,mode:0o700})",
+      "const open=fs.open",
+      "let consumed=0",
+      "fs.open=async()=>({",
+      " stat:async()=>({isFile:()=>true,mode:0o600,size:1}),",
+      " read:async(buffer,offset,length)=>{const bytesRead=Math.min(length,81920);buffer.fill(120,offset,offset+bytesRead);consumed+=bytesRead;return {bytesRead}},",
+      " close:async()=>{}",
+      "})",
+      "try { await assert.rejects(()=>readProfile(),/safety size limit/) } finally {fs.open=open}",
+      "assert.equal(consumed,524289)"
+    ].join('\\n')
+    const child = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
+      cwd: process.cwd(), encoding: 'utf8', env: {...process.env, HOME: home}, timeout: 15000,
+    })
+    assert.equal(child.status, 0, child.stderr || child.error?.message)
+  } finally {
+    await rm(home, {recursive:true, force:true})
+  }
+})
+
 test('local OAuth storage rejects symlinks and exposed credentials without reading target data', async () => {
   const home = await mkdtemp(path.join(tmpdir(), 'workspace-ai-secret-safety-'))
   try {
