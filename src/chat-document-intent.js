@@ -23,7 +23,7 @@ export function documentIntent(prompt,previous=null){
 
 export function documentWritingPrompt(request){
  if(request?.kind!=='create')throw Error('No document requested.')
- return 'Produce the requested document as polished Markdown. Begin with a single # title and use appropriate ## sections, lists and tables. Respond with document content only: no preface, code fence or fictitious download. Ground technical claims in supplied sources, label unknown internal details and assumptions. Workspace AI will validate and attach the file.'
+ return 'Produce the requested document as polished Markdown. Begin with a single # title and use appropriate ## sections and lists. Avoid Markdown pipe tables and embedded images because the local DOCX/PDF renderers do not yet preserve those structures. Respond with document content only: no preface, code fence or fictitious download. Ground technical claims in supplied sources, label unknown internal details and assumptions. Workspace AI will validate and attach the file.'
 }
 export function normalizeDocumentSource(value){
  if(typeof value!=='string')throw Error('Document source must be text.')
