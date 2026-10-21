@@ -2,6 +2,8 @@ import React,{useState} from 'react'
 import {Folder,FolderKanban,Sparkles,Code2,BookOpen,BriefcaseBusiness,FlaskConical,Rocket,Globe,Heart,Shield,Palette,Database,Trash2,Plus,Upload,CloudDownload,FileText} from 'lucide-react'
 import DropboxBrowser from './DropboxBrowser.jsx'
 import McpRiskSettings from './McpRiskSettings.jsx'
+import ProjectMcpAccounts from './ProjectMcpAccounts.jsx'
+import ProjectMemoryManager from './ProjectMemoryManager.jsx'
 import ProjectLiveSources from './ProjectLiveSources.jsx'
 import ProjectMultiProvider from './ProjectMultiProvider.jsx'
 import {ACCEPT_TEXT_FILES,PROJECT_GLYPHS,PROJECT_API_SERVICES,PROJECT_MCP_SERVICES,PROJECT_FILE_MAX_COUNT,canImportFile,importTextFile,importLocalTextFile} from './project-model.js'
@@ -72,16 +74,8 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
     <textarea id="project-instructions" rows={5} maxLength={4000} value={project.instructions||''} onChange={e=>update({instructions:e.target.value})} placeholder="Describe the project's goals, response style, constraints, and tasks."/>
     <p className="projectHint">Project instructions are supplied to the AI when you send a message inside this project. They do not apply to other projects.</p>
    </section>
-   <section className="projectPanel"><h3>Private project memory</h3>
-    <label><input type="checkbox" checked={project.memoryEnabled===true} onChange={e=>update({memoryEnabled:e.target.checked})}/> Include this project's memory in its AI requests</label>
-    <label htmlFor="project-memory">Edit memory for {project.name}</label>
-    <textarea id="project-memory" rows={6} maxLength={4000} value={project.memory||''} onChange={e=>{update({memory:e.target.value});setNotice('')}} placeholder="Facts and preferences retained only for this project."/>
-    <div className="actions"><button className="outline" type="button" disabled={!project.memory} onClick={()=>{
-     if(!window.confirm('Delete all memory notes for '+project.name+'? This clears only this project’s saved notes and cannot be undone.'))return
-     if(update({memory:''})){setError('');setNotice('Memory deleted from '+project.name+'.')}
-     else{setNotice('');setError('Memory was not deleted because browser storage rejected the change.')}
-    }}><Trash2 size={15}/> Delete project memory</button></div>
-    <p className="projectHint">Memory is never shared between projects. You can edit or delete these notes even when memory is disabled. Disabling memory pauses their use without erasing them. Deletion affects future requests, not past conversations or previously exported backups.</p>
+   <ProjectMemoryManager project={project} onUpdate={update} busy={busy}/>
+   <section className="projectPanel"><h3>Optional reference file sharing</h3>
     {projects.filter(p=>p.id!==project.id).length>0&&<><h4>Share reference files (optional)</h4>
      {projects.filter(p=>p.id!==project.id).map(p=><div key={p.id} className="projectShareRow"><span><ProjectGlyph icon={p.icon} size={15}/>{p.name}</span>
       <label><input type="checkbox" checked={(project.shareFilesWith||[]).includes(p.id)} onChange={()=>toggle('shareFilesWith',p.id)}/> Reference files</label>
@@ -109,6 +103,7 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
     <h4>API integrations</h4><div className="projectToggles">{PROJECT_API_SERVICES.map(id=><label key={id}><input type="checkbox" checked={(project.api||[]).includes(id)} onChange={()=>toggle('api',id)}/>{SERVICE_LABELS[id]}</label>)}</div>
     <ProjectMultiProvider project={project}/>
     <h4>MCP services</h4><div className="projectToggles">{PROJECT_MCP_SERVICES.map(id=><label key={id}><input type="checkbox" checked={(project.mcp||[]).includes(id)} onChange={()=>toggle('mcp',id)}/>{SERVICE_LABELS[id]}</label>)}</div>
+    <ProjectMcpAccounts project={project} onUpdate={update} busy={busy}/>
     <McpRiskSettings project={project} onUpdate={update}/>
    </section>
   </div>

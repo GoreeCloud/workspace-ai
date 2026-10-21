@@ -11,7 +11,8 @@ import {persistWorkspaceChange} from './workspace-persistence.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import {projectContext,inferenceMessages} from './project-model.js';
-import {memoryCandidateFromMessage,appendReviewedMemory} from './project-memory.js';
+import {memoryCandidateFromMessage} from './project-memory.js';
+import {normalizeProjectMemoryEntries,createProjectMemoryEntry} from './project-memory-entries.js';
 import {appendPromptDraft,promptsForContext} from './prompt-library.js';
 import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound} from 'lucide-react';
 const KEY='workspace-ai-history-v1';
@@ -189,8 +190,11 @@ async function send(value=draft){
 function saveReviewedMemory(){
  if(!memoryDraft||busy||!activeProject?.memoryEnabled||!chat||memoryDraft.projectId!==activeProject.id||memoryDraft.chatId!==chat.id)return;
  try{
-  const nextMemory=appendReviewedMemory(activeProject.memory||'',memoryDraft.text,chat.title);
-  if(updateWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===activeProject.id?{...p,memory:nextMemory}:p)}))){
+  const entries=normalizeProjectMemoryEntries(activeProject.memoryEntries)
+  if(entries.some(entry=>entry.content===memoryDraft.text.trim()))throw Error('This reviewed memory is already saved.')
+  const nextEntry=createProjectMemoryEntry('From chat: '+chat.title.slice(0,76),memoryDraft.text,crypto.randomUUID())
+  const nextEntries=normalizeProjectMemoryEntries([...entries,nextEntry])
+  if(updateWorkspace(w=>({...w,projects:w.projects.map(p=>p.id===activeProject.id?{...p,memoryEntries:nextEntries}:p)}))){
    setMemoryDraft(null);
    setError('');
   }

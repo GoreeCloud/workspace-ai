@@ -59,7 +59,12 @@ export function projectContext(workspace,projectId,query='') {
   if(body)chunks.push(label+'\n'+body)
  }
  add('Current project instructions ('+safeText(target.name,90)+'):',target.instructions,3200)
- if(target.memoryEnabled===true)add('Current project memory notes (manually approved):',target.memory,1500)
+ if(target.memoryEnabled===true){
+  const structured=(Array.isArray(target.memoryEntries)?target.memoryEntries:[])
+   .filter(m=>m&&typeof m.content==='string')
+   .map(m=>(typeof m.title==='string'?m.title.slice(0,90)+': ':'')+m.content.slice(0,1200)).join('\n')
+  add('Current project memory notes (manually approved):',[safeText(target.memory,4000),structured].filter(Boolean).join('\n\n'),1500)
+ }
  const references=rankedProjectFiles(workspace,projectId,query)
  for(const f of references) {
   const label=(f.shared?'Explicitly shared file from '+safeText(f.projectName,90):'Project file')+' — '+safeText(f.name,120)+' (source: '+safeText(f.id,80)+'):'
