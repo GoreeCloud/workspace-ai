@@ -17,6 +17,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
  const locked=useRef(false)
  const remoteRef=useRef(null)
  const activeAccountRef=useRef(null)
+ const mismatchRef=useRef(false)
  const active=useRef(false)
  const disabledRef=useRef(false)
  const snapshot=()=>createWorkspaceBackup(chats,workspace)
@@ -26,7 +27,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
   try{
    const status=await call('/api/sync/status')
    if(activeAccountRef.current&&status.accountId!==activeAccountRef.current){
-    active.current=false;disabledRef.current=true;setState('conflict');setMessage('The logged-in account changed. Sync stopped to protect project privacy.');throw Error('Sync requires the original signed-in account. Choose local-only mode first to switch accounts.')
+    mismatchRef.current=true;active.current=false;disabledRef.current=true;setState('conflict');setMessage('The logged-in account changed. Sync stopped to protect project privacy.');throw Error('Sync requires the original signed-in account. Choose local-only mode first to switch accounts.')
    }
    if(status.authenticated)activeAccountRef.current=status.accountId
    setAvailable(status.available===true);setIdentity(status.authenticated?{email:status.email||'Signed-in account',accountId:status.accountId}:null)
@@ -63,7 +64,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
     await send(secret,null)
     active.current=true;disabledRef.current=false;setPassphrase(secret);setState('enabled')
    }
-  }catch(e){setMessage(e.message);if(state!=='conflict')setState('local')}
+  }catch(e){setMessage(e.message);if(!mismatchRef.current)setState('local')}
   finally{locked.current=false}
  }
  const restore=async()=>{
@@ -86,7 +87,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
   }catch(e){setMessage(e.message);return null}
   finally{locked.current=false}
  }
- const keepLocal=()=>{active.current=false;disabledRef.current=true;remoteRef.current=null;activeAccountRef.current=null;lastSyncedRef.current=null;skipRestoreUpload.current=false;setPassphrase('');setRevision(null);revisionRef.current=null;setState('local');setMessage('Local-only mode. This device will not upload or restore account data.')}
+ const keepLocal=()=>{active.current=false;disabledRef.current=true;remoteRef.current=null;activeAccountRef.current=null;mismatchRef.current=false;lastSyncedRef.current=null;skipRestoreUpload.current=false;setPassphrase('');setRevision(null);revisionRef.current=null;setState('local');setMessage('Local-only mode. This device will not upload or restore account data.')}
  useEffect(()=>{
   if(!enabled||!active.current||disabledRef.current||busy)return
   const payload=currentPayload(),fingerprint=JSON.stringify(payload)
