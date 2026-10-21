@@ -42,6 +42,29 @@ test('fresh loopback server denies untrusted origins with agents disabled', {tim
   const identity=await status.json()
   assert.equal(identity.connected,false)
   assert.equal(identity.apiConfigured,false)
+  assert.equal(identity.accountId,null)
+  assert.deepEqual(identity.accounts,[])
+  // Stale, unverified account headers are never permitted to use an API or
+  // authenticated plan selection, even when they reach this trusted loopback.
+  const stale='a'.repeat(24)
+  const models=await fetch(base+'/api/models',{headers:{'X-Workspace-Account-Id':stale}})
+  assert.equal(models.status,409)
+  const staleChat=await fetch(base+'/api/chat',{
+   method:'POST',headers:{Origin:base,'Content-Type':'application/json','X-Workspace-Account-Id':stale},
+   body:JSON.stringify({messages:[{role:'user',content:'Synthetic input'}],preference:'api',images:[]})
+  })
+  assert.equal(staleChat.status,409)
+  const invalidSwitch=await fetch(base+'/api/auth/switch',{
+   method:'POST',headers:{Origin:base,'Content-Type':'application/json'},
+   body:JSON.stringify({accountId:stale})
+  })
+  assert.equal(invalidSwitch.status,409)
+  const guest=await fetch(base+'/api/auth/switch',{
+   method:'POST',headers:{Origin:base,'Content-Type':'application/json'},
+   body:JSON.stringify({accountId:null})
+  })
+  assert.equal(guest.status,200)
+  assert.equal((await guest.json()).accountId,null)
   const blocked=await fetch(base+'/api/chat',{
    method:'POST',headers:{Origin:'https://cross-origin.invalid','Content-Type':'application/json'},
    body:'{}',
