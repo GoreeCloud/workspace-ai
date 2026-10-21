@@ -65,6 +65,12 @@ Private DNS does **not** imply an undiscoverable hostname. Issuing a publicly tr
 
 Caddy supports an internal CA with `tls internal`, but authorized client devices must explicitly trust its root certificate; never distribute a root CA private key, turn off certificate verification, or use `curl -k` as a permanent workaround. This is a decision gate, not a change to the existing Caddyfile or its current certificate authority. See the [Caddy Automatic HTTPS documentation](https://caddyserver.com/docs/automatic-https) and [Caddy TLS directive](https://caddyserver.com/docs/caddyfile/directives/tls).
 
+## Outbound API access is intentionally absent
+
+The synthetic smoke container's `internal: true` Docker network intentionally has **no external route**. That protects the isolated development fixture, but also prevents Workspace AI from contacting ChatGPT OAuth, model APIs, remote MCP providers and other external integrations. A healthy `/api/status` response is **not proof that AI chat works**. The optional private ingress override only supplies another explicitly restricted network; it does not grant provider egress.
+
+For real private AI chat testing, first design a separate reviewable outbound policy with explicit destination rules, redirect/DNS-rebinding and SSRF safeguards, credential handling, denial logging and revocation behavior. Do not join the backend to a shared unrestricted network or enable host networking as a shortcut. Then test provider access with an approved test account, measure results independently, and preserve account isolation. See [Docker's internal network semantics](https://docs.docker.com/compose/how-tos/networking/#internal-networks).
+
 ## Mandatory ingress gates before a Caddy change
 
 1. Preserve the private/split-horizon DNS rewrite. Do not create a public A/AAAA record for this hostname.
