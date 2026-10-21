@@ -8,23 +8,45 @@ export async function queryAgent({agent,task,context='',preference='api',model='
  if(!response.ok){let error={};try{error=await response.json()}catch{}throw Error(error.error||'Agent inference failed')}
  if(!response.body)throw Error('Agent reply is empty')
  const reader=response.body.getReader(),decoder=new TextDecoder()
- let buffer='',text='',complete=false
+ const maxStreamBytes=128*1024,maxLineLength=32768,maxReplyLength=24000
+ let buffer='',text='',complete=false,received=0
  const accept=line=>{
   if(!line.trim())return
+  if(line.length>maxLineLength)throw Error('Agent stream event exceeded limit')
   const event=JSON.parse(line)
-  if(event.type==='delta'){text+=typeof event.text==='string'?event.text:'';if(text.length>24000)throw Error('Agent reply exceeded limit')}
-  if(event.type==='error')throw Error(event.message||'Agent execution failed')
+  if(event.type==='delta'){
+   const addition=typeof event.text==='string'?event.text:''
+   if(text.length+addition.length>maxReplyLength)throw Error('Agent reply exceeded limit')
+   text+=addition
+  }
+  if(event.type==='error')throw Error(String(event.message||'Agent execution failed').slice(0,220))
   if(event.type==='complete')complete=true
  }
  try{
-  for(;;){const piece=await reader.read();if(piece.done)break;buffer+=decoder.decode(piece.value,{stream:true})
+  for(;;){
+   if(signal?.aborted)throw Error('Agent run cancelled')
+   const piece=await reader.read()
+   if(piece.done)break
+   received+=piece.value?.byteLength||0
+   if(received>maxStreamBytes)throw Error('Agent stream exceeded safety limit')
+   buffer+=decoder.decode(piece.value,{stream:true})
    let split
-   while((split=buffer.indexOf('\n'))>=0){accept(buffer.slice(0,split));buffer=buffer.slice(split+1)}
+   while((split=buffer.indexOf('\n'))>=0){
+    if(split>maxLineLength)throw Error('Agent stream event exceeded limit')
+    accept(buffer.slice(0,split));buffer=buffer.slice(split+1)
+   }
+   if(buffer.length>maxLineLength)throw Error('Agent stream event exceeded limit')
   }
+  buffer+=decoder.decode()
   if(buffer.trim())accept(buffer)
+  if(!complete)throw Error('Agent reply ended unexpectedly')
+  return text
+ }catch(error){
+  // Stop reading a failed/oversized response; otherwise a provider can keep
+  // streaming and consuming quota after the UI has rejected its output.
+  void reader.cancel(error).catch(()=>{})
+  throw error
  }finally{reader.releaseLock()}
- if(!complete)throw Error('Agent reply ended unexpectedly')
- return text
 }
 export async function executeAgentTeam({agents,projectId,task,context='',preference='api',model='',signal,fetcher=fetch,onProgress=()=>{}}){
  assertAgentTeam(agents,projectId)
