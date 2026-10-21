@@ -105,7 +105,21 @@ export async function getPlanToken() {
         expires_at: Date.now() + Number(newer.expires_in || 3600) * 1000
       }
       if (!updated.access_token) throw new Error('Token refresh did not return an access token.')
-      await updateProfile(previous => ({ ...previous, account: updated }))
+      if (newer.id_token) {
+        const {payload} = await jwtVerify(newer.id_token,jwks,{issuer:AUTH_BASE,audience:account.client_id})
+        if (payload.sub !== account.subject) throw new Error('Identity mismatch during token renewal.')
+        updated.id_token = newer.id_token
+      }
+      // An in-flight refresh must never overwrite a newly signed-in account.
+      let applied=false
+      await updateProfile(previous => {
+        if (previous.account?.subject!==account.subject ||
+            previous.account?.client_id!==account.client_id ||
+            previous.account?.refresh_token!==account.refresh_token) return previous
+        applied=true
+        return {...previous,account:updated}
+      })
+      if(!applied)throw Error('Account changed during token renewal.')
       return updated.access_token
     })().finally(() => { refreshPending = null })
   }

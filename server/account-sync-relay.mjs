@@ -1,6 +1,7 @@
 // Local sign-in relay: ID tokens are never sent to the browser or stored in sync files.
 import {readProfile} from './storage.mjs'
 import {createHash} from 'node:crypto'
+import {decodeJwt} from 'jose'
 export function validateSyncGatewayURL(input){
  if(typeof input!=='string'||!input)return null
  try{
@@ -10,10 +11,19 @@ export function validateSyncGatewayURL(input){
   return url.origin
  }catch{return null}
 }
+// This only checks the expiry of a previously verified, server-stored token.
+// The remote gateway independently validates signature, issuer and audience.
+export function hasCurrentSyncIdentity(account,now=Date.now()){
+ if(!account?.subject||typeof account.id_token!=='string')return false
+ try{
+  const claims=decodeJwt(account.id_token)
+  return claims.sub===account.subject&&Number.isFinite(claims.exp)&&claims.exp*1000>now+30000
+ }catch{return false}
+}
 export function attachAccountSyncRelay(app,origins,{gateway=validateSyncGatewayURL(process.env.WORKSPACE_SYNC_GATEWAY_URL),profile=readProfile,fetcher=fetch}={}){
  const status=async()=>{
   const p=await profile()
-  return {available:!!gateway,authenticated:!!(p.account?.subject&&p.account?.id_token),email:p.account?.email||null,
+  return {available:!!gateway,authenticated:hasCurrentSyncIdentity(p.account),reauthorizeRequired:Boolean(p.account?.subject&&!hasCurrentSyncIdentity(p.account)),email:p.account?.email||null,
    accountId:p.account?.subject?createHash('sha256').update(p.account.subject).digest('hex').slice(0,24):null,
    mode:gateway?'available':'local-only',encryption:'passphrase-required'}
  }
@@ -23,7 +33,7 @@ export function attachAccountSyncRelay(app,origins,{gateway=validateSyncGatewayU
   if(!gateway)return res.status(503).json({error:'No shared account sync gateway configured. Data remains local on this device.'})
   let p
   try{p=await profile()}catch{return res.status(503).json({error:'Account unavailable'})}
-  if(!p.account?.subject||!p.account?.id_token)return res.status(401).json({error:'Sign in to enable account sync'})
+  if(!hasCurrentSyncIdentity(p.account))return res.status(401).json({error:'ChatGPT identity token expired or missing. Reauthorize your account before syncing.'})
   if(req.headers['x-workspace-account-id']!==createHash('sha256').update(p.account.subject).digest('hex').slice(0,24))return res.status(409).json({error:'Account identity mismatch'})
   if(req.method==='PUT'){
    const body=JSON.stringify(req.body)

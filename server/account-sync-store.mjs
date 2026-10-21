@@ -1,6 +1,6 @@
 // Encrypted, account-scoped snapshot storage. No plaintext workspace data is accepted.
 import {createHash,randomUUID} from 'node:crypto'
-import {promises as fs} from 'node:fs'
+import {promises as fs,constants as fsConstants} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 export const SYNC_ENVELOPE_MAX=16*1024*1024
@@ -12,6 +12,27 @@ export function validateEncryptedEnvelope(value){
  }
  if(value.salt.length<20||value.iv.length<15||value.ciphertext.length<20)throw Error('Incomplete encrypted snapshot')
  return {kind:value.kind,salt:value.salt,iv:value.iv,ciphertext:value.ciphertext}
+}
+const revisionPattern=/^[0-9a-f-]{36}$/
+async function readExistingRecord(file){
+ const fd=await fs.open(file,fsConstants.O_RDONLY|(fsConstants.O_NOFOLLOW||0))
+ try{
+  const stat=await fd.stat()
+  if(!stat.isFile()||(stat.mode&0o077)!==0||stat.size>SYNC_ENVELOPE_MAX||stat.size<10)
+   throw Error('Unsafe account sync file')
+  const buffer=Buffer.allocUnsafe(SYNC_ENVELOPE_MAX+1)
+  let size=0
+  while(size<buffer.length){
+   const {bytesRead}=await fd.read(buffer,size,buffer.length-size,null)
+   if(!bytesRead)break
+   size+=bytesRead
+  }
+  if(size>SYNC_ENVELOPE_MAX)throw Error('Account sync file exceeds size limit')
+  const item=JSON.parse(buffer.toString('utf8',0,size))
+  if(!item||typeof item.revision!=='string'||!revisionPattern.test(item.revision))
+   throw Error('Invalid account sync revision')
+  return {revision:item.revision,envelope:validateEncryptedEnvelope(item.envelope)}
+ }finally{await fd.close()}
 }
 export function createAccountSyncStore({directory=path.join(os.homedir(),'.config','goreecloud','workspace-ai','account-sync')}={}){
  let queue=Promise.resolve()
@@ -28,24 +49,17 @@ export function createAccountSyncStore({directory=path.join(os.homedir(),'.confi
  const get=subject=>serialize(async()=>{
   await ensureDirectory()
   const file=accountPath(subject)
-  let meta
-  try{meta=await fs.lstat(file)}catch(e){if(e.code==='ENOENT')return {revision:null,envelope:null};throw e}
-  if(!meta.isFile()||meta.isSymbolicLink()||(meta.mode&0o077)!==0||meta.size>SYNC_ENVELOPE_MAX)throw Error('Unsafe account sync file')
-  const value=JSON.parse(await fs.readFile(file,'utf8'))
-  return {revision:value.revision,envelope:validateEncryptedEnvelope(value.envelope)}
+  try{return await readExistingRecord(file)}
+  catch(e){if(e.code==='ENOENT')return {revision:null,envelope:null};throw e}
  })
  const put=(subject,envelope,expectedRevision)=>serialize(async()=>{
   await ensureDirectory()
   const clean=validateEncryptedEnvelope(envelope)
-  if(!(expectedRevision===null||typeof expectedRevision==='string'&&/^[0-9a-f-]{36}$/.test(expectedRevision)))throw Error('Invalid sync revision')
+  if(!(expectedRevision===null||typeof expectedRevision==='string'&&revisionPattern.test(expectedRevision)))throw Error('Invalid sync revision')
   const file=accountPath(subject)
   let current=null
-  try{
-   const meta=await fs.lstat(file)
-   if(!meta.isFile()||meta.isSymbolicLink()||(meta.mode&0o077)!==0||meta.size>SYNC_ENVELOPE_MAX)throw Error('Unsafe account sync file')
-   const saved=JSON.parse(await fs.readFile(file,'utf8'))
-   current=saved.revision
-  }catch(e){if(e.code!=='ENOENT')throw e}
+  try{current=(await readExistingRecord(file)).revision}
+  catch(e){if(e.code!=='ENOENT')throw e}
   if(current!==expectedRevision)return {conflict:true,revision:current}
   const revision=randomUUID(),encoded=JSON.stringify({revision,envelope:clean})
   if(Buffer.byteLength(encoded)>SYNC_ENVELOPE_MAX)throw Error('Encrypted snapshot exceeds server limit')
