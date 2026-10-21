@@ -283,7 +283,16 @@ def transform(request):
     if action=="create":
         model=request.get("model",{})
         require(isinstance(model,dict),"Invalid document model")
-        if kind=="pdf":result=pdf_create(text(model.get("text",""),12000))
+        if kind=="pdf":
+            if model.get("markdown") is True:
+                from importlib.util import spec_from_file_location, module_from_spec
+                from pathlib import Path
+                _spec=spec_from_file_location('goreecloud_markdown_pdf',Path(__file__).with_name('markdown_pdf.py'))
+                _module=module_from_spec(_spec)
+                _spec.loader.exec_module(_module)
+                markdown_to_pdf=_module.markdown_to_pdf
+                result=markdown_to_pdf(text(model.get("text",""),12000))
+            else:result=pdf_create(text(model.get("text",""),12000))
         else:result={"docx":create_docx,"pptx":create_pptx,"xlsx":create_xlsx}[kind](model)
     else:
         changes=request.get("changes",[])

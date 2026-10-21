@@ -18,7 +18,7 @@ export async function createChatDocument(body,{convert=runDocumentWorker}={}){
  const data=item.format==='md'?Buffer.from(item.source,'utf8'):null
  let binary=data
  if(!binary){
-  const model=item.format==='docx'?{markdown:item.source}:{text:item.source}
+  const model=item.format==='docx'?{markdown:item.source}:{text:item.source,markdown:true}
   const result=await convert({action:'create',name:item.name,model})
   binary=Buffer.from(result.base64,'base64')
   const reopened=await convert({action:'open',name:item.name,base64:result.base64})
