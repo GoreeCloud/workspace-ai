@@ -73,7 +73,7 @@ try {
     const directory=process.env.WORKSPACE_AI_SCREENSHOT_DIR
     if(!directory)return
     await mkdir(directory,{recursive:true})
-    const image=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})
+    const image=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true})
     assert.ok(typeof image.data==='string'&&image.data.length>100,'Browser screenshot was not captured')
     await writeFile(join(directory,name),Buffer.from(image.data,'base64'))
   }
@@ -173,6 +173,9 @@ try {
   await wait("document.querySelector('.smartImageRoute')?.textContent.includes('Nano Banana 2.1')")
   assert.ok(await evaluate("document.querySelector('.smartImageRoute')?.textContent.includes('Manual model lock')"))
   assert.deepEqual(exceptions,[],'Smart Images browser workflow has no JavaScript exceptions')
+  await send('Emulation.setDeviceMetricsOverride',{width:1366,height:900,deviceScaleFactor:1,mobile:false})
+  await delay(150)
+  await evaluate('window.scrollTo(0,0)')
   await capture('smart-images-desktop.png')
 
   // Synthetic saved prompt workflow: create, persist in view state, and insert without sending.
@@ -192,6 +195,8 @@ try {
   await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Smart Images').click()")
   await wait("document.querySelector('.smartImagePage h1')?.textContent==='Smart Image Generation'")
   assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Smart Images mobile horizontal overflow')
+  await evaluate('window.scrollTo(0,0)')
+  await delay(150)
   await capture('smart-images-mobile.png')
   assert.deepEqual(exceptions,[],'Browser JavaScript exceptions')
   console.log(JSON.stringify({passed:true,repositoryBrowser:true,issues:true,pullRequests:true,pagination:true,dropbox:true,mobile:true}))
