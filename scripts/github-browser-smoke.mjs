@@ -84,6 +84,7 @@ try {
       const raw=typeof input==='string'?input:input?.url
       const url=new URL(raw,location.href)
       const wrap=body=>Promise.resolve(new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}}))
+      if(url.pathname==='/api/smart-images/status')return wrap({configured:false,source:null,models:['ideogram-4-5','gpt-image-2-5','nano-banana-2-1']})
       if(url.pathname==='/api/integrations')return wrap({executionEnabled:false,services:[{
         id:'github',name:'GitHub',kind:'api',category:'Development',auth:'token',
         connected:true,hasSessionToken:true,status:'connected',message:'Synthetic authorized connection',
@@ -153,6 +154,18 @@ try {
   await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('mockup.png')")
   await evaluate("document.querySelector('button[aria-label=\"Back to parent Dropbox folder\"]').click()")
   await wait("document.querySelector('.dropboxEntries li')?.textContent.includes('Design')")
+  // Smart Image Generation synthetic browser acceptance: routing, model lock, billing guard.
+  await evaluate("document.querySelector('.workspaceNavLink[aria-label=Smart\\ Images]')?.click()")
+  await wait("document.querySelector('.smartImagePage h1')?.textContent==='Smart Image Generation'")
+  assert.equal(await evaluate("document.querySelectorAll('.smartImageOptions select').length"),4)
+  assert.ok(await evaluate("[...document.querySelectorAll('.smartImageActions button')].some(b=>b.textContent.includes('Generate image')&&b.disabled)"),'Paid generation disabled without provider key')
+  await evaluate("(()=>{const t=document.querySelector('.smartImagePage textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(t,'A typographic logo');t.dispatchEvent(new Event('input',{bubbles:true}))})()")
+  await wait("document.querySelector('.smartImageRoute')?.textContent.includes('Ideogram 4.5')")
+  await evaluate("(()=>{const s=document.querySelector('.smartImageOptions select');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(s,'nano-banana-2-1');s.dispatchEvent(new Event('change',{bubbles:true}))})()")
+  await wait("document.querySelector('.smartImageRoute')?.textContent.includes('Nano Banana 2.1')")
+  assert.ok(await evaluate("document.querySelector('.smartImageRoute')?.textContent.includes('Manual model lock')"))
+  assert.deepEqual(exceptions,[],'Smart Images browser workflow has no JavaScript exceptions')
+
   // Synthetic saved prompt workflow: create, persist in view state, and insert without sending.
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=Prompts]').click()")
   await wait("document.querySelector('.promptsPage h1')?.textContent==='Prompts'")
