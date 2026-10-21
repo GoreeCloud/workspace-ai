@@ -240,14 +240,14 @@ async function send(value=draft){
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
     if(!response.body)throw Error('The server returned no stream');
     const reader=response.body.getReader(),decoder=new TextDecoder();
-    let buffer='',complete=false;
+    let buffer='',complete=false,generatedText='';
     const update=line=>{
       if(!line.trim())return;
       const e=JSON.parse(line);
       if(e.type==='meta')changeLast(id,m=>({...m,provider:e.provider,model:e.model}));
        if(e.type==='tool')changeLast(id,m=>({...m,toolActivity:updateToolActivity(m.toolActivity,e)}));
        if(e.type==='usage'&&Number.isSafeInteger(e.cachedInputTokens)&&e.cachedInputTokens>=0&&Number.isSafeInteger(e.inputTokens)&&e.inputTokens>=e.cachedInputTokens)changeLast(id,m=>({...m,usage:{cachedInputTokens:e.cachedInputTokens,inputTokens:e.inputTokens}}));
-      if(e.type==='delta')changeLast(id,m=>({...m,content:m.content+(e.text||'')}));
+      if(e.type==='delta'){generatedText+=e.text||'';changeLast(id,m=>({...m,content:m.content+(e.text||'')}))}
       if(e.type==='complete')complete=true;
       if(e.type==='error')throw Error(e.message||'Streaming error');
     };
