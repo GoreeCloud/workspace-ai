@@ -69,6 +69,14 @@ curl -I --max-time 10 https://workspace-ai-dev.goreecloud.com/
 curl -i --max-time 10 https://workspace-ai-dev.goreecloud.com/api/status
 ```
 
+The repository also provides a read-only, credential-free acceptance probe. Run it on an authorized NetBird workstation after certificate and gateway configuration:
+
+```sh
+node scripts/private-dev-ingress-check.mjs
+```
+
+It fails closed if DNS does not resolve exclusively to the private NetBird IPv4 range, if TLS is not trusted, or if unauthenticated access to the homepage or account status is permitted. It never bypasses TLS verification, supplies credentials, or treats gateway denial as proof of authenticated functionality.
+
 For an ingress that requires authentication, unauthenticated responses should be 401/403 and must not disclose application content or account status. After authenticating to the approved ingress, `/api/status` should return 200 with `Cache-Control: no-store` and the expected content-security policy.
 
 Also verify blocked/non-NetBird clients, invalid/missing Origin on unsafe methods, mismatched Host, browser navigation, relevant mobile viewport, OAuth redirects *only after registration*, DNS/tunnel disconnects, reload/rollback, and logs that do not expose private data. `npm run check` and `node --test tests/private-dev-origin.test.mjs` verify source behavior, not live tunnel security.
