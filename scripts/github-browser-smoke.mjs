@@ -2,7 +2,7 @@
 // No provider credentials, paid inference, or external data are used.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createServer } from 'node:net'
@@ -68,6 +68,14 @@ try {
     const r=await send('Runtime.evaluate',{expression,returnByValue:true})
     if(r.exceptionDetails)throw Error('Browser evaluation failed: '+expression)
     return r.result.value
+  }
+  const capture=async name=>{
+    const directory=process.env.WORKSPACE_AI_SCREENSHOT_DIR
+    if(!directory)return
+    await mkdir(directory,{recursive:true})
+    const image=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:false})
+    assert.ok(typeof image.data==='string'&&image.data.length>100,'Browser screenshot was not captured')
+    await writeFile(join(directory,name),Buffer.from(image.data,'base64'))
   }
   const wait=async expression=>{
     for(let i=0;i<65;i++){
@@ -165,6 +173,7 @@ try {
   await wait("document.querySelector('.smartImageRoute')?.textContent.includes('Nano Banana 2.1')")
   assert.ok(await evaluate("document.querySelector('.smartImageRoute')?.textContent.includes('Manual model lock')"))
   assert.deepEqual(exceptions,[],'Smart Images browser workflow has no JavaScript exceptions')
+  await capture('smart-images-desktop.png')
 
   // Synthetic saved prompt workflow: create, persist in view state, and insert without sending.
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=Prompts]').click()")
@@ -180,6 +189,10 @@ try {
   assert.deepEqual(exceptions,[],'Saved prompt browser workflow has no JavaScript exceptions')
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true})
   assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Horizontal mobile overflow')
+  await evaluate("[...document.querySelectorAll('.workspaceNavLink')].find(n=>n.getAttribute('aria-label')==='Smart Images').click()")
+  await wait("document.querySelector('.smartImagePage h1')?.textContent==='Smart Image Generation'")
+  assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Smart Images mobile horizontal overflow')
+  await capture('smart-images-mobile.png')
   assert.deepEqual(exceptions,[],'Browser JavaScript exceptions')
   console.log(JSON.stringify({passed:true,repositoryBrowser:true,issues:true,pullRequests:true,pagination:true,dropbox:true,mobile:true}))
 } finally {
