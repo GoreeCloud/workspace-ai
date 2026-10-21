@@ -243,3 +243,56 @@
 .promptEditorBottom small{font-size:11px;color:var(--gc-text-soft)}
 .promptComposerSelect{min-width:115px;max-width:min(200px,40vw);font-size:12px;background:var(--gc-surface-raised);border:1px solid var(--gc-outline);border-radius:10px;padding:8px;color:var(--gc-text)}
 @media(max-width:550px){.promptEditorTop,.promptEditorBottom{align-items:stretch}.promptComposerSelect{max-width:135px}}
+
+
+/* Ordered, pinned project navigation with accessible keyboard controls. */
+.workspaceSidebar .workspaceNav{overflow:auto;min-height:0;flex:1;scrollbar-width:thin}
+.projectSideChildren{padding-left:16px;gap:6px}
+.projectNavGroup{border-radius:9px;min-width:0}
+.projectNavGroup:focus-within{background:var(--gc-brand-container)}
+.projectNavGroupTitle{display:flex;align-items:center;min-width:0;gap:2px}
+.projectNavGroupTitle>svg{flex:none;opacity:.5;cursor:grab}
+.projectNavGroupTitle .projectNavJump{flex:1;min-width:0;padding:8px 4px}
+.projectNavJump span,.projectNavChat span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.projectNavGroupTitle .projectNavAction{flex:none;width:24px;min-width:24px;height:27px;min-height:27px;padding:4px;justify-content:center}
+.projectNavGroupTitle .projectNavAction:disabled{opacity:.2}
+.projectNavChats{display:grid;gap:0;margin-left:14px;border-left:1px solid var(--gc-outline);padding-left:6px}
+.projectNavChats .projectNavChat{font-size:11px;min-height:25px;padding:4px 7px}
+.projectNavGroupTitle.selected{background:var(--gc-brand-container)}
+.workspaceShell.isChatFullscreen .workspaceSidebar{display:none}
+.workspaceShell.isChatFullscreen .feed,.workspaceShell.isChatFullscreen .composerArea>.composer{max-width:min(1150px,96%)}
+.workspaceShell.isChatFullscreen .topbar{padding-inline:clamp(12px,4vw,42px)}
+.chatHeaderTitle{max-width:min(55vw,610px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chatHeaderMenu{position:relative}
+.chatHeaderPopup,.chatContextPopup{position:absolute;background:var(--gc-surface-raised,#fff);border:1px solid var(--gc-outline,#d8dbea);border-radius:12px;box-shadow:0 15px 40px #0003;z-index:55;min-width:190px;display:grid;gap:1px;padding:7px;color:var(--gc-text,#202438)}
+.chatHeaderPopup{top:calc(100% + 7px);right:0}
+.chatHeaderPopup button,.chatContextPopup button{width:100%;min-height:37px;display:flex;align-items:center;gap:10px;border:0;text-align:left;background:transparent;padding:9px 11px;color:inherit;font-size:12px;border-radius:7px}
+.chatHeaderPopup button:hover,.chatContextPopup button:hover{background:var(--gc-brand-container,#ece9ff)}
+.chatHeaderPopup .chatDangerAction{color:#b44151}
+.chatSearchBar{max-width:820px;margin:14px auto 0;padding:9px 12px;border:1px solid var(--gc-outline);border-radius:12px;display:flex;gap:9px;align-items:center;background:var(--gc-surface-raised)}
+.chatSearchBar[hidden]{display:none}
+.chatSearchBar input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--gc-text);font-size:13px}
+.chatSearchBar span{font-size:11px;color:var(--gc-text-soft)}
+.chatEmbeddedButton{display:inline-flex;justify-content:center;align-items:center;gap:1px;min-width:36px;height:36px;border:1px solid var(--gc-outline);border-radius:10px;background:var(--gc-surface-raised);color:var(--gc-text)}
+.chatEmbeddedButton:hover{background:var(--gc-brand-container)}
+.chatEmbeddedButton[aria-pressed=true]{color:var(--gc-brand)}
+.chatAttachmentControl{position:relative}
+.chatContextPopup{bottom:calc(100% + 8px);left:0}
+.chatContextPopup summary{display:flex;align-items:center;gap:10px;padding:9px 11px;font-size:12px;cursor:pointer}
+.chatPromptChoices{max-height:200px;overflow:auto;padding:4px}
+.chatAttachmentPreview{display:flex;flex-wrap:wrap;gap:6px;max-width:280px;overflow:hidden}
+.chatAttachmentChip{display:flex;align-items:center;gap:6px;min-width:0;max-width:135px;padding:4px;border:1px solid var(--gc-outline);border-radius:8px;background:var(--gc-surface)}
+.chatAttachmentChip img{width:28px;height:28px;object-fit:cover;border-radius:5px}
+.chatAttachmentChip span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+.chatAttachmentChip button{flex:none;border:0;background:transparent;color:var(--gc-text-soft);padding:3px}
+.chatMessageAttachments{display:flex;flex-wrap:wrap;gap:7px;margin-top:9px}
+.chatMessageAttachments img{width:min(240px,100%);height:auto;max-height:260px;object-fit:contain;border-radius:9px;border:1px solid #0001}
+.chatMessageAttachments small{font-size:11px;color:inherit;border:1px solid currentColor;border-radius:7px;padding:3px 6px}
+.settingsCategoryGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px}
+.settingsCategoryCard{display:flex;gap:14px;align-items:center;text-align:left;background:var(--gc-surface-raised);border:1px solid var(--gc-outline);border-radius:15px;padding:19px;color:var(--gc-text);min-height:103px}
+.settingsCategoryCard:hover{border-color:var(--gc-brand)}
+.settingsCategoryCard>span:nth-child(2){flex:1}
+.settingsCategoryCard strong,.settingsCategoryCard small{display:block}
+.settingsCategoryCard small{color:var(--gc-text-soft);margin-top:6px;font-size:11px;line-height:1.45}
+.settingsCategoryIcon{color:var(--gc-brand)}
+@media(max-width:600px){.chatHeaderTitle{max-width:50vw}.chatSearchBar{margin-inline:12px}.chatAttachmentPreview{max-width:170px}.projectNavGroupTitle .projectNavAction{width:26px}}
