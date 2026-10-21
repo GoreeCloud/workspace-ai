@@ -167,6 +167,8 @@ try {
   assert.deepEqual(exceptions,[],'Saved prompt browser workflow has no JavaScript exceptions')
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true})
   assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Horizontal mobile overflow')
+  await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
+  await wait("document.querySelector('.connected')!==null")
   assert.equal(await evaluate("document.querySelector('.connectionShort')?.textContent"),'Offline')
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.connectionShort')).display"),'inline')
   assert.equal(await evaluate("document.querySelector('.connected')?.getAttribute('aria-label')"),'Not connected')
