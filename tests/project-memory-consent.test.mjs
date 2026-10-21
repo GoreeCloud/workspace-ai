@@ -3,15 +3,17 @@ import assert from 'node:assert/strict'
 import {newProject,normalizeProject} from '../src/project-model.js'
 import {projectContext} from '../src/project-context.js'
 
-test('new and legacy projects have memory off by default',()=>{
+test('new and legacy projects default to memory on while explicit opt-outs remain off',()=>{
  const fresh=newProject('p','Private')
- assert.equal(fresh.memoryEnabled,false)
+ assert.equal(fresh.memoryEnabled,true)
  const legacy=normalizeProject({id:'old',name:'Old',memory:'Secret old notes'})
- assert.equal(legacy.memoryEnabled,false)
- assert.doesNotMatch(projectContext({projects:[legacy]},legacy.id,'secret'),/Secret old notes/)
+ assert.equal(legacy.memoryEnabled,true)
+ assert.match(projectContext({projects:[legacy]},legacy.id,'secret'),/Secret old notes/)
+ const disabled=normalizeProject({...legacy,memoryEnabled:false})
+ assert.doesNotMatch(projectContext({projects:[disabled]},disabled.id,'secret'),/Secret old notes/)
 })
 test('toggling memory controls context without deleting stored notes',()=>{
- const project={...newProject('p','Private'),memory:'A retained private note'}
+ const project={...newProject('p','Private'),memoryEnabled:false,memory:'A retained private note'}
  assert.doesNotMatch(projectContext({projects:[project]},'p','note'),/retained private/)
  project.memoryEnabled=true
  assert.match(projectContext({projects:[project]},'p','note'),/retained private/)
