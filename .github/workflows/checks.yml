@@ -49,6 +49,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Syntax-check read-only private HTTPS acceptance probe
         run: node --check scripts/private-dev-ingress-check.mjs
+      - name: Validate synthetic private gateway acceptance script
+        run: bash -n scripts/private-dev-qa-gateway-check.sh
       - name: Validate isolated Docker Compose configuration
         run: docker compose -f deploy/private-dev/compose.yaml config --quiet
       - name: Build and start private development smoke backend
