@@ -1,0 +1,9 @@
+.chatDocumentCard{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-top:12px;padding:14px;border:1px solid var(--gc-outline);border-radius:14px;background:var(--gc-surface-raised);max-width:100%}
+.chatDocumentInfo{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.chatDocumentInfo>svg{flex-shrink:0;color:var(--gc-brand)}
+.chatDocumentInfo span{display:flex;flex-direction:column;gap:4px;min-width:0}
+.chatDocumentInfo strong{font-size:13px;overflow-wrap:anywhere}
+.chatDocumentInfo small{font-size:11px;color:var(--gc-text-soft)}
+.chatDocumentCard button{display:flex;align-items:center;gap:7px;justify-content:center;min-height:38px}
+.chatDocumentCard .errorText{flex-basis:100%;margin:0;font-size:12px}
+@media(max-width:520px){.chatDocumentCard{align-items:stretch}.chatDocumentCard button{width:100%}}
