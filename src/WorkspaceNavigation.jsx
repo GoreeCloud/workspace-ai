@@ -1,11 +1,11 @@
 import React from 'react'
-import {Sparkles,Plus,Plug,Waypoints,FolderKanban,Bot,BookOpen,Pin,MessagesSquare,Settings2,PanelLeftClose,PanelLeftOpen,ChevronDown,ChevronRight,ShieldCheck,X} from 'lucide-react'
+import {Sparkles,Plus,Plug,Waypoints,FolderKanban,Bot,BookOpen,Pin,MessagesSquare,Archive,Settings2,PanelLeftClose,PanelLeftOpen,ChevronDown,ChevronRight,ShieldCheck,X} from 'lucide-react'
 import {NAV_SECTIONS,searchChats} from './workspace-state.js'
 import ProjectSidebarItems from './ProjectSidebarItems.jsx'
-const ICONS={mcp:Plug,api:Waypoints,projects:FolderKanban,agents:Bot,prompts:BookOpen,pinned:Pin,chats:MessagesSquare,settings:Settings2}
+const ICONS={mcp:Plug,api:Waypoints,projects:FolderKanban,agents:Bot,prompts:BookOpen,pinned:Pin,chats:MessagesSquare,archived:Archive,settings:Settings2}
 export default function WorkspaceNavigation({workspace,onWorkspace,view,onNavigate,chats,current,onSelectChat,onNewChat,mobile,onMobile,selectedProject,onProject,onUsePrompt}){
  const compact=workspace.collapsed&&!mobile
- const pinned=searchChats(chats,'').filter(c=>workspace.pinned.includes(c.id))
+ const pinned=searchChats(chats,'').filter(c=>workspace.pinned.includes(c.id)&&c.archived!==true)
  const toggle=id=>onWorkspace(w=>({...w,expanded:{...w.expanded,[id]:!w.expanded[id]}}))
  const pick=id=>{onNavigate(id);onMobile(false)}
  return <>
