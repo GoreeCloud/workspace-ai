@@ -10,7 +10,9 @@ async function call(path,body,accountId){
 export function useAccountSync({chats,workspace,preferences={},busy=false,onRestore}){
  const [available,setAvailable]=useState(false),[identity,setIdentity]=useState(null),[state,setState]=useState('local'),[message,setMessage]=useState('')
  const [revision,setRevision]=useState(null),[passphrase,setPassphrase]=useState('')
- const revisionRef=useRef(null),sequence=useRef(Promise.resolve()),mounted=useRef(true)
+ const revisionRef=useRef(null)
+ const lastSyncedRef=useRef(null),skipRestoreUpload=useRef(false)
+ const [syncTick,setSyncTick]=useState(0)
  const enabled=state==='enabled'
  const locked=useRef(false)
  const remoteRef=useRef(null)
@@ -19,11 +21,12 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
  const disabledRef=useRef(false)
  const snapshot=()=>createWorkspaceBackup(chats,workspace)
  const syncPrefs=()=>({appearance:['light','dark','system'].includes(preferences.appearance)?preferences.appearance:'system'})
+ const currentPayload=()=>({...snapshot(),preferences:syncPrefs()})
  const refresh=async()=>{
   try{
    const status=await call('/api/sync/status')
    if(activeAccountRef.current&&status.accountId!==activeAccountRef.current){
-    active.current=false;disabledRef.current=true;setState('conflict');setMessage('The logged-in account changed. Sync stopped to protect project privacy.');return status
+    active.current=false;disabledRef.current=true;setState('conflict');setMessage('The logged-in account changed. Sync stopped to protect project privacy.');throw Error('Sync requires the original signed-in account. Choose local-only mode first to switch accounts.')
    }
    if(status.authenticated)activeAccountRef.current=status.accountId
    setAvailable(status.available===true);setIdentity(status.authenticated?{email:status.email||'Signed-in account',accountId:status.accountId}:null)
@@ -31,12 +34,15 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
     active.current=false;disabledRef.current=true;setState('local');setPassphrase('');setRevision(null);revisionRef.current=null
    }
    return status
-  }catch(e){setMessage(e.message);setAvailable(false);return null}
+  }catch(e){setMessage(e.message);return null}
  }
- useEffect(()=>{mounted.current=true;refresh();return()=>{mounted.current=false}},[])
- const send=async(session,expected)=>{
-  const envelope=await encryptAccountSnapshot({...snapshot(),preferences:syncPrefs()},session)
+ useEffect(()=>{refresh()},[])
+ const send=async(session,expected,payload=currentPayload())=>{
+  const fingerprint=JSON.stringify(payload)
+  const envelope=await encryptAccountSnapshot(payload,session)
   const response=await call('/api/sync/snapshot',{envelope,expectedRevision:expected},activeAccountRef.current)
+  if(!response?.revision||response.conflict)throw Error('Encrypted snapshot was not confirmed by the server')
+  lastSyncedRef.current=fingerprint
   revisionRef.current=response.revision;setRevision(response.revision);setMessage('Encrypted workspace synchronized.')
   return response
  }
@@ -57,7 +63,7 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
     await send(secret,null)
     active.current=true;disabledRef.current=false;setPassphrase(secret);setState('enabled')
    }
-  }catch(e){setMessage(e.message);setState('local')}
+  }catch(e){setMessage(e.message);if(state!=='conflict')setState('local')}
   finally{locked.current=false}
  }
  const restore=async()=>{
@@ -66,26 +72,40 @@ export function useAccountSync({chats,workspace,preferences={},busy=false,onRest
   locked.current=true
   try{
    const source=remoteRef.current
+   const verified=await refresh()
+   if(!verified?.available||!verified.authenticated||verified.accountId!==activeAccountRef.current)
+    throw Error('The account changed or became unavailable. Local data was not replaced.')
+   const latest=await call('/api/sync/snapshot',undefined,activeAccountRef.current)
+   if(latest.revision!==source.revision)throw Error('Account data changed on another device. Unlock the latest snapshot before restoring.')
    onRestore(source.archive,'replace',source.preferences)
    revisionRef.current=source.revision;setRevision(source.revision);remoteRef.current=null
-   active.current=true;disabledRef.current=false;setState('enabled');setMessage('Account data restored and automatic sync enabled.')
+   // Restoring an existing snapshot must never immediately re-upload stale pre-restore state.
+   skipRestoreUpload.current=true
+   active.current=true;disabledRef.current=false;setState('enabled');setMessage('Account data restored. Future edits will synchronize.')
    return true
   }catch(e){setMessage(e.message);return null}
   finally{locked.current=false}
  }
- const keepLocal=()=>{active.current=false;disabledRef.current=true;remoteRef.current=null;setPassphrase('');setRevision(null);revisionRef.current=null;setState('local');setMessage('Local-only mode. This device will not upload or restore account data.')}
+ const keepLocal=()=>{active.current=false;disabledRef.current=true;remoteRef.current=null;activeAccountRef.current=null;lastSyncedRef.current=null;skipRestoreUpload.current=false;setPassphrase('');setRevision(null);revisionRef.current=null;setState('local');setMessage('Local-only mode. This device will not upload or restore account data.')}
  useEffect(()=>{
   if(!enabled||!active.current||disabledRef.current||busy)return
+  const payload=currentPayload(),fingerprint=JSON.stringify(payload)
+  if(skipRestoreUpload.current){
+   skipRestoreUpload.current=false
+   lastSyncedRef.current=fingerprint
+   return
+  }
+  if(fingerprint===lastSyncedRef.current||locked.current)return
   const handle=setTimeout(async()=>{
-   if(locked.current)return
+   if(locked.current||!active.current||disabledRef.current)return
    locked.current=true
-   try{await send(passphrase,revisionRef.current)}
+   try{await send(passphrase,revisionRef.current,payload)}
    catch(e){
     active.current=false;disabledRef.current=true;setState('conflict');setMessage(e.status===409?
-     'Another device updated this account. Automatic sync stopped to prevent overwriting it. Export a local backup and reload the latest account snapshot.':e.message)
-   }finally{locked.current=false}
+     'Another device updated this account, or your sign-in changed. Automatic sync stopped. Export a local backup and unlock the latest account snapshot.':e.message)
+   }finally{locked.current=false;setSyncTick(t=>t+1)}
   },3500)
   return()=>clearTimeout(handle)
- },[chats,workspace,preferences.appearance,enabled,passphrase,busy])
+ },[chats,workspace,preferences.appearance,enabled,passphrase,busy,syncTick])
  return {available,identity,state,message,revision,enable,restore,keepLocal,refresh}
 }
