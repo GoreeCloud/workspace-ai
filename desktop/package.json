@@ -57,6 +57,8 @@
         "nsis",
         "portable"
       ]
-    }
-  }
+    },
+    "executableName": "workspace-ai"
+  },
+  "author": "GoreeCloud"
 }
