@@ -7,11 +7,11 @@ export default function AccountSyncPanel({sync,busy=false}){
  const local=sync.state==='local'
  async function enable(){
   setWorking(true)
-  try{await sync.enable(secret)}finally{setWorking(false)}
+  try{await sync.enable(secret);setSecret('')}finally{setWorking(false)}
  }
  return <section className="connectionCard" aria-label="Account data synchronization">
   <h3><Cloud size={19}/> Account sync and device portability</h3>
-  <p>Account sync can carry projects, memories, conversations, agent definitions, saved prompts and appearance settings between devices **only when a shared sync gateway is configured and you sign in to the same account on each device**. Browser-local credentials, external integration tokens and server-owned schedules are not synced.</p>
+  <p>Account sync can carry projects, memories, conversations, agent definitions, saved prompts and appearance settings between devices only when a shared sync gateway is configured and you sign in to the same account on each device. Browser-local credentials, external integration tokens and server-owned schedules are not synced.</p>
   {sync.state==='enabled'?<p className="connectedText"><ShieldCheck size={16}/> End-to-end encrypted account sync active. Changes upload automatically while this tab is open and unlocked.</p>:null}
   {!sync.available?<p className="backupWarning"><ShieldAlert size={16}/> This installation has no shared sync service. Signing in does not transfer data to another device. Clearing browser data, changing devices or losing this installation can permanently lose local projects, memories and chats unless you exported a backup.</p>:
     !sync.identity?<p className="backupWarning">Sign in through Connections before enabling account sync.</p>:null}
