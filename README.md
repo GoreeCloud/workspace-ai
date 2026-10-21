@@ -30,6 +30,10 @@ npm start
 
 Open **http://127.0.0.1:3031**. `npm run check` builds the frontend and runs the test suite; `npm start` serves both the built frontend and API on loopback only.
 
+### Private development hostname (opt-in only)
+
+`workspace-ai-dev.goreecloud.com` is a **private development testing target**, not a public multi-user host. The existing localhost-only backend remains the default. A development-only configuration now supports its exact HTTPS origin while keeping the network listener loopback-only unless an operator explicitly attests to isolated container networking. A DNS rewrite alone does not establish TLS, gateway authentication, or application session isolation. **Do not deploy it to the shared VPS Caddy or attach live credentials without completing the ingress gates.** See [private development ingress and test plan](docs/PRIVATE_DEV_INGRESS.md).
+
 For development with Vite hot reload, run `npm run dev` and open **http://127.0.0.1:5173**. After the OAuth callback, the default redirect uses the built app at port 3031.
 
 To connect a ChatGPT subscription, open **Settings & connections** and choose **Continue with ChatGPT**. An eligible plan and the user's approval are required; sign-in alone does not authorize plan usage.

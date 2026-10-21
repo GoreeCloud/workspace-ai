@@ -14,15 +14,15 @@ import {attachAgentRoutes} from './agent-routes.mjs'
 import {attachAccountSyncRelay} from './account-sync-relay.mjs'
 import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
+import {resolveIngress} from './ingress-config.mjs'
 
 const app = express()
-const PORT = Number(process.env.WORKSPACE_AI_PORT || 3031)
+const {port: PORT, privateDev, bindHost, clientOrigin, allowedHosts, allowedOrigins} = resolveIngress()
 const environmentApiKey = process.env.OPENAI_API_KEY?.trim() || ''
 let apiKey = environmentApiKey
 let apiKeySource = environmentApiKey ? 'environment' : null
 const apiModel = process.env.OPENAI_API_MODEL || 'gpt-5-mini'
-const clientOrigin = 'http://127.0.0.1:' + PORT
-const callback = 'http://127.0.0.1:' + PORT + '/auth/callback'
+const callback = clientOrigin + '/auth/callback'
 const endpoint = 'https://api.openai.com/v1'
 const cooldownCodes = new Set([
   'subscription_sharing_usage_limit_exceeded',
@@ -34,19 +34,20 @@ const cooldownCodes = new Set([
 app.disable('x-powered-by')
 app.use((req, res, next) => {
   const host = req.headers.host
-  if (host !== '127.0.0.1:' + PORT) return res.status(403).json({ error: 'Local-only host required.' })
+  if (!allowedHosts.has(host)) return res.status(403).json({ error: 'Unrecognized workspace host.' })
   res.setHeader('Cache-Control', 'no-store')
   res.setHeader('X-Content-Type-Options', 'nosniff')
   res.setHeader('Referrer-Policy', 'no-referrer')
   res.setHeader('Content-Security-Policy', "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'")
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    if (req.headers.origin && !['http://127.0.0.1:5173', clientOrigin].includes(req.headers.origin)) return res.status(403).json({ error: 'Origin not allowed.' })
+    if (privateDev && !req.headers.origin) return res.status(403).json({ error: 'Origin required for private development writes.' })
+    if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) return res.status(403).json({ error: 'Origin not allowed.' })
   }
   next()
 })
 app.use('/api/chat',express.json({limit:'520kb'}))
 app.use(express.json({ limit: '90kb' }))
-const localOrigins=new Set([clientOrigin,'http://127.0.0.1:5173'])
+const localOrigins=allowedOrigins
 const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
 const mcpIntegration=attachIntegrationRoutes(app,localOrigins,{onMcpChange:provider=>mcpApproval.revokeProvider(provider)})
 attachMcpLiveRoutes(app,localOrigins,{broker:mcpApproval,...mcpIntegration,providerReady:mcpIntegration.isMcpReady})
@@ -54,7 +55,7 @@ attachGoogleRoutes(app,localOrigins)
 attachAgentRoutes(app,localOrigins,{getApiKey:()=>environmentApiKey,model:apiModel})
 attachAccountSyncRelay(app,localOrigins)
 const credentialSettings = attachCredentialSettings(app, {
-  allowedOrigins: new Set([clientOrigin, 'http://127.0.0.1:5173']),
+  allowedOrigins: localOrigins,
   getCredential: () => apiKey,
   setCredential: value => { apiKey = value; apiKeySource = 'session' },
   clearCredential: () => { apiKey = environmentApiKey; apiKeySource = environmentApiKey ? 'environment' : null },
@@ -240,7 +241,7 @@ app.post('/api/chat', async (req, res) => {
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown endpoint.' }))
 app.use(express.static(fileURLToPath(new URL('../dist/', import.meta.url)), { dotfiles: 'deny' }))
-app.listen(PORT, '127.0.0.1', () => {
-  console.log('Workspace AI backend: http://127.0.0.1:' + PORT)
+app.listen(PORT, bindHost, () => {
+  console.log('Workspace AI backend: ' + clientOrigin + ' (binding ' + bindHost + ':' + PORT + ')')
   console.log('ChatGPT tokens are stored outside the repository. API fallback: ' + (apiKey ? 'configured' : 'not configured'))
 })
