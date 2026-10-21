@@ -21,7 +21,7 @@ export function validateMcpEndpoint(raw){
  if(typeof raw!=='string'||raw.length>2048)throw Error('MCP endpoint is not configured.')
  let url
  try{url=new URL(raw)}catch{throw Error('MCP endpoint is invalid.')}
- if(url.protocol!=='https:'||url.username||url.password||url.hash||url.port||url.hostname==='localhost'||isIP(url.hostname))
+ if(url.protocol!=='https:'||url.username||url.password||url.hash||url.port||url.hostname==='localhost'||isIP(url.hostname.replace(/^\[|\]$/g,'')))
   throw Error('MCP endpoint requires an approved public HTTPS hostname on the default port.')
  return url
 }
@@ -29,7 +29,7 @@ const pageUrl=input=>{
  if(typeof input!=='string'||input.length>2000)throw Error('A public HTTPS page URL is required.')
  let url
  try{url=new URL(input)}catch{throw Error('Invalid public URL.')}
- if(url.protocol!=='https:'||url.username||url.password||url.hash||url.port||url.hostname==='localhost'||isIP(url.hostname))
+ if(url.protocol!=='https:'||url.username||url.password||url.hash||url.port||url.hostname==='localhost'||isIP(url.hostname.replace(/^\[|\]$/g,'')))
   throw Error('Only public HTTPS page URLs are supported.')
  return url
 }
