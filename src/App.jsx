@@ -8,7 +8,7 @@ import WorkspaceBackup from './WorkspaceBackup.jsx';
 import {prepareWorkspaceRestore,persistWorkspaceRestore} from './workspace-backup.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
-import {BrowserStorageConflict,createBrowserStorageGuard} from './browser-storage-guard.js';
+import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import {projectContext,inferenceMessages} from './project-model.js';
 import {memoryCandidateFromMessage,appendReviewedMemory} from './project-memory.js';
@@ -23,7 +23,7 @@ const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[dr
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
 const [settingsTab,setSettingsTab]=useState('connections');
 const [memoryDraft,setMemoryDraft]=useState(null);
-const [storageConflict,setStorageConflict]=useState(false);
+const [storageConflict,setStorageConflict]=useState(()=>browserStorageLoadProblem(localStorage,KEY,WORKSPACE_KEY));
 const [workspace,setWorkspace]=useState(readWorkspace),[view,setView]=useState('chat'),[selectedProject,setSelectedProject]=useState(null),[searchRequest,setSearchRequest]=useState(0);
 const [appearance,setAppearance]=useState(()=>{try{const saved=localStorage.getItem('workspace-ai-theme');return ['light','dark','system'].includes(saved)?saved:'system'}catch{return 'system'}});
 const bottom=useRef(null),controller=useRef(null),prompt=useRef(null);
@@ -40,12 +40,13 @@ const activeProject=workspace.projects.find(p=>p.id===activeProjectId);
 const ready=provider==='api'?status.apiConfigured:provider==='plan'?status.planEnabled&&!!planModel:(status.planEnabled&&!!planModel)||(status.apiConfigured&&fallback);
 function handleStorageFailure(error){
  if(error instanceof BrowserStorageConflict){
-  setStorageConflict(true);
+  setStorageConflict(error.message);
   controller.current?.abort();
   setError(error.message);
  }else setError('Conversation or project changes could not be saved in browser storage: '+report(error)+'. Export a backup and free space.');
 }
 function commitChats(change) {
+ if(storageConflict){setError(storageConflict);return false}
  try {
   const next=typeof change==='function'?change(chatsRef.current):change;
   if(!Array.isArray(next)||next.length>50)throw Error('Workspace AI stores at most 50 conversations. Delete an old chat before continuing.');
@@ -56,9 +57,10 @@ function commitChats(change) {
  }catch(error){handleStorageFailure(error);return false}
 }
 useEffect(()=>{
+ if(storageConflict)return;
  try{storageGuard.current.write(KEY,JSON.stringify(chats.slice(0,50)));}
  catch(error){handleStorageFailure(error)}
-},[chats]);
+},[chats,storageConflict]);
 useEffect(()=>{
  const onStorage=event=>{
   if(event.storageArea!==localStorage)return;
@@ -72,6 +74,7 @@ useEffect(()=>{
  return ()=>window.removeEventListener('storage',onStorage);
 },[]);
 function updateWorkspace(change){
+ if(storageConflict){setError(storageConflict);return false}
  try{
   const next=persistWorkspaceChange({setItem:(key,value)=>storageGuard.current.write(key,value)},WORKSPACE_KEY,workspaceRef.current,change);
   workspaceRef.current=next;
@@ -206,7 +209,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  chats={chats} current={current} onSelectChat={openChat} onNewChat={()=>newChat()}
  mobile={mobile} onMobile={setMobile} selectedProject={selectedProject} onProject={setSelectedProject} onUsePrompt={useSavedPrompt}/>
 <main className="main">
- {storageConflict&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>Workspace data changed in another browser tab. This tab is read-only to protect your changes.</span><button type="button" onClick={()=>window.location.reload()}>Reload latest</button></div>}
+ {storageConflict&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{storageConflict}</span><button type="button" onClick={()=>window.location.reload()}>Reload latest</button></div>}
  <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{view==='chat'?'Workspace AI':{mcp:'MCP',api:'API',projects:'Projects',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></div>
  <div><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
  {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
