@@ -27,7 +27,7 @@ test('account sync recovers only from the latest remote revision without initial
 test('re-authorized identity tokens cannot be refreshed into a different signed-in account',async()=>{
  const s=await readFile(new URL('../server/oauth.mjs',import.meta.url),'utf8')
  assert.match(s,/payload\.sub !== account\.subject/)
- assert.match(s,/previous\.account\?\.subject!==account\.subject/)
+ assert.match(s,/refreshSavedAccount\(previous,account,updated\)/)
 })
 test('only approved HTTPS sync gateway origins are accepted',()=>{
  assert.equal(validateSyncGatewayURL('https://sync.example.test/'),'https://sync.example.test')
