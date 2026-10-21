@@ -120,10 +120,31 @@ The script refuses missing/unhealthy containers, public port bindings, writable 
 
 **Live private HTTPS ingress remains pending.** No shared Caddyfile rewrite/reload, public DNS mutation, private proxy network membership change, or credentials provisioning was performed as part of this VPS smoke run. A later ingress deployment needs its own snapshot, isolated network checks, authenticated-user testing, TLS chain verification, and rollback evidence.
 
+## Verified private-network and synthetic HTTPS gateway QA (October 21, 2026)
+
+The VPS now has a separately created **internal** Docker network named `goreecloud-workspace-ai-private-ingress`. The healthy, synthetic Workspace AI container is attached to that network and its original internal smoke network. It still has a read-only root and **no published host ports**. The existing shared Caddy service is attached only to its original `proxy` network; no shared Caddy configuration or DNS rewrite was changed.
+
+For certificate and authentication testing only, a second Caddy container named `goreecloud-workspace-ai-caddy-qa` was launched **without host port mappings** on the isolated network. It loads `deploy/private-dev/Caddyfile.synthetic-qa`, using an internal CA and a temporary, randomly generated synthetic Basic Authentication password/hash kept in restricted files outside the repository. The QA client subnet `172.16.0.0/12` is an **internal Docker test matcher**, not a substitute for the NetBird `100.64.0.0/10` matcher required by the inactive live configuration example.
+
+A private VPS-side TLS client used the temporary QA root certificate through `--cacert`, with the intended hostname and SNI via `--resolve`. The tests **did not disable TLS certificate verification**. Results from the isolated container:
+
+| Check | Verified outcome |
+| --- | --- |
+| TLS chain against the temporary QA root | Trusted (`ssl_verify_result=0`) |
+| No authentication | HTTP 401 |
+| Wrong synthetic authentication | HTTP 401 |
+| Correct synthetic authentication | HTTP 200 |
+| Correct authentication with untrusted Origin on POST | HTTP 403 |
+| Correct authentication with missing Origin on POST | HTTP 403 |
+
+The executable check was preserved at `scripts/private-dev-qa-gateway-check.sh` with no password embedded in source control. Run it only on a host with the explicitly provisioned local QA credential and CA files. This is **not** the actual NetBird-accessible HTTPS hostname. It does not validate a publicly trusted certificate, owner-supplied credentials, remote NetBird authorization, browser login, external model calls, or multi-user authorization.
+
+For future QA runs, always match the Caddy QA container user/group to the host's owner of the restricted QA data directory; otherwise certificate-authority creation may fail with `permission denied`. Keep the QA CA private key and synthetic password restricted to temporary local files. Destroy QA-specific containers, network attachments, keys and test credentials once they are no longer needed, without touching the shared Caddy container, production secrets, or unrelated network state.
+
 ## Status and recovery
 
 **Implemented in source branch:** opt-in strict development origin, backend Host/Origin enforcement, localhost default and regression tests.
 
-**Not deployed:** DNS is owner-reported and independently resolved on the authorized laptop, but HTTPS ingress, dedicated backend container, auth-gated routing, end-to-end browser testing, and platform-native applications remain outstanding.
+**Deployment status:** The dedicated synthetic backend and isolated HTTPS QA gateway have been exercised on the VPS. The **live** authenticated Caddy virtual host, owner credential, trusted remote HTTPS access, external provider egress, end-to-end browser acceptance, and genuine native applications remain outstanding.
 
 **Rollback:** Disable all `WORKSPACE_AI_PRIVATE_DEV_*` variables to restore the default loopback-only backend, then stop the isolated dev container. Roll back any future approved ingress change using its separately captured pre-change Caddy config; do not modify other Caddy site blocks.
