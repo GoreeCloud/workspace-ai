@@ -19,6 +19,9 @@ import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProbl
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import ChatAttachments from './ChatAttachments.jsx';
 import ToolActivity from './ToolActivity.jsx';
+import ChatDocumentCard from './ChatDocumentCard.jsx';
+import {documentIntent,documentWritingPrompt,normalizeDocumentSource,latestDocument} from './chat-document-intent.js';
+import {renderChatDocument,downloadChatDocument,chatDocumentMetadata} from './chat-document-service.js';
 import {updateToolActivity,settleToolActivity} from './tool-activity.js';
 import {normalizeChatAttachments,messageWithAttachments,imageInputsForMessage} from './chat-attachments.js';
 import {projectContext,inferenceMessages} from './project-model.js';
