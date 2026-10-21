@@ -82,3 +82,30 @@ test('duplicate paid generation is blocked while running, without blocking other
  assert.equal((await retry).statusCode,200)
  assert.equal(routes.activeCount(),0)
 })
+
+test('Ideogram 4.5 uses supported exact size presets instead of unsupported aspect_ratio',()=>{
+ const expected={'1:1':'1024x1024','16:9':'1280x720','9:16':'720x1280','4:3':'1152x864','3:4':'864x1152'}
+ for(const [aspectRatio,size] of Object.entries(expected)){
+  const plan=buildImageRequest({prompt:'An illustrated poster',model:'ideogram-4-5',aspectRatio})
+  assert.equal(plan.body.size,size)
+  assert.equal('aspect_ratio' in plan.body,false)
+ }
+ const auto=buildImageRequest({prompt:'A graphic',model:'ideogram-4-5',aspectRatio:'auto'})
+ assert.equal('size' in auto.body,false)
+ assert.equal('aspect_ratio' in auto.body,false)
+})
+test('Nano Banana 2.1 and GPT Image 2.5 retain their model-specific aspect_ratio',()=>{
+ for(const model of ['nano-banana-2-1','gpt-image-2-5']){
+  const plan=buildImageRequest({prompt:'A house in a garden',model,aspectRatio:'16:9'})
+  assert.equal(plan.body.aspect_ratio,'16:9')
+  assert.equal('size' in plan.body,false)
+ }
+})
+test('transparent background is explicitly requested for supporting manually selected models',()=>{
+ for(const model of ['ideogram-4-5','gpt-image-2-5']){
+  const plan=buildImageRequest({prompt:'An icon with transparent background',model})
+  assert.equal(plan.body.background,'transparent')
+ }
+ const plan=buildImageRequest({prompt:'An icon with transparent background',model:'nano-banana-2-1'})
+ assert.equal('background' in plan.body,false)
+})
