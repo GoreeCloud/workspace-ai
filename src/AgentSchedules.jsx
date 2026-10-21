@@ -22,7 +22,7 @@ export default function AgentSchedules({agents,projectId,busy=false}){
  }
  const action=async fn=>{
   setWorking(true);setError('');setNotice('')
-  try{await fn();setNotice('Schedule state updated.')}catch(e){setError(String(e.message||e))}finally{setWorking(false)}
+  try{const detail=await fn();setNotice(typeof detail==='string'?detail:'Schedule state updated.')}catch(e){setError(String(e.message||e))}finally{setWorking(false)}
  }
  const refresh=async()=>{
   const result=await call('/api/agents/schedules')
@@ -42,7 +42,7 @@ export default function AgentSchedules({agents,projectId,busy=false}){
   action(async()=>{
    const outcome=await call('/api/agents/projects/'+encodeURIComponent(projectId)+'/schedules','DELETE')
    await refresh()
-   setNotice('Removed '+outcome.removedJobs+' scheduled jobs and '+outcome.removedRuns+' run history records from this project.')
+   return 'Removed '+outcome.removedJobs+' scheduled jobs and '+outcome.removedRuns+' run history records from this project.'
   })
  }
  const run=id=>action(async()=>{await call('/api/agents/schedules/'+encodeURIComponent(id)+'/run','POST');await refresh()})
