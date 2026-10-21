@@ -29,3 +29,18 @@ export async function createChatDocument(body,{convert=runDocumentWorker}={}){
  return {ok:true,name:item.name,format:item.format,mime:mime[item.format],bytes:binary.length,
   sha256:createHash('sha256').update(binary).digest('hex'),base64:binary.toString('base64')}
 }
+
+export function attachChatDocumentRoutes(app,origins,{render=createChatDocument}={}){
+ let active=0
+ app.post('/api/documents/from-chat',async(req,res)=>{
+  if(!origins.has(req.headers.origin))return res.status(403).json({error:'Origin not allowed.'})
+  res.setHeader('Cache-Control','no-store')
+  res.setHeader('Content-Security-Policy',"default-src 'none'")
+  if(active>=2)return res.status(429).json({error:'Document generation is busy. Please retry.'})
+  try{validateDocumentRequest(req.body)}catch(e){return res.status(400).json({error:e.message})}
+  active++
+  try{res.json(await render(req.body))}
+  catch(e){res.status(e.status||422).json({error:String(e.message||'Document generation failed.').slice(0,220)})}
+  finally{active--}
+ })
+}
