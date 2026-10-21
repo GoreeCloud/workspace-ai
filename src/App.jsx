@@ -133,7 +133,7 @@ useEffect(()=>{
 async function refresh(){try{const s=await api('/api/status');setStatus(s);if(s.planEnabled){const m=await api('/api/models');setModels(m.planModels||[]);setPlanModel(old=>(m.planModels||[]).some(v=>v.slug===old)?old:(m.planModels?.[0]?.slug||''));if(m.error)setError(m.error)}}catch(e){setError(report(e))}}
 useEffect(()=>{refresh();const auth=new URLSearchParams(location.search).get('auth');if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}},[]);
 function newChat(projectId){if(busy||storageConflict)return;setCurrent(null);setMemoryDraft(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setAttachmentsDraft([]);setChatMenuOpen(false);setChatSearchOpen(false);setChatSearchQuery('');setMobile(false);setError('');prompt.current?.focus()}
-function remove(id){if(busy||storageConflict||!confirm('Delete this chat locally?'))return;if(!commitChats(v=>v.filter(c=>c.id!==id)))return;updateWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id)setCurrent(null)}
+function remove(id){if(busy||storageConflict||!confirm('Permanently delete this local chat and its attachments?'))return;if(!commitChats(v=>v.filter(c=>c.id!==id)))return;updateWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id){setCurrent(null);setView('chats')}}
 function openChat(id){if(busy)return;setCurrent(id);setMemoryDraft(null);setAttachmentsDraft([]);setChatMenuOpen(false);setChatSearchQuery('');setChatSearchOpen(false);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
 function assignChat(id,projectId){if(busy||storageConflict)return;const safeId=workspaceRef.current.projects.some(p=>p.id===projectId)?projectId:null;if(!commitChats(v=>v.map(c=>c.id===id?moveChatToProject(c,safeId):c)))return;if(current===id){setSelectedProject(safeId);setMemoryDraft(null)}}
 function renameChat(id,title){if(storageConflict)return;const clean=title.trim().slice(0,90);if(clean)commitChats(v=>v.map(c=>c.id===id?{...c,title:clean,updatedAt:Date.now()}:c))}
@@ -256,19 +256,35 @@ function restoreWorkspace(archive,mode,prefs){
  return restored;
 }
 function exportChat(){if(!chat)return;const md='# '+chat.title+'\n\n'+chat.messages.map(m=>'## '+m.role+'\n\n'+m.content).join('\n\n---\n\n');const url=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=url;a.download='workspace-ai-chat.md';a.click();setTimeout(()=>URL.revokeObjectURL(url),0)}
-return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed":"")}>
+return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed":"")+(chatFullscreen&&view==='chat'?" isChatFullscreen":"")}>
 <WorkspaceNavigation workspace={workspace} onWorkspace={updateWorkspace} view={view} onNavigate={navigate}
  chats={chats} current={current} onSelectChat={openChat} onNewChat={()=>newChat()}
  mobile={mobile} onMobile={setMobile} selectedProject={selectedProject} onProject={setSelectedProject} onUsePrompt={useSavedPrompt}/>
 <main className="main">
  {storageConflict&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{storageConflict}</span><button type="button" onClick={()=>window.location.reload()}>Reload latest</button></div>}
- <header className="topbar"><div><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{view==='chat'?'Workspace AI':{mcp:'MCP',api:'API',projects:'Projects',agents:'Agents',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></div>
- <div><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></div></header>
+ <header className="topbar"><div>
+ {view==='chat'?<><button className="iconButton" type="button" aria-label="Back to chats or project" onClick={backFromChat}><ArrowLeft size={20}/></button><strong className="chatHeaderTitle" title={chat?.title||activeProject?.name||'New chat'}>{chat?.title||activeProject?.name||'New chat'}</strong></>:
+ <><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{{mcp:'MCP',api:'API',projects:'Projects',agents:'Agents',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',archived:'Archived',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></>}
+ </div><div>
+ {view==='chat'?<div className="chatHeaderMenu">
+  <button type="button" className="iconButton" aria-label="Chat options" aria-expanded={chatMenuOpen} onClick={()=>setChatMenuOpen(v=>!v)}><Ellipsis size={21}/></button>
+  {chatMenuOpen&&<div className="chatHeaderPopup" role="group" aria-label="Chat actions">
+   <button type="button" disabled={!chat} onClick={()=>{setChatMenuOpen(false);void shareChat()}}>Share</button>
+   <button type="button" disabled={!chat} onClick={()=>{setChatMenuOpen(false);toggleChatPin(chat.id)}}>{chat&&workspace.pinned.includes(chat.id)?'Unpin':'Pin'} chat</button>
+   <button type="button" disabled={!chat?.projectId||busy} onClick={()=>{setChatMenuOpen(false);assignChat(chat.id,null)}}>Remove from project</button>
+   <button type="button" disabled={!chat} onClick={()=>{setChatMenuOpen(false);setChatSearchOpen(true)}}>Search chat</button>
+   <button type="button" disabled={!chat||busy} onClick={()=>{setChatMenuOpen(false);archiveChat(chat.id,!chat.archived)}}>{chat?.archived?'Restore chat':'Archive chat'}</button>
+   <button type="button" disabled={!chat} onClick={()=>{setChatMenuOpen(false);exportChat()}}>Export chat</button>
+   <button type="button" onClick={()=>{setChatMenuOpen(false);setSettingsTab('connections');setSettings(true)}}>Settings</button>
+   <button type="button" className="chatDangerAction" disabled={!chat||busy} onClick={()=>{setChatMenuOpen(false);remove(chat.id)}}>Delete chat</button>
+  </div>}
+ </div>:<><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></>}
+ </div></header>
  {sync.state!=='enabled'&&<div className="notice" role="status"><ShieldCheck size={16}/><span>Local device data only. Signing in does not automatically sync projects, memories or chats to other devices; lost browser data may not be recoverable.</span><button type="button" onClick={()=>{setSettingsTab('privacy');setSettings(true)}}>Data &amp; sync</button></div>}
  {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  <div className="viewport">{view!=='chat'?<WorkspaceViews view={view} chats={chats} workspace={workspace} onWorkspace={updateWorkspace}
- onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat} onRenameChat={renameChat} onDeleteProject={deleteProject}
- selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} busy={busy||storageConflict} onUsePrompt={useSavedPrompt} onOpenProject={id=>{setSelectedProject(id);setView('projects')}} onOpenSettings={()=>{setSettingsTab('connections');setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
+ onSelectChat={openChat} onNewChat={newChat} onDeleteChat={remove} onAssignChat={assignChat} onRenameChat={renameChat} onArchiveChat={archiveChat} onDeleteProject={deleteProject}
+ selectedProject={selectedProject} onProject={setSelectedProject} focusSearchRequest={searchRequest} busy={busy||storageConflict} onUsePrompt={useSavedPrompt} onOpenProject={id=>{setSelectedProject(id);setView('projects')}} onOpenSettings={(tab='connections')=>{setSettingsTab(tab);setSettings(true)}}/>:!chat?.messages?.length?<section className="welcome">
  <p className="eyebrow">✦ YOUR SPACE TO THINK BIGGER</p><div className="bigIcon"><Sparkles size={38}/></div>
  <h1>Good ideas start <em>here.</em></h1><p>Ask anything, create something, or follow your curiosity.<br/>Your AI workspace, your way.</p>
  <div className="ideas">{[['Explore an idea','Turn curiosity into clarity','Help me turn a new idea into a concrete project.'],['Write code','Build, debug and create','Help me plan and build a useful application.'],['Create content','Find the right words','Help me draft a clear and thoughtful article.'],['Learn something','Go beyond the surface','Explain an interesting concept with examples.']].map(([title,sub,idea],i)=><button key={title} className="idea" onClick={()=>{setDraft(idea);prompt.current?.focus()}}><span className={'ideaIcon icon'+i}>{i===0?<Sparkles size={19}/>:i===1?'⌘':i===2?'✎':'◇'}</span><span><strong>{title}</strong><small>{sub}</small></span><span className="ideaArrow">→</span></button>)}</div></section>:
