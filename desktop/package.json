@@ -23,6 +23,7 @@
     "files": [
       "main.cjs",
       "navigation.cjs",
+      "backend-startup.cjs",
       "package.json"
     ],
     "extraResources": [
