@@ -115,7 +115,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
  .welcome{padding:22px 18px}.welcome h1{font-size:clamp(30px,8vw,39px)}
  .welcome>p:not(.eyebrow){font-size:14px}.bigIcon{width:64px;height:64px}
  .ideas{gap:10px}.idea{min-height:78px;padding:13px 15px}
- .composerArea{padding:8px 12px 12px}.composer{padding:12px}.connected{font-size:0;padding:11px}
+ .composerArea{padding:8px 12px 12px}.composer{padding:12px}.connected{font-size:10px;padding:9px 10px;gap:6px}
  .connected i{height:8px;width:8px}
  .disclaimer{font-size:10px}.disclaimer span{display:none}.feed{padding:22px 14px}
  .settings-preview-row{align-items:stretch}.theme-segments{max-width:none}
