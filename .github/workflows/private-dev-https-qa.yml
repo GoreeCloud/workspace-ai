@@ -78,7 +78,7 @@ jobs:
           docker run --rm --pull never \
             --network goreecloud-workspace-ai-private-ingress \
             --cap-drop ALL --security-opt no-new-privileges:true \
-            node:22-alpine node -e '
+            goreecloud-workspace-ai-private-dev:local node -e '
               const http=require("node:http");
               const request=headers=>new Promise((ok,fail)=>{
                 http.get({hostname:"workspace-ai-private-dev",port:3031,path:"/api/status",
