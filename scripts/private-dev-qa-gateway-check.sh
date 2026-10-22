@@ -20,6 +20,14 @@ args=(--silent --show-error --cacert "$ca" --resolve "workspace-ai-dev.goreeclou
 unauth="$(curl "${args[@]}" --write-out '%{http_code} %{ssl_verify_result}' "$url")"
 test "$unauth" = '401 0'
 echo "PASS synthetic HTTPS unauthenticated denial: $unauth"
+
+# Authentication must cover browser pages and OAuth setup, not only status APIs.
+for protected_path in / /api/auth/start /api/models; do
+  denied="$(curl "${args[@]}" --write-out '%{http_code} %{ssl_verify_result}' "https://workspace-ai-dev.goreecloud.com$protected_path")"
+  test "$denied" = '401 0' || { echo "FAIL unauthenticated route gate: $protected_path" >&2; exit 1; }
+  echo "PASS unauthenticated route gate: $protected_path"
+done
+
 wrong="$(curl "${args[@]}" --user 'synthetic-qa:incorrect-qa-only' --write-out '%{http_code} %{ssl_verify_result}' "$url")"
 test "$wrong" = '401 0'
 echo "PASS synthetic HTTPS wrong credential denial: $wrong"
