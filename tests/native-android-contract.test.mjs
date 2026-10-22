@@ -33,6 +33,15 @@ test('native preview cannot claim secure AI messaging without backend',()=>{
   assert.doesNotMatch(source,/HttpURLConnection|OkHttpClient|ACCESS_TOKEN|API_KEY/)
 })
 
+test('native unsent draft survives configuration recreation only in memory',()=>{
+  assert.match(source,/onRetainNonConfigurationInstance\(\)/)
+  assert.match(source,/getLastNonConfigurationInstance\(\)/)
+  assert.match(source,/draft\.setText\(previous\.text\)/)
+  assert.match(source,/showTab\(previous\.tab\)/)
+  assert.doesNotMatch(source,/onSaveInstanceState\s*\(/)
+  assert.doesNotMatch(source,/SharedPreferences|openFileOutput|FileOutputStream/)
+})
+
 test('native tab changes dismiss the message keyboard and expose selected state',()=>{
   assert.match(source,/selected != 0 && draft != null && draft\.hasFocus\(\)/)
   assert.match(source,/hideSoftInputFromWindow\(draft\.getWindowToken\(\), 0\)/)
@@ -101,4 +110,14 @@ test('native screenshot audit preserves honest and accessible touch affordances'
   assert.match(source,/About this native preview  ›/)
   assert.match(source,/about\.setContentDescription\("About this native preview\. Opens app information dialog\."\)/)
   assert.doesNotMatch(source,/About this native preview  ↗/)
+})
+
+test('emulator QA only recovers an identified launcher ANR with bounded attempts',()=>{
+  const qa = readFileSync(new URL('../scripts/native-android-emulator-smoke.py',import.meta.url),'utf8')
+  assert.match(qa,/for attempt in range\(7\)/)
+  assert.match(qa,/Pixel Launcher isn't responding/)
+  assert.match(qa,/tap_element\(find\(root, "Wait"\)\)/)
+  assert.match(qa,/pidof", PACKAGE/)
+  assert.match(qa,/ro\.kernel\.qemu/)
+  assert.doesNotMatch(qa,/force-stop", "com\.google\.android\.apps\.nexuslauncher"/)
 })
