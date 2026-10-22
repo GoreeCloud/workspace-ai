@@ -8,7 +8,7 @@
 - The authorized laptop private DNS resolves this hostname to the VPS private NetBird address.
 - HTTPS currently fails at the TLS handshake; Caddy has no Workspace AI host block.
 - The existing default app is intentionally localhost-only; its Host/Origin checks and OAuth callback cannot be safely bypassed by a simple proxy header rewrite.
-- No VPS Workspace AI service or container was identified during the October 21 inspection.
+- No VPS Workspace AI service was identified at the **initial** inspection; a separate, isolated synthetic development container was subsequently built and verified, as recorded below.
 - Other Caddy virtual hosts on the VPS are shared infrastructure. Do not edit/reload shared ingress to test this change before reviewing its effect on the existing routes.
 
 ## Exact opt-in application configuration
@@ -70,6 +70,14 @@ Caddy supports an internal CA with `tls internal`, but authorized client devices
 The synthetic smoke container's `internal: true` Docker network intentionally has **no external route**. That protects the isolated development fixture, but also prevents Workspace AI from contacting ChatGPT OAuth, model APIs, remote MCP providers and other external integrations. A healthy `/api/status` response is **not proof that AI chat works**. The optional private ingress override only supplies another explicitly restricted network; it does not grant provider egress.
 
 For real private AI chat testing, first design a separate reviewable outbound policy with explicit destination rules, redirect/DNS-rebinding and SSRF safeguards, credential handling, denial logging and revocation behavior. Do not join the backend to a shared unrestricted network or enable host networking as a shortcut. Then test provider access with an approved test account, measure results independently, and preserve account isolation. See [Docker's internal network semantics](https://docs.docker.com/compose/how-tos/networking/#internal-networks).
+
+## Direct backend access and credential boundaries (unresolved)
+
+**Critical deployment distinction:** Caddy Basic Authentication protects requests *through Caddy*, but the backend currently authenticates no upstream Docker peer. Its Host/Origin middleware rejects malformed browser requests but is **not a substitute for user or service authentication**. Any process with permission to attach to the isolated ingress Docker network may be able to contact port 3031 directly, provide the expected Host/Origin, and reach backend endpoints without the Caddy password. This is a narrower threat model than public internet access, but it is still an access-control gap.
+
+Before making the private ingress live, require a defense-in-depth backend-to-gateway authentication contract (for example, an explicitly configured file-backed high-entropy secret validated at the backend on every request), with confidential provisioning to both services, constant-time comparison, rotation/revocation, fail-closed startup, and tests proving direct Docker-network requests are denied. Docker daemon administrators retain privileged access; this defense must not be represented as protection from the Docker host administrator. Also independently verify real NetBird peer IP visibility at Caddy: a Docker bridge, NAT or another proxy may change the observed source address, so the proposed `remote_ip 100.64.0.0/10` check must not be assumed effective without an authenticated remote-client test.
+
+The synthetic HTTPS QA workflow exercises the Caddy path but does **not** establish this backend peer-authentication contract, tenant isolation, or live network perimeter. Retain the PR as draft, keep test accounts synthetic, and leave shared ingress inactive until the gap is closed and verified.
 
 ## Mandatory ingress gates before a Caddy change
 
@@ -172,3 +180,7 @@ Prior to an authorized Caddy route activation, verify the backup's file permissi
 **Deployment status:** The dedicated synthetic backend and isolated HTTPS QA gateway have been exercised on the VPS. The **live** authenticated Caddy virtual host, owner credential, trusted remote HTTPS access, external provider egress, end-to-end browser acceptance, and genuine native applications remain outstanding.
 
 **Rollback:** Disable all `WORKSPACE_AI_PRIVATE_DEV_*` variables to restore the default loopback-only backend, then stop the isolated dev container. Roll back any future approved ingress change using its separately captured pre-change Caddy config; do not modify other Caddy site blocks.
+
+## Extended synthetic HTTPS route enforcement — October 21, 2026
+
+The isolated QA script additionally checks that unauthenticated requests to the homepage, OAuth-start and models routes are denied at the TLS gateway, and that a same-origin POST to `/api/chat` without gateway authentication is denied before a backend handler can process it. These assertions are source changes on the development branch and must pass on that exact commit in GitHub Actions before they are treated as verified. They are **gateway-path tests**, not verification that direct Docker peer access is authenticated.
