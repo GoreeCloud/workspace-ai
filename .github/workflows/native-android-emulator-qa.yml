@@ -35,11 +35,7 @@ jobs:
           profile: pixel_6
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           disable-animations: true
-          script: |
-            cd android-native
-            ./gradlew :app:assembleDebug --no-daemon
-            cd ..
-            python3 scripts/native-android-emulator-smoke.py --apk android-native/app/build/outputs/apk/debug/app-debug.apk --out "$RUNNER_TEMP/native-screen-qa"
+          script: bash scripts/native-android-emulator-run.sh
       - name: Preserve synthetic visual QA captures for inspection
         if: always()
         uses: actions/upload-artifact@v4
