@@ -278,9 +278,9 @@ public final class MainActivity extends Activity {
         page.addView(space(9));
         page.addView(label("Know exactly what this build can do.", 14, SOFT, false));
         page.addView(space(26));
-        page.addView(infoRow("Connection", "Offline developer preview", 3));
+        page.addView(infoRow("Connection", "Offline developer preview", 7));
         page.addView(space(11));
-        page.addView(infoRow("Privacy", "Drafts remain in this app session", 0));
+        page.addView(infoRow("Privacy", "Drafts remain in this app session", 8));
         page.addView(space(11));
         page.addView(infoRow("Appearance", "Light theme", 6));
         page.addView(space(20));
@@ -427,6 +427,18 @@ public final class MainActivity extends Activity {
                     float x=(float)Math.cos(a),y=(float)Math.sin(a);
                     c.drawLine(12+x*7,12+y*7,12+x*10,12+y*10,pen);
                 }
+            } else if (kind == 7) {
+                // Connection security: a distinct padlock instead of a star.
+                c.drawRoundRect(5,10,19,21,2,2,pen);
+                c.drawArc(8,4,16,15,180,180,false,pen);
+                c.drawLine(12,14,12,17,pen);
+            } else if (kind == 8) {
+                // Privacy: shield, not a conversation icon.
+                Path shield = new Path();
+                shield.moveTo(12,2.5f); shield.lineTo(20,6);
+                shield.lineTo(20,12); shield.cubicTo(20,17,16,20,12,22);
+                shield.cubicTo(8,20,4,17,4,12); shield.lineTo(4,6);
+                shield.close(); c.drawPath(shield,pen);
             } else if (kind == 3) {
                 Path star=new Path();star.moveTo(12,2.5f);star.lineTo(14.5f,9.5f);
                 star.lineTo(21.5f,12);star.lineTo(14.5f,14.5f);star.lineTo(12,21.5f);
