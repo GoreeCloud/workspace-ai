@@ -37,6 +37,25 @@ public final class MainActivity extends Activity {
     private LinearLayout[] tabs;
     private TextView[] tabLabels;
     private IconView[] tabIcons;
+    private int selectedTab;
+
+    // Retain only across configuration changes. Avoid Bundle state or disk storage
+    // for unsent private drafts in this unauthenticated developer preview.
+    private static final class ConfigurationDraft {
+        final String text;
+        final int cursor;
+        final int tab;
+        ConfigurationDraft(String text, int cursor, int tab) {
+            this.text = text;
+            this.cursor = cursor;
+            this.tab = tab;
+        }
+    }
+
+    @Override public Object onRetainNonConfigurationInstance() {
+        return new ConfigurationDraft(draft == null ? "" : draft.getText().toString(),
+                draft == null ? 0 : draft.getSelectionStart(), selectedTab);
+    }
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -87,7 +106,15 @@ public final class MainActivity extends Activity {
         root.addView(composer);
         nav = makeNavigation();
         root.addView(nav);
-        showTab(0);
+        Object retained = getLastNonConfigurationInstance();
+        if (retained instanceof ConfigurationDraft) {
+            ConfigurationDraft previous = (ConfigurationDraft) retained;
+            draft.setText(previous.text);
+            draft.setSelection(Math.max(0, Math.min(previous.cursor, draft.length())));
+            showTab(previous.tab);
+        } else {
+            showTab(0);
+        }
     }
 
     private View makeHeader() {
@@ -184,6 +211,7 @@ public final class MainActivity extends Activity {
     }
 
     private void showTab(int selected) {
+        selectedTab = selected;
         // Switching away from Chat must not leave a hidden editor owning the IME.
         if (selected != 0 && draft != null && draft.hasFocus()) {
             InputMethodManager keyboard =

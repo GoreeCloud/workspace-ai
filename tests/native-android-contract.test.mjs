@@ -33,6 +33,15 @@ test('native preview cannot claim secure AI messaging without backend',()=>{
   assert.doesNotMatch(source,/HttpURLConnection|OkHttpClient|ACCESS_TOKEN|API_KEY/)
 })
 
+test('native unsent draft survives configuration recreation only in memory',()=>{
+  assert.match(source,/onRetainNonConfigurationInstance\(\)/)
+  assert.match(source,/getLastNonConfigurationInstance\(\)/)
+  assert.match(source,/draft\.setText\(previous\.text\)/)
+  assert.match(source,/showTab\(previous\.tab\)/)
+  assert.doesNotMatch(source,/onSaveInstanceState\s*\(/)
+  assert.doesNotMatch(source,/SharedPreferences|openFileOutput|FileOutputStream/)
+})
+
 test('native tab changes dismiss the message keyboard and expose selected state',()=>{
   assert.match(source,/selected != 0 && draft != null && draft\.hasFocus\(\)/)
   assert.match(source,/hideSoftInputFromWindow\(draft\.getWindowToken\(\), 0\)/)
