@@ -24,11 +24,23 @@ chmod 700 "$work"
 mkdir -m 700 "$work/data" "$work/config"
 python3 - "$work" <<'PY'
 from pathlib import Path
-import bcrypt,os,secrets,sys
+import bcrypt,os,re,secrets,stat,sys
 folder=Path(sys.argv[1])
 password=secrets.token_urlsafe(32)
 digest=bcrypt.hashpw(password.encode(),bcrypt.gensalt(rounds=12)).decode()
-for filename,content in (("test-password",password+"\n"),("qa.env","WORKSPACE_AI_SYNTHETIC_BCRYPT_HASH="+digest+"\n")):
+outside=os.environ.get("WORKSPACE_AI_QA_GATEWAY_TOKEN_FILE")
+if outside:
+    source=Path(outside)
+    metadata=source.stat()
+    if not stat.S_ISREG(metadata.st_mode) or metadata.st_mode & 0o077:
+        raise SystemExit("Refusing unrestricted QA gateway token source")
+    token=source.read_text().strip()
+    if not re.fullmatch(r"[a-fA-F0-9]{64}",token):
+        raise SystemExit("Invalid synthetic QA gateway token")
+else:
+    token=secrets.token_hex(32)
+envcontent="WORKSPACE_AI_SYNTHETIC_BCRYPT_HASH="+digest+"\nWORKSPACE_AI_SYNTHETIC_GATEWAY_TOKEN="+token+"\n"
+for filename,content in (("test-password",password+"\n"),("qa.env",envcontent)):
     fd=os.open(folder/filename,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
     with os.fdopen(fd,'w') as stream: stream.write(content)
 PY
