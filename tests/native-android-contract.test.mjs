@@ -13,6 +13,13 @@ test('native Android starter contains no WebView or browser-wrapper APIs',()=>{
   assert.match(source,/new AlertDialog\.Builder\(this\)/)
 })
 
+test('native light Glaze chrome requests readable Android system bar icons',()=>{
+  assert.match(source,/WindowInsetsController\.APPEARANCE_LIGHT_STATUS_BARS/)
+  assert.match(source,/WindowInsetsController\.APPEARANCE_LIGHT_NAVIGATION_BARS/)
+  assert.match(source,/View\.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR/)
+  assert.match(source,/View\.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR/)
+})
+
 test('offline Android starter requests no network or data permissions',()=>{
   assert.doesNotMatch(manifest,/<uses-permission/)
   assert.match(manifest,/android:allowBackup="false"/)
