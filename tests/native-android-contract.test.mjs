@@ -13,7 +13,7 @@ test('native Android starter contains no WebView or browser-wrapper APIs',()=>{
   assert.match(source,/new AlertDialog\.Builder\(this\)/)
 })
 
-test('native light Glaze chrome requests readable Android system bar icons',()=>{
+test('native light theme requests readable Android system bar icons',()=>{
   assert.match(source,/View\.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR/)
   assert.match(source,/View\.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR/)
   assert.ok(source.indexOf('setContentView(root)') < source.indexOf('getWindow().getDecorView().setSystemUiVisibility'), 'system-bar appearance requires a ready decor view')
