@@ -1,5 +1,6 @@
 import React,{useEffect,useRef,useState} from 'react';
 import ReactMarkdown from 'react-markdown';
+import {installMobileComposerViewport} from './mobile-composer-viewport.js';
 import remarkGfm from 'remark-gfm';
 import ConnectionField from './ConnectionField.jsx';
 import WorkspaceNavigation from './WorkspaceNavigation.jsx';
@@ -29,6 +30,7 @@ const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{
 function report(error){return error instanceof Error?error.message:String(error)}
 async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});const json=await r.json();if(!r.ok)throw Error(json.error||'Request failed');return json}
 export default function App(){
+useEffect(()=>installMobileComposerViewport(),[]);
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
 const [settingsTab,setSettingsTab]=useState('connections');
