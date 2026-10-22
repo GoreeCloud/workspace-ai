@@ -280,7 +280,7 @@ public final class MainActivity extends Activity {
         page.addView(space(26));
         page.addView(infoRow("Connection", "Offline developer preview", 7));
         page.addView(space(11));
-        page.addView(infoRow("Privacy", "Drafts are not stored or sent", 8));
+        page.addView(infoRow("Privacy", "Drafts remain in this app session", 8));
         page.addView(space(11));
         page.addView(infoRow("Appearance", "Light theme", 6));
         page.addView(space(20));
