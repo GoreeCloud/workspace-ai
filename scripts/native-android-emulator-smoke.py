@@ -48,7 +48,9 @@ def find(root, label):
         d = el.attrib
         if d.get("content-desc") == label or d.get("text") == label:
             return el
-    raise AssertionError(f"Missing accessible UI element: {label}")
+    visible = [(el.attrib.get("text") or el.attrib.get("content-desc") or "") for el in root.iter()]
+    labels = [value for value in visible if value][:40]
+    raise AssertionError(f"Missing accessible UI element: {label}; hierarchy labels={labels!r}")
 
 
 def click(label):
@@ -85,7 +87,12 @@ def main():
     assert "Status: ok" in launch, launch
     time.sleep(1.5)
     assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity did not remain running"
-    find(hierarchy(), "Chat tab")
+    # Capture a diagnostic before validating accessibility, so UI failures
+    # produce inspectable screenshots rather than empty CI artifacts.
+    snapshot(folder, "startup")
+    layout = hierarchy()
+    ET.ElementTree(layout).write(folder / "startup-hierarchy.xml", encoding="unicode")
+    find(layout, "Chat tab")
     find(hierarchy(), "Projects tab")
     find(hierarchy(), "Settings tab")
     find(hierarchy(), "Local message draft")
