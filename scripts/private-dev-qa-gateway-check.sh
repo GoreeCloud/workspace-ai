@@ -46,6 +46,11 @@ success="$(request_with_auth --write-out '%{http_code} %{ssl_verify_result}' "$u
 test "$success" = '200 0'
 echo "PASS synthetic HTTPS owner test credential accepted: $success"
 
+# Caddy must replace, never forward, an attacker-chosen upstream peer token.
+spoofed="$(request_with_auth -H 'X-GoreeCloud-Gateway-Token: 0000000000000000000000000000000000000000000000000000000000000000' --write-out '%{http_code} %{ssl_verify_result}' "$url")"
+test "$spoofed" = '200 0' || { echo 'FAIL gateway did not replace spoofed client peer token' >&2; exit 1; }
+echo "PASS synthetic HTTPS proxy overwrote spoofed gateway peer token: $spoofed"
+
 origin="$(request_with_auth -X POST -H 'Origin: https://untrusted.invalid' --write-out '%{http_code}' 'https://workspace-ai-dev.goreecloud.com/api/chat')"
 test "$origin" = '403'
 echo "PASS synthetic HTTPS invalid Origin rejected: $origin"
