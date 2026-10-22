@@ -138,7 +138,8 @@ public final class MainActivity extends Activity {
         settings.addView(new IconView(2, INK), new FrameLayout.LayoutParams(dp(23), dp(23), Gravity.CENTER));
         settings.setContentDescription("Settings");
         settings.setOnClickListener(v -> showTab(2));
-        bar.addView(settings, new LinearLayout.LayoutParams(dp(43), dp(43)));
+        // Make the actionable settings control large enough for touch input.
+        bar.addView(settings, new LinearLayout.LayoutParams(dp(48), dp(48)));
         return bar;
     }
 
@@ -323,9 +324,11 @@ public final class MainActivity extends Activity {
         page.addView(space(11));
         page.addView(infoRow("Appearance", darkMode ? "Dark · follows system" : "Light · follows system", 6));
         page.addView(space(20));
-        TextView about = label("About this native preview  ↗", 14, BRAND, true);
+        // A chevron indicates an in-app dialog; the external-link icon was misleading.
+        TextView about = label("About this native preview  ›", 14, BRAND, true);
         about.setPadding(dp(15), dp(16), dp(15), dp(16));
         about.setBackground(touch(PALE, 14));
+        about.setContentDescription("About this native preview. Opens app information dialog.");
         about.setOnClickListener(v -> new AlertDialog.Builder(this)
                 .setTitle("Workspace AI · offline preview")
                 .setMessage("This is a genuinely native Android UI under development. AI messaging, account sign-in, sync, and project storage are not connected. This build requests no Internet permission.")

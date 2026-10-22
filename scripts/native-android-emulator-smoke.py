@@ -33,13 +33,27 @@ def snapshot(folder, label):
 
 
 def hierarchy():
-    for _ in range(4):
+    # Stock Pixel Launcher can show an ANR dialog over a healthy native Activity
+    # during CI cold boot. Clear only this precisely identified system dialog,
+    # with a strict retry bound; never hide app crashes or other dialogs.
+    for attempt in range(7):
         try:
             adb("shell", "uiautomator", "dump", "/sdcard/native-qa-layout.xml")
             data = adb("exec-out", "cat", "/sdcard/native-qa-layout.xml")
-            return ET.fromstring(data)
+            root = ET.fromstring(data)
         except (ET.ParseError, subprocess.CalledProcessError):
             time.sleep(1)
+            continue
+        labels = {(n.attrib.get("text") or n.attrib.get("content-desc") or "")
+                  for n in root.iter()}
+        if "Pixel Launcher isn't responding" in labels and "Wait" in labels:
+            assert adb("shell", "pidof", PACKAGE).strip(), \
+                "Native Activity exited while Android Launcher was unresponsive"
+            print(f"Pixel Launcher ANR on hierarchy attempt {attempt + 1}; selecting Wait")
+            tap_element(find(root, "Wait"))
+            time.sleep(2)
+            continue
+        return root
     raise RuntimeError("Native UI hierarchy unavailable")
 
 
@@ -53,37 +67,27 @@ def find(root, label):
     raise AssertionError(f"Missing accessible UI element: {label}; hierarchy labels={labels!r}")
 
 
-def click(label):
-    element = find(hierarchy(), label)
+def tap_element(element):
     coords = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
                       element.attrib.get("bounds", ""))
-    assert coords, f"Missing accessible bounds for {label}"
+    assert coords, "Missing accessible tap bounds"
     left, top, right, bottom = map(int, coords.groups())
-    assert right > left and bottom > top, label
+    assert right > left and bottom > top, "Invalid accessible tap target"
     adb("shell", "input", "tap", str((left + right)//2), str((top + bottom)//2))
+
+
+def click(label):
+    tap_element(find(hierarchy(), label))
     time.sleep(0.6)
 
 
 def await_chat_tab(folder):
-    # Retry only Pixel Launcher's explicitly identified cold-boot ANR.
-    # This never suppresses a crashed Workspace AI process or missing controls.
-    for attempt in range(4):
-        layout = hierarchy()
-        ET.ElementTree(layout).write(folder / "startup-hierarchy.xml", encoding="unicode")
-        labels = {(node.attrib.get("text") or node.attrib.get("content-desc") or "")
-                  for node in layout.iter()}
-        if "Chat tab" in labels:
-            return layout
-        if "Pixel Launcher isn't responding" not in labels or "Wait" not in labels:
-            find(layout, "Chat tab")
-        print(f"Emulator launcher ANR on attempt {attempt + 1}; selecting Wait")
-        click("Wait")
-        time.sleep(2)
-        resumed = adb("shell", "am", "start", "-W", "-n", ACTIVITY)
-        assert "Status: ok" in resumed, resumed
-        assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity exited during emulator startup"
+    # hierarchy() performs bounded system-only ANR recovery before returning.
+    layout = hierarchy()
+    ET.ElementTree(layout).write(folder / "startup-hierarchy.xml", encoding="unicode")
     find(layout, "Chat tab")
-    raise AssertionError("Native Chat tab never became available")
+    assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity exited during emulator startup"
+    return layout
 
 
 def main():
