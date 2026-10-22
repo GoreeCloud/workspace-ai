@@ -1,0 +1,23 @@
+# Synthetic CI ONLY. Requires a 0600 gateway token file owned by the
+# unprivileged backend uid (1000). Never deploy with a real owner credential.
+# Apply alongside compose.yaml and compose.ingress.yaml only in disposable QA.
+services:
+  workspace-ai:
+    environment:
+      WORKSPACE_AI_PRIVATE_DEV_GATEWAY_REQUIRED: "true"
+      WORKSPACE_AI_PRIVATE_DEV_GATEWAY_TOKEN_FILE: /run/secrets/workspace-ai-gateway.token
+    volumes:
+      - type: bind
+        source: ${WORKSPACE_AI_QA_BACKEND_TOKEN_FILE:?Set a disposable QA backend token path}
+        target: /run/secrets/workspace-ai-gateway.token
+        read_only: true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const fs=require('node:fs');const http=require('node:http');const token=fs.readFileSync(process.env.WORKSPACE_AI_PRIVATE_DEV_GATEWAY_TOKEN_FILE,'utf8').trim();http.get({host:'127.0.0.1',port:3031,path:'/api/status',headers:{Host:'workspace-ai-dev.goreecloud.com','X-GoreeCloud-Gateway-Token':token}},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 10s
+      timeout: 4s
+      retries: 3
+      start_period: 20s
