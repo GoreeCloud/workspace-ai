@@ -76,7 +76,8 @@ def main():
     model = adb("shell", "getprop", "ro.kernel.qemu").strip()
     assert model == "1", "Refusing installation on non-emulator device"
     devices = adb("devices", "-l")
-    assert "emulator-" in devices and devices.count("\tdevice ") == 1, "Unexpected ADB target"
+    connected = [line.split() for line in devices.splitlines() if line.startswith("emulator-")]
+    assert len(connected) == 1 and connected[0][1] == "device", "Unexpected ADB target"
 
     adb("logcat", "-c")
     adb("install", str(apk))
