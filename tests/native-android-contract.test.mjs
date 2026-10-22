@@ -47,3 +47,11 @@ test('navigation exposes native pane titles and semantic section headings',()=>{
   assert.match(source,/sectionHeading\("Projects", 30\)/)
   assert.match(source,/sectionHeading\("Settings", 30\)/)
 })
+
+test('screenshot-led native review guards centered nav and non-sending starter links',()=>{
+  assert.match(source,/name\.setGravity\(Gravity\.CENTER\)/)
+  assert.match(source,/ViewGroup\.LayoutParams\.WRAP_CONTENT, ViewGroup\.LayoutParams\.WRAP_CONTENT/)
+  assert.match(source,/tabs\[i\]\.setBackground\(navSurface\(active \? PALE : SURFACE\)\)/)
+  assert.match(source,/card\.addView\(new IconView\(5, BRAND\)/)
+  assert.match(source,/Starter prompts navigate into the draft; they do not send it/)
+})
