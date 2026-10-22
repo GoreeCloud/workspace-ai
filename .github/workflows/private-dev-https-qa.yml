@@ -46,9 +46,68 @@ jobs:
           test -z "$(docker ps --all --format '{{.Names}}' | grep '^goreecloud-workspace-ai-qa-rehearsal-' || true)"
           test "$(docker network inspect goreecloud-workspace-ai-private-ingress --format '{{len .Containers}}')" = 1
 
+      - name: Provision disposable backend peer credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          python3 - "$RUNNER_TEMP" <<'PY'
+          import os,secrets,sys
+          from pathlib import Path
+          folder=Path(sys.argv[1])
+          value=secrets.token_hex(32)+"\n"
+          for filename in ("workspace-ai-backend-gateway.token","workspace-ai-gateway-fixture.token"):
+              fd=os.open(folder/filename,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+              with os.fdopen(fd,"w") as target: target.write(value)
+          PY
+          sudo chown 1000:1000 "$RUNNER_TEMP/workspace-ai-backend-gateway.token"
+          echo "WORKSPACE_AI_QA_BACKEND_TOKEN_FILE=$RUNNER_TEMP/workspace-ai-backend-gateway.token" >> "$GITHUB_ENV"
+          echo "WORKSPACE_AI_QA_GATEWAY_TOKEN_FILE=$RUNNER_TEMP/workspace-ai-gateway-fixture.token" >> "$GITHUB_ENV"
+
+      - name: Recreate development backend with required peer authentication
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker compose -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.ingress.yaml -f deploy/private-dev/compose.gateway-auth-qa.yaml config --quiet
+          docker compose -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.ingress.yaml -f deploy/private-dev/compose.gateway-auth-qa.yaml up --no-build --detach --force-recreate --wait --wait-timeout 180
+
+      - name: Reject a separate unauthenticated Docker-network peer
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --rm --pull never \
+            --network goreecloud-workspace-ai-private-ingress \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            node:22-alpine node -e '
+              const http=require("node:http");
+              const request=headers=>new Promise((ok,fail)=>{
+                http.get({hostname:"workspace-ai-private-dev",port:3031,path:"/api/status",
+                  headers:{Host:"workspace-ai-dev.goreecloud.com",...headers},timeout:5000},
+                  r=>{r.resume();r.on("end",()=>ok(r.statusCode))}).on("error",fail);
+              });
+              (async()=>{
+                for(const headers of [{},{"X-GoreeCloud-Gateway-Token":"0".repeat(64)}]){
+                  const result=await request(headers);
+                  if(result!==403)throw Error("Untrusted private Docker peer returned "+result);
+                }
+                console.log("PASS: direct unauthenticated and forged-token Docker peers rejected");
+              })().catch(error=>{console.error(error.message);process.exitCode=1});
+            '
+
+      - name: Rehearse protected HTTPS gateway and spoofed peer header
+        env:
+          GOREECLOUD_CADDY_IMAGE: caddy:2.10.2-alpine
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/private-dev-qa-gateway-rehearsal.sh
+          test -z "$(docker ps --all --format '{{.Names}}' | grep '^goreecloud-workspace-ai-qa-rehearsal-' || true)"
+
       - name: Remove synthetic test resources
         if: always()
         shell: bash
         run: |
+          docker compose -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.ingress.yaml -f deploy/private-dev/compose.gateway-auth-qa.yaml down --remove-orphans || true
           docker compose -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.ingress.yaml down --remove-orphans || true
           docker network rm goreecloud-workspace-ai-private-ingress || true
+          sudo rm -f "$RUNNER_TEMP/workspace-ai-backend-gateway.token" "$RUNNER_TEMP/workspace-ai-gateway-fixture.token" || true
