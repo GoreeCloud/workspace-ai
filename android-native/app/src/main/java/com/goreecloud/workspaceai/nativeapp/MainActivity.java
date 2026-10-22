@@ -282,7 +282,7 @@ public final class MainActivity extends Activity {
         page.addView(space(11));
         page.addView(infoRow("Privacy", "Drafts remain in this app session", 0));
         page.addView(space(11));
-        page.addView(infoRow("Appearance", "Light theme", 2));
+        page.addView(infoRow("Appearance", "Light theme", 6));
         page.addView(space(20));
         TextView about = label("About this native preview  ↗", 14, BRAND, true);
         about.setPadding(dp(15), dp(16), dp(15), dp(16));
@@ -408,6 +408,19 @@ public final class MainActivity extends Activity {
                 f.lineTo(21.5f,9.5f); f.lineTo(21.5f,20); f.lineTo(2.5f,20); f.close();
                 c.drawPath(f,pen);
             } else if (kind == 2) {
+                // Settings should be a cog, distinct from Appearance's sun.
+                Path gear = new Path();
+                for (int i=0;i<32;i++) {
+                    double a=i*Math.PI/16 - Math.PI/2;
+                    float radius=(i%4==0 || i%4==3) ? 10f : 7.9f;
+                    float x=12 + radius*(float)Math.cos(a);
+                    float y=12 + radius*(float)Math.sin(a);
+                    if (i==0) gear.moveTo(x,y); else gear.lineTo(x,y);
+                }
+                gear.close();
+                c.drawPath(gear,pen);
+                c.drawCircle(12,12,3.3f,pen);
+            } else if (kind == 6) {
                 c.drawCircle(12,12,3,pen);
                 for (int i=0;i<8;i++) {
                     double a=i*Math.PI/4;
