@@ -41,6 +41,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: native-android-synthetic-ui-screenshots
-          path: ${{ runner.temp }}/native-screen-qa/*.png
+          path: |
+            ${{ runner.temp }}/native-screen-qa/*.png
+            ${{ runner.temp }}/native-screen-qa/*.xml
           retention-days: 3
           if-no-files-found: ignore
