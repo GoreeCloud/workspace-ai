@@ -38,8 +38,19 @@ jobs:
       - name: Compile native debug preview
         working-directory: android-native
         run: ./gradlew :app:assembleDebug --no-daemon
-      - name: Verify APK artifact
-        run: test -s android-native/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify compiled APK identity, permissions and signature
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="android-native/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          aapt="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          "$aapt" dump badging "$apk" | grep -F "package: name='com.goreecloud.workspaceai.nativeapp'"
+          if "$aapt" dump permissions "$apk" | grep -q 'uses-permission:'; then
+            echo "FAIL: offline native preview unexpectedly requests Android permissions"
+            exit 1
+          fi
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$apk"
       - name: Retain temporary non-release debug artifact
         uses: actions/upload-artifact@v4
         with:
