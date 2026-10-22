@@ -39,3 +39,11 @@ test('native tab changes dismiss the message keyboard and expose selected state'
   assert.match(source,/draft\.clearFocus\(\)/)
   assert.match(source,/tabs\[i\]\.setStateDescription\(active \? "Selected" : "Not selected"\)/)
 })
+
+test('navigation exposes native pane titles and semantic section headings',()=>{
+  assert.match(source,/content\.setAccessibilityPaneTitle\(/)
+  assert.match(source,/heading\.setAccessibilityHeading\(true\)/)
+  assert.match(source,/sectionHeading\("Make room for what’s next\."/)
+  assert.match(source,/sectionHeading\("Projects", 30\)/)
+  assert.match(source,/sectionHeading\("Settings", 30\)/)
+})
