@@ -31,6 +31,13 @@ const cooldownCodes = new Set([
   'subscription_sharing_user_unavailable'
 ])
 
+// Express 4 does not forward rejected async handlers to error middleware.
+// A damaged or inaccessible private profile must fail closed for this request,
+// rather than become an unhandled rejection that terminates the local server.
+const safeRoute = handler => (req, res, next) => {
+  Promise.resolve().then(() => handler(req, res, next)).catch(next)
+}
+
 app.disable('x-powered-by')
 app.use((req, res, next) => {
   const host = req.headers.host
@@ -61,11 +68,11 @@ const credentialSettings = attachCredentialSettings(app, {
   verifyCredential: verifyApiKey
 })
 
-app.get('/api/status', async (_req, res) => {
+app.get('/api/status', safeRoute(async (_req, res) => {
   res.json({ ...publicStatus(await readProfile(), Boolean(apiKey)), apiKeySource, apiVerification: credentialSettings.getVerification() })
-})
+}))
 
-app.get('/api/auth/start', async (req, res) => {
+app.get('/api/auth/start', safeRoute(async (req, res) => {
   const profile = await readProfile()
   const url = makeAttempt({
     hostId: await getHostId(), callback,
@@ -73,7 +80,7 @@ app.get('/api/auth/start', async (req, res) => {
     allowOtherAccount:req.query.mode==='add'
   })
   res.json({ url })
-})
+}))
 
 app.get('/auth/callback', async (req, res) => {
   let error = null
@@ -113,7 +120,7 @@ function verifyActiveAccount(req,profile){
  return submitted===activeAccountId(profile)
 }
 
-app.get('/api/models', async (req, res) => {
+app.get('/api/models', safeRoute(async (req, res) => {
   const p=await readProfile()
   if(!verifyActiveAccount(req,p))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
   const models = []
@@ -139,7 +146,7 @@ app.get('/api/models', async (req, res) => {
     apiModel: apiKey ? apiModel : null,
     error
   })
-})
+}))
 
 function normalizedError(response, json) {
   return {
@@ -150,7 +157,7 @@ function normalizedError(response, json) {
   }
 }
 
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', safeRoute(async (req, res) => {
   const messages = checkMessages(req.body?.messages)
   const images = validateChatImages(req.body?.images)
   const preference = req.body?.preference
@@ -236,9 +243,28 @@ app.post('/api/chat', async (req, res) => {
       res.end()
     }
   }
-})
+}))
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Unknown endpoint.' }))
+app.use((error, _req, res, _next) => {
+  // Do not return or log parser text, OAuth tokens, provider payloads or file
+  // paths from private profile failures. Only a bounded diagnostic type leaves
+  // the request boundary; the original profile remains untouched for recovery.
+  const category = typeof error?.code === 'string' && /^[A-Z_]{2,32}$/.test(error.code)
+    ? error.code : 'UNEXPECTED'
+  console.error(`Workspace AI local request failed (${category}).`)
+  if (res.headersSent) {
+    if (!res.destroyed) res.end()
+    return
+  }
+  if (error?.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'Invalid JSON request body.' })
+  }
+  if (error?.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request body exceeds the size limit.' })
+  }
+  res.status(503).json({ error: 'Workspace AI cannot access required local state.' })
+})
 app.use(express.static(fileURLToPath(new URL('../dist/', import.meta.url)), { dotfiles: 'deny' }))
 app.listen(PORT, '127.0.0.1', () => {
   console.log('Workspace AI backend: http://127.0.0.1:' + PORT)
