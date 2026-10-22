@@ -168,6 +168,13 @@ public final class MainActivity extends Activity {
     }
 
     private void showTab(int selected) {
+        // Switching away from Chat must not leave a hidden editor owning the IME.
+        if (selected != 0 && draft != null && draft.hasFocus()) {
+            InputMethodManager keyboard =
+                (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+            if (keyboard != null) keyboard.hideSoftInputFromWindow(draft.getWindowToken(), 0);
+            draft.clearFocus();
+        }
         for (int i = 0; i < tabs.length; i++) {
             boolean active = selected == i;
             tabs[i].setBackground(touch(active ? PALE : SURFACE, 13));
@@ -175,6 +182,9 @@ public final class MainActivity extends Activity {
             tabLabels[i].setTextColor(active ? BRAND : SOFT);
             tabLabels[i].setTypeface(Typeface.create(active ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
             tabs[i].setSelected(active);
+            if (Build.VERSION.SDK_INT >= 30) {
+                tabs[i].setStateDescription(active ? "Selected" : "Not selected");
+            }
         }
         composer.setVisibility(selected == 0 ? View.VISIBLE : View.GONE);
         content.removeAllViews();
