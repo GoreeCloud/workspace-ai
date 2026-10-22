@@ -280,7 +280,7 @@ public final class MainActivity extends Activity {
         page.addView(space(26));
         page.addView(infoRow("Connection", "Offline developer preview", 7));
         page.addView(space(11));
-        page.addView(infoRow("Privacy", "Drafts remain in this app session", 8));
+        page.addView(infoRow("Privacy", "Drafts are not stored or sent", 8));
         page.addView(space(11));
         page.addView(infoRow("Appearance", "Light theme", 6));
         page.addView(space(20));
@@ -389,7 +389,13 @@ public final class MainActivity extends Activity {
         private final Paint pen = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final int kind;
         private int tint;
-        IconView(int kind, int tint) { super(MainActivity.this); this.kind = kind; this.tint = tint; }
+        IconView(int kind, int tint) {
+            super(MainActivity.this);
+            this.kind = kind;
+            this.tint = tint;
+            // Icons are decorative; accessible actions are labeled on parent controls.
+            setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
         void setInk(int color) { tint = color; invalidate(); }
         @Override protected void onDraw(Canvas c) {
             super.onDraw(c);
