@@ -160,6 +160,9 @@ public final class MainActivity extends Activity {
             tab.addView(name, new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             tab.setContentDescription(titles[i] + " tab");
+            // Preserve each native tab as a separate accessibility target.
+            tab.setFocusable(true);
+            tab.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             tab.setOnClickListener(v -> showTab(selected));
             bar.addView(tab, new LinearLayout.LayoutParams(0, dp(59), 1));
             tabs[i] = tab;
