@@ -32,3 +32,10 @@ test('native preview cannot claim secure AI messaging without backend',()=>{
   assert.match(source,/Offline developer preview/)
   assert.doesNotMatch(source,/HttpURLConnection|OkHttpClient|ACCESS_TOKEN|API_KEY/)
 })
+
+test('native tab changes dismiss the message keyboard and expose selected state',()=>{
+  assert.match(source,/selected != 0 && draft != null && draft\.hasFocus\(\)/)
+  assert.match(source,/hideSoftInputFromWindow\(draft\.getWindowToken\(\), 0\)/)
+  assert.match(source,/draft\.clearFocus\(\)/)
+  assert.match(source,/tabs\[i\]\.setStateDescription\(active \? "Selected" : "Not selected"\)/)
+})
