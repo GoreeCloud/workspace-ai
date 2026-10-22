@@ -67,3 +67,12 @@ test('settings and appearance use distinct native symbols',()=>{
   assert.match(source,/page\.addView\(infoRow\("Appearance", "Light theme", 6\)\)/)
   assert.match(source,/gear\.close\(\)/)
 })
+
+test('settings icons correctly distinguish connection security, privacy and appearance',()=>{
+  assert.match(source,/infoRow\("Connection", "Offline developer preview", 7\)/)
+  assert.match(source,/infoRow\("Privacy", "Drafts remain in this app session", 8\)/)
+  assert.match(source,/infoRow\("Appearance", "Light theme", 6\)/)
+  assert.match(source,/Connection security: a distinct padlock/)
+  assert.match(source,/Privacy: shield, not a conversation icon/)
+  assert.match(source,/shield\.close\(\)/)
+})
