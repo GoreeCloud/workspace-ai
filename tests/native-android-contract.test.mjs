@@ -55,3 +55,9 @@ test('screenshot-led native review guards centered nav and non-sending starter l
   assert.match(source,/card\.addView\(new IconView\(5, BRAND\)/)
   assert.match(source,/Starter prompts navigate into the draft; they do not send it/)
 })
+
+test('native Chat Projects Settings are individually focusable accessibility targets',()=>{
+  assert.match(source,/tab\.setContentDescription\(titles\[i\] \+ " tab"\)/)
+  assert.match(source,/tab\.setFocusable\(true\)/)
+  assert.match(source,/tab\.setImportantForAccessibility\(View\.IMPORTANT_FOR_ACCESSIBILITY_YES\)/)
+})
