@@ -61,3 +61,9 @@ test('native Chat Projects Settings are individually focusable accessibility tar
   assert.match(source,/tab\.setFocusable\(true\)/)
   assert.match(source,/tab\.setImportantForAccessibility\(View\.IMPORTANT_FOR_ACCESSIBILITY_YES\)/)
 })
+
+test('settings and appearance use distinct native symbols',()=>{
+  assert.match(source,/Settings should be a cog, distinct from Appearance's sun/)
+  assert.match(source,/page\.addView\(infoRow\("Appearance", "Light theme", 6\)\)/)
+  assert.match(source,/gear\.close\(\)/)
+})
