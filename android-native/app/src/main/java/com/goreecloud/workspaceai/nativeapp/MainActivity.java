@@ -28,14 +28,9 @@ import android.widget.TextView;
 
 // Native Android UI; offline-only. No WebView, storage, credentials or network actions.
 public final class MainActivity extends Activity {
-    private static final int CANVAS = 0xFFF9FAFD;
-    private static final int SURFACE = Color.WHITE;
-    private static final int INK = 0xFF20243A;
-    private static final int SOFT = 0xFF5F657B;
-    private static final int BRAND = 0xFF5145D9;
-    private static final int PALE = 0xFFE8E6FF;
-    private static final int BORDER = 0xFFD5DBEA;
-    private static final int MUTED = 0xFF9DA4B9;
+    private int CANVAS, SURFACE, INK, SOFT, BRAND, PALE, BORDER, MUTED;
+    private int HERO_START, HERO_END, HERO_TEXT, SETTINGS_TILE, DISABLED_SEND;
+    private boolean darkMode;
     private FrameLayout content;
     private LinearLayout composer, nav;
     private EditText draft;
@@ -45,6 +40,22 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        GcUiNativePalette colors = GcUiNativePalette.forConfiguration(
+                getResources().getConfiguration());
+        darkMode = colors.dark;
+        CANVAS = colors.canvas;
+        SURFACE = colors.surface;
+        INK = colors.ink;
+        SOFT = colors.soft;
+        BRAND = colors.brand;
+        PALE = colors.pale;
+        BORDER = colors.border;
+        MUTED = colors.muted;
+        HERO_START = colors.heroStart;
+        HERO_END = colors.heroEnd;
+        HERO_TEXT = colors.heroText;
+        SETTINGS_TILE = colors.settingsTile;
+        DISABLED_SEND = colors.disabledSend;
         getWindow().setStatusBarColor(CANVAS);
         getWindow().setNavigationBarColor(CANVAS);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
@@ -63,7 +74,7 @@ public final class MainActivity extends Activity {
             });
         }
         setContentView(root);
-        getWindow().getDecorView().setSystemUiVisibility(
+        getWindow().getDecorView().setSystemUiVisibility(darkMode ? 0 :
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
 
         root.addView(makeHeader());
@@ -96,7 +107,7 @@ public final class MainActivity extends Activity {
         brand.addView(subtitle);
         bar.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
         FrameLayout settings = new FrameLayout(this);
-        settings.setBackground(touch(0xFFF2F4FA, 13));
+        settings.setBackground(touch(SETTINGS_TILE, 13));
         settings.addView(new IconView(2, INK), new FrameLayout.LayoutParams(dp(23), dp(23), Gravity.CENTER));
         settings.setContentDescription("Settings");
         settings.setOnClickListener(v -> showTab(2));
@@ -130,7 +141,7 @@ public final class MainActivity extends Activity {
         TextView mode = label("●  Draft only · offline", 11, SOFT, false);
         actions.addView(mode, new LinearLayout.LayoutParams(0, -2, 1));
         FrameLayout send = new FrameLayout(this);
-        send.setBackground(round(0xFFEBECF5, 12, 0));
+        send.setBackground(round(DISABLED_SEND, 12, 0));
         send.addView(new IconView(4, MUTED),
                 new FrameLayout.LayoutParams(dp(21), dp(21), Gravity.CENTER));
         send.setEnabled(false);
@@ -217,15 +228,15 @@ public final class MainActivity extends Activity {
         page.addView(space(24));
         LinearLayout hero = column();
         GradientDrawable background = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0xFF5145D9, 0xFF7663ED});
+                new int[]{HERO_START, HERO_END});
         background.setCornerRadius(dp(23));
         hero.setBackground(background);
         hero.setPadding(dp(21), dp(23), dp(21), dp(22));
-        hero.addView(new IconView(3, SURFACE), new LinearLayout.LayoutParams(dp(29), dp(29)));
+        hero.addView(new IconView(3, HERO_TEXT), new LinearLayout.LayoutParams(dp(29), dp(29)));
         hero.addView(space(19));
-        hero.addView(label("Ideas deserve a great home.", 20, SURFACE, true));
+        hero.addView(label("Ideas deserve a great home.", 20, HERO_TEXT, true));
         hero.addView(space(8));
-        hero.addView(label("Offline developer preview. Secure AI messaging is not connected yet.", 13, 0xFFF0EDFF, false));
+        hero.addView(label("Offline developer preview. Secure AI messaging is not connected yet.", 13, HERO_TEXT, false));
         page.addView(hero);
         page.addView(space(26));
         page.addView(label("Start with a draft", 17, INK, true));
@@ -282,7 +293,7 @@ public final class MainActivity extends Activity {
         page.addView(space(11));
         page.addView(infoRow("Privacy", "Drafts remain in this app session", 8));
         page.addView(space(11));
-        page.addView(infoRow("Appearance", "Light theme", 6));
+        page.addView(infoRow("Appearance", darkMode ? "Dark · follows system" : "Light · follows system", 6));
         page.addView(space(20));
         TextView about = label("About this native preview  ↗", 14, BRAND, true);
         about.setPadding(dp(15), dp(16), dp(15), dp(16));

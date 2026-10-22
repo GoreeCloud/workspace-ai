@@ -64,6 +64,28 @@ def click(label):
     time.sleep(0.6)
 
 
+def await_chat_tab(folder):
+    # Retry only Pixel Launcher's explicitly identified cold-boot ANR.
+    # This never suppresses a crashed Workspace AI process or missing controls.
+    for attempt in range(4):
+        layout = hierarchy()
+        ET.ElementTree(layout).write(folder / "startup-hierarchy.xml", encoding="unicode")
+        labels = {(node.attrib.get("text") or node.attrib.get("content-desc") or "")
+                  for node in layout.iter()}
+        if "Chat tab" in labels:
+            return layout
+        if "Pixel Launcher isn't responding" not in labels or "Wait" not in labels:
+            find(layout, "Chat tab")
+        print(f"Emulator launcher ANR on attempt {attempt + 1}; selecting Wait")
+        click("Wait")
+        time.sleep(2)
+        resumed = adb("shell", "am", "start", "-W", "-n", ACTIVITY)
+        assert "Status: ok" in resumed, resumed
+        assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity exited during emulator startup"
+    find(layout, "Chat tab")
+    raise AssertionError("Native Chat tab never became available")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--apk", required=True)
@@ -90,26 +112,7 @@ def main():
     # Capture a diagnostic before validating accessibility, so UI failures
     # produce inspectable screenshots rather than empty CI artifacts.
     snapshot(folder, "startup")
-    # Pixel Launcher occasionally shows a system-only cold-boot ANR over
-    # our healthy Activity. Retry only that explicit non-app dialog, never
-    # mask native crashes or arbitrary missing accessibility controls.
-    for attempt in range(4):
-        layout = hierarchy()
-        ET.ElementTree(layout).write(folder / "startup-hierarchy.xml", encoding="unicode")
-        labels = {(node.attrib.get("text") or node.attrib.get("content-desc") or "")
-                  for node in layout.iter()}
-        if "Chat tab" in labels:
-            break
-        if "Pixel Launcher isn't responding" not in labels or "Wait" not in labels:
-            find(layout, "Chat tab")
-        print(f"Emulator launcher ANR on attempt {attempt + 1}; selecting Wait")
-        click("Wait")
-        time.sleep(2)
-        resumed = adb("shell", "am", "start", "-W", "-n", ACTIVITY)
-        assert "Status: ok" in resumed, resumed
-        assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity exited during emulator startup"
-    else:
-        find(layout, "Chat tab")
+    layout = await_chat_tab(folder)
     find(layout, "Chat tab")
     find(hierarchy(), "Projects tab")
     find(hierarchy(), "Settings tab")
@@ -130,6 +133,21 @@ def main():
     time.sleep(1)
     find(hierarchy(), "Send disabled until secure AI connection is available")
     snapshot(folder, "composer-keyboard")
+
+    # The emulator, never an owner's phone, must also validate OS dark mode.
+    adb("shell", "input", "keyevent", "4")
+    adb("shell", "cmd", "uimode", "night", "yes")
+    time.sleep(2)
+    adb("shell", "am", "force-stop", PACKAGE)
+    dark_launch = adb("shell", "am", "start", "-W", "-n", ACTIVITY)
+    assert "Status: ok" in dark_launch, dark_launch
+    assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity crashed in dark mode"
+    await_chat_tab(folder)
+    snapshot(folder, "chat-dark")
+    click("Settings tab")
+    find(hierarchy(), "Dark · follows system")
+    snapshot(folder, "settings-dark")
+    adb("shell", "cmd", "uimode", "night", "no")
 
     runtime = adb("logcat", "-d", "-s", "AndroidRuntime:E")
     assert f"Process: {PACKAGE}" not in runtime, "Native startup/navigation crash detected"

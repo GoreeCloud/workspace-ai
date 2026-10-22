@@ -64,15 +64,32 @@ test('native Chat Projects Settings are individually focusable accessibility tar
 
 test('settings and appearance use distinct native symbols',()=>{
   assert.match(source,/Settings should be a cog, distinct from Appearance's sun/)
-  assert.match(source,/page\.addView\(infoRow\("Appearance", "Light theme", 6\)\)/)
+  assert.match(source,/page\.addView\(infoRow\("Appearance", darkMode \? "Dark · follows system" : "Light · follows system", 6\)\)/)
   assert.match(source,/gear\.close\(\)/)
 })
 
 test('settings icons correctly distinguish connection security, privacy and appearance',()=>{
   assert.match(source,/infoRow\("Connection", "Offline developer preview", 7\)/)
   assert.match(source,/infoRow\("Privacy", "Drafts remain in this app session", 8\)/)
-  assert.match(source,/infoRow\("Appearance", "Light theme", 6\)/)
+  assert.match(source,/infoRow\("Appearance", darkMode \? "Dark · follows system" : "Light · follows system", 6\)/)
   assert.match(source,/Connection security: a distinct padlock/)
   assert.match(source,/Privacy: shield, not a conversation icon/)
   assert.match(source,/shield\.close\(\)/)
+})
+
+test('system light and dark modes map to pinned GC UI semantic roles',()=>{
+  const palette = readFileSync(new URL('app/src/main/java/com/goreecloud/workspaceai/nativeapp/GcUiNativePalette.java',root),'utf8')
+  const day = readFileSync(new URL('app/src/main/res/values/styles.xml',root),'utf8')
+  const night = readFileSync(new URL('app/src/main/res/values-night/styles.xml',root),'utf8')
+  assert.match(palette,/b83213cf26627b60f26cd1416405152bbb1d4fcb/)
+  assert.match(palette,/Configuration\.UI_MODE_NIGHT_YES/)
+  for (const color of ['0xFFECF0F8','0xFF10131E','0xFF5145D9','0xFFC5BFFF','0xFF20243A','0xFFF2F2FA']) {
+    assert.ok(palette.includes(color), 'Missing native palette role '+color)
+  }
+  assert.match(manifest,/android:theme="@style\/GoreeCloudWorkspaceTheme"/)
+  assert.match(day,/Theme\.Material\.Light\.NoActionBar/)
+  assert.match(night,/Theme\.Material\.NoActionBar/)
+  assert.match(source,/GcUiNativePalette\.forConfiguration/)
+  assert.match(source,/darkMode \? "Dark · follows system" : "Light · follows system"/)
+  assert.match(source,/darkMode \? 0 :/)
 })
