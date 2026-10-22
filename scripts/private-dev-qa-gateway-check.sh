@@ -32,6 +32,12 @@ wrong="$(curl "${args[@]}" --user 'synthetic-qa:incorrect-qa-only' --write-out '
 test "$wrong" = '401 0'
 echo "PASS synthetic HTTPS wrong credential denial: $wrong"
 
+# An apparently same-origin write must still be rejected before reaching backend handlers.
+write_denied="$(curl "${args[@]}" -X POST -H 'Origin: https://workspace-ai-dev.goreecloud.com' -H 'Content-Type: application/json' --data '{}' --write-out '%{http_code} %{ssl_verify_result}' 'https://workspace-ai-dev.goreecloud.com/api/chat')"
+test "$write_denied" = '401 0' || { echo 'FAIL unauthenticated same-origin write gate' >&2; exit 1; }
+echo "PASS synthetic HTTPS unauthenticated same-origin POST denial: $write_denied"
+
+
 password="$(cat "$qa/test-password")"
 request_with_auth() {
   printf 'user = "synthetic-qa:%s"\n' "$password" | curl "${args[@]}" --config - "$@"
