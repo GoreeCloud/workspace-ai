@@ -3,7 +3,6 @@ package com.goreecloud.workspaceai.nativeapp;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.res.Configuration;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -29,15 +28,14 @@ import android.widget.TextView;
 
 // Native Android UI; offline-only. No WebView, storage, credentials or network actions.
 public final class MainActivity extends Activity {
-    private int CANVAS = 0xFFF9FAFD;
-    private int SURFACE = Color.WHITE;
-    private int INK = 0xFF20243A;
-    private int SOFT = 0xFF5F657B;
-    private int BRAND = 0xFF5145D9;
-    private int PALE = 0xFFE8E6FF;
-    private int BORDER = 0xFFD5DBEA;
-    private int MUTED = 0xFF9DA4B9;
-    private boolean darkMode;
+    private static final int CANVAS = 0xFFF9FAFD;
+    private static final int SURFACE = Color.WHITE;
+    private static final int INK = 0xFF20243A;
+    private static final int SOFT = 0xFF5F657B;
+    private static final int BRAND = 0xFF5145D9;
+    private static final int PALE = 0xFFE8E6FF;
+    private static final int BORDER = 0xFFD5DBEA;
+    private static final int MUTED = 0xFF9DA4B9;
     private FrameLayout content;
     private LinearLayout composer, nav;
     private EditText draft;
@@ -47,7 +45,6 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        applySystemTheme();
         getWindow().setStatusBarColor(CANVAS);
         getWindow().setNavigationBarColor(CANVAS);
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
@@ -66,7 +63,7 @@ public final class MainActivity extends Activity {
             });
         }
         setContentView(root);
-        getWindow().getDecorView().setSystemUiVisibility(darkMode ? 0 :
+        getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
 
         root.addView(makeHeader());
@@ -99,7 +96,7 @@ public final class MainActivity extends Activity {
         brand.addView(subtitle);
         bar.addView(brand, new LinearLayout.LayoutParams(0, -2, 1));
         FrameLayout settings = new FrameLayout(this);
-        settings.setBackground(touch(darkMode ? PALE : 0xFFF2F4FA, 13));
+        settings.setBackground(touch(0xFFF2F4FA, 13));
         settings.addView(new IconView(2, INK), new FrameLayout.LayoutParams(dp(23), dp(23), Gravity.CENTER));
         settings.setContentDescription("Settings");
         settings.setOnClickListener(v -> showTab(2));
@@ -133,7 +130,7 @@ public final class MainActivity extends Activity {
         TextView mode = label("●  Draft only · offline", 11, SOFT, false);
         actions.addView(mode, new LinearLayout.LayoutParams(0, -2, 1));
         FrameLayout send = new FrameLayout(this);
-        send.setBackground(round(PALE, 12, 0));
+        send.setBackground(round(0xFFEBECF5, 12, 0));
         send.addView(new IconView(4, MUTED),
                 new FrameLayout.LayoutParams(dp(21), dp(21), Gravity.CENTER));
         send.setEnabled(false);
@@ -285,7 +282,7 @@ public final class MainActivity extends Activity {
         page.addView(space(11));
         page.addView(infoRow("Privacy", "Drafts remain in this app session", 8));
         page.addView(space(11));
-        page.addView(infoRow("Appearance", darkMode ? "Dark · follows system" : "Light · follows system", 6));
+        page.addView(infoRow("Appearance", "Light theme", 6));
         page.addView(space(20));
         TextView about = label("About this native preview  ↗", 14, BRAND, true);
         about.setPadding(dp(15), dp(16), dp(15), dp(16));
@@ -337,20 +334,6 @@ public final class MainActivity extends Activity {
         TextView heading = label(content, textSize, INK, true);
         if (Build.VERSION.SDK_INT >= 28) heading.setAccessibilityHeading(true);
         return heading;
-    }
-
-    private void applySystemTheme() {
-        darkMode = (getResources().getConfiguration().uiMode &
-                Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
-        if (!darkMode) return;
-        CANVAS = 0xFF111521;
-        SURFACE = 0xFF1C2333;
-        INK = 0xFFF6F7FF;
-        SOFT = 0xFFBEC7D9;
-        BRAND = 0xFFA69EFF;
-        PALE = 0xFF343353;
-        BORDER = 0xFF3E475B;
-        MUTED = 0xFFA7B2C8;
     }
 
     private TextView eyebrow(String s) {
