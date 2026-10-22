@@ -38,6 +38,7 @@ test -n "$hash"
   printf 'PORKBUN_API_KEY=VALIDATION_ONLY_NOT_A_REAL_KEY\n'
   printf 'PORKBUN_API_SECRET_KEY=VALIDATION_ONLY_NOT_A_REAL_SECRET\n'
   printf 'WORKSPACE_AI_DEV_BCRYPT_HASH=%s\n' "$hash"
+  printf 'WORKSPACE_AI_DEV_GATEWAY_TOKEN=%s\n' "$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
 } > "$work/validation.env"
 chmod 600 "$work/validation.env"
 
