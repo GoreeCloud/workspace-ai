@@ -156,7 +156,9 @@ public final class MainActivity extends Activity {
             tab.addView(icon, new LinearLayout.LayoutParams(dp(22), dp(22)));
             TextView name = label(titles[i], 11, SOFT, false);
             name.setPadding(0, dp(3), 0, 0);
-            tab.addView(name);
+            name.setGravity(Gravity.CENTER);
+            tab.addView(name, new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             tab.setContentDescription(titles[i] + " tab");
             tab.setOnClickListener(v -> showTab(selected));
             bar.addView(tab, new LinearLayout.LayoutParams(0, dp(59), 1));
@@ -177,7 +179,7 @@ public final class MainActivity extends Activity {
         }
         for (int i = 0; i < tabs.length; i++) {
             boolean active = selected == i;
-            tabs[i].setBackground(touch(active ? PALE : SURFACE, 13));
+            tabs[i].setBackground(navSurface(active ? PALE : SURFACE));
             tabIcons[i].setInk(active ? BRAND : SOFT);
             tabLabels[i].setTextColor(active ? BRAND : SOFT);
             tabLabels[i].setTypeface(Typeface.create(active ? "sans-serif-medium" : "sans-serif", Typeface.NORMAL));
@@ -243,7 +245,7 @@ public final class MainActivity extends Activity {
         hint.setPadding(0, dp(5), 0, 0);
         copy.addView(hint);
         card.addView(copy, new LinearLayout.LayoutParams(0, -2, 1));
-        card.addView(new IconView(4, BRAND), new LinearLayout.LayoutParams(dp(21), dp(21)));
+        card.addView(new IconView(5, BRAND), new LinearLayout.LayoutParams(dp(21), dp(21)));
         card.setContentDescription(title + ". Fill message editor.");
         card.setOnClickListener(v -> {
             draft.setText(content);
@@ -367,6 +369,11 @@ public final class MainActivity extends Activity {
         if (stroke != 0) bg.setStroke(dp(1), stroke);
         return bg;
     }
+    private RippleDrawable navSurface(int color) {
+        // Navigation is one unified bar, not three bordered tiles.
+        return new RippleDrawable(ColorStateList.valueOf(0x205145D9),
+                round(color, 13, 0), null);
+    }
     private RippleDrawable touch(int color, int radius) {
         return new RippleDrawable(ColorStateList.valueOf(0x205145D9),
                 round(color, radius, color == SURFACE ? BORDER : 0), null);
@@ -409,8 +416,11 @@ public final class MainActivity extends Activity {
                 star.lineTo(21.5f,12);star.lineTo(14.5f,14.5f);star.lineTo(12,21.5f);
                 star.lineTo(9.5f,14.5f);star.lineTo(2.5f,12);star.lineTo(9.5f,9.5f);star.close();
                 c.drawPath(star,pen);
-            } else {
+            } else if (kind == 4) {
                 c.drawLine(12,19,12,5,pen); c.drawLine(6,11,12,5,pen); c.drawLine(18,11,12,5,pen);
+            } else {
+                // Starter prompts navigate into the draft; they do not send it.
+                c.drawLine(8,5,15,12,pen); c.drawLine(15,12,8,19,pen);
             }
             c.restore();
         }
