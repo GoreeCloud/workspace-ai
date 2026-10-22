@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from '../src/browser-storage-guard.js'
+import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem,readableChatHistory} from '../src/browser-storage-guard.js'
 import {persistWorkspaceChange} from '../src/workspace-persistence.js'
 import {newProject} from '../src/project-model.js'
 
@@ -107,4 +107,13 @@ test('unreadable chat or project storage blocks startup without clearing data',(
  assert.equal(corruptWorkspace.getItem(WORKSPACE),'{"projects":null,"pinned":[]}')
  assert.equal(browserStorageLoadProblem(store({[CHAT]:'[]',[WORKSPACE]:'{"projects":[],"pinned":[]}'}),CHAT,WORKSPACE),null)
  assert.equal(browserStorageLoadProblem(store(),CHAT,WORKSPACE),null)
+})
+
+test('malformed saved messages block startup without overwriting private history',()=>{
+ const corrupt=JSON.stringify([{id:'one',messages:[null]}])
+ const storage=store({[CHAT]:corrupt,[WORKSPACE]:'{"projects":[],"pinned":[]}'})
+ assert.equal(readableChatHistory(JSON.parse(corrupt)),false)
+ assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/read-only/)
+ assert.equal(storage.getItem(CHAT),corrupt)
+ assert.equal(readableChatHistory([{id:'one',messages:[{role:'assistant',content:'Partial',pending:true}]}]),true)
 })
