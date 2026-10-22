@@ -21,10 +21,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Prepare Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install Android 36 platform
-        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Install Android 36 platform with the preinstalled SDK manager
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$sdk/cmdline-tools"
+          manager="$(find "$sdk/cmdline-tools" -maxdepth 5 -type f -name sdkmanager | head -n 1)"
+          test -x "$manager"
+          export ANDROID_HOME="$sdk"
+          echo "ANDROID_HOME=$sdk" >> "$GITHUB_ENV"
+          printf 'y\n%.0s' {1..100} | "$manager" --licenses > /dev/null
+          "$manager" "platforms;android-36" "build-tools;36.0.0"
       - name: Verify native security source contracts
         run: node --test tests/native-android-contract.test.mjs
       - name: Compile native debug preview
