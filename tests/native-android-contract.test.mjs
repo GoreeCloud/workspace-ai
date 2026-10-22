@@ -93,3 +93,12 @@ test('system light and dark modes map to pinned GC UI semantic roles',()=>{
   assert.match(source,/darkMode \? "Dark · follows system" : "Light · follows system"/)
   assert.match(source,/darkMode \? 0 :/)
 })
+
+test('native screenshot audit preserves honest and accessible touch affordances',()=>{
+  const palette = readFileSync(new URL('app/src/main/java/com/goreecloud/workspaceai/nativeapp/GcUiNativePalette.java',root),'utf8')
+  assert.match(palette,/0xFF323748/) // disabled dark send surface is neutral, not the active brand accent
+  assert.match(source,/bar\.addView\(settings, new LinearLayout\.LayoutParams\(dp\(48\), dp\(48\)\)\)/)
+  assert.match(source,/About this native preview  ›/)
+  assert.match(source,/about\.setContentDescription\("About this native preview\. Opens app information dialog\."\)/)
+  assert.doesNotMatch(source,/About this native preview  ↗/)
+})

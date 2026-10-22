@@ -44,7 +44,7 @@ final class GcUiNativePalette {
             return new GcUiNativePalette(true, 0xFF10131E, 0xFF252B3D,
                     0xFFF2F2FA, 0xFFB3B9CF, 0xFFC5BFFF, 0xFF39316B,
                     0xFF373C50, 0xFFB3B9CF, 0xFF292F40, 0xFF39316B,
-                    0xFFF2F2FA, 0xFF292F40, 0xFF39316B);
+                    0xFFF2F2FA, 0xFF292F40, 0xFF323748);
         }
         return new GcUiNativePalette(false, 0xFFECF0F8, 0xFFFFFFFF,
                 0xFF20243A, 0xFF5F657B, 0xFF5145D9, 0xFFE8E6FF,
