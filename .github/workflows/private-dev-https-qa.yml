@@ -103,6 +103,15 @@ jobs:
           bash scripts/private-dev-qa-gateway-rehearsal.sh
           test -z "$(docker ps --all --format '{{.Names}}' | grep '^goreecloud-workspace-ai-qa-rehearsal-' || true)"
 
+      - name: Rehearse backend and Caddy credential rotation, denial and safe recovery
+        env:
+          GOREECLOUD_CADDY_IMAGE: caddy:2.10.2-alpine
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/private-dev-qa-peer-rotation.sh scripts/private-dev-qa-gateway-check.sh
+          bash scripts/private-dev-qa-peer-rotation.sh
+
       - name: Remove synthetic test resources
         if: always()
         shell: bash
