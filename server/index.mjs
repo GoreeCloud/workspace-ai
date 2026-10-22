@@ -15,9 +15,11 @@ import {attachAccountSyncRelay} from './account-sync-relay.mjs'
 import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
 import {resolveIngress} from './ingress-config.mjs'
+import {loadPrivateGatewayToken, matchesPrivateGatewayToken, GATEWAY_TOKEN_HEADER} from './private-gateway-auth.mjs'
 
 const app = express()
 const {port: PORT, privateDev, bindHost, clientOrigin, allowedHosts, allowedOrigins} = resolveIngress()
+const gatewayToken = loadPrivateGatewayToken()
 const environmentApiKey = process.env.OPENAI_API_KEY?.trim() || ''
 let apiKey = environmentApiKey
 let apiKeySource = environmentApiKey ? 'environment' : null
@@ -33,6 +35,9 @@ const cooldownCodes = new Set([
 
 app.disable('x-powered-by')
 app.use((req, res, next) => {
+  if (gatewayToken && !matchesPrivateGatewayToken(gatewayToken, req.headers[GATEWAY_TOKEN_HEADER])) {
+    return res.status(403).json({ error: 'Gateway credential rejected.' })
+  }
   const host = req.headers.host
   if (!allowedHosts.has(host)) return res.status(403).json({ error: 'Unrecognized workspace host.' })
   res.setHeader('Cache-Control', 'no-store')
