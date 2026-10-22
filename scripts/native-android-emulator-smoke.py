@@ -90,8 +90,26 @@ def main():
     # Capture a diagnostic before validating accessibility, so UI failures
     # produce inspectable screenshots rather than empty CI artifacts.
     snapshot(folder, "startup")
-    layout = hierarchy()
-    ET.ElementTree(layout).write(folder / "startup-hierarchy.xml", encoding="unicode")
+    # Pixel Launcher occasionally shows a system-only cold-boot ANR over
+    # our healthy Activity. Retry only that explicit non-app dialog, never
+    # mask native crashes or arbitrary missing accessibility controls.
+    for attempt in range(4):
+        layout = hierarchy()
+        ET.ElementTree(layout).write(folder / "startup-hierarchy.xml", encoding="unicode")
+        labels = {(node.attrib.get("text") or node.attrib.get("content-desc") or "")
+                  for node in layout.iter()}
+        if "Chat tab" in labels:
+            break
+        if "Pixel Launcher isn't responding" not in labels or "Wait" not in labels:
+            find(layout, "Chat tab")
+        print(f"Emulator launcher ANR on attempt {attempt + 1}; selecting Wait")
+        click("Wait")
+        time.sleep(2)
+        resumed = adb("shell", "am", "start", "-W", "-n", ACTIVITY)
+        assert "Status: ok" in resumed, resumed
+        assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity exited during emulator startup"
+    else:
+        find(layout, "Chat tab")
     find(layout, "Chat tab")
     find(hierarchy(), "Projects tab")
     find(hierarchy(), "Settings tab")
