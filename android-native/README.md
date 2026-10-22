@@ -4,7 +4,7 @@
 
 This is an isolated Android Views / Java starter, **not** a WebView, PWA or website wrapper. It is intentionally separate from `GoreeCloud/workspace-ai`'s browser development app and from the historic USB/WebView QA bridge.
 
-The current prototype uses native text, navigation buttons, modal dialogs, an Android multi-line input editor and keyboard/system-bar insets. **Send is disabled** because no authenticated backend, token isolation, OAuth or provider egress has been implemented. Draft text stays in the current activity memory only and is not stored or transmitted; it may disappear when the activity is destroyed.
+The current prototype uses native text, navigation buttons, modal dialogs, an Android multi-line input editor and keyboard/system-bar insets. **Send is disabled** because no authenticated backend, token isolation, OAuth or provider egress has been implemented. Unsent drafts and the current tab are retained **in memory across configuration changes** such as theme and rotation, without writing to app storage or an Android saved-state Bundle. A process stop, system process reclamation, or new session discards them; nothing is sent.
 
 ## Security boundaries
 

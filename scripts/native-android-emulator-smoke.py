@@ -131,27 +131,46 @@ def main():
     click("Chat tab")
     click("Local message draft")
     time.sleep(1)
+    adb("shell", "input", "text", "GoreeNativeDraft42")
+    find(hierarchy(), "GoreeNativeDraft42")
     find(hierarchy(), "Send disabled until secure AI connection is available")
     snapshot(folder, "composer-keyboard")
 
-    # The emulator, never an owner's phone, must also validate OS dark mode.
+    # Changing system theme recreates an Activity on a stock emulator. Verify
+    # the current pane and unsent draft survive only this configuration change.
     adb("shell", "input", "keyevent", "4")
+    click("Projects tab")
     adb("shell", "cmd", "uimode", "night", "yes")
     time.sleep(2)
-    adb("shell", "am", "force-stop", PACKAGE)
-    dark_launch = adb("shell", "am", "start", "-W", "-n", ACTIVITY)
-    assert "Status: ok" in dark_launch, dark_launch
-    assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity crashed in dark mode"
+    assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity crashed during theme transition"
     await_chat_tab(folder)
+    find(hierarchy(), "Your projects will live here")
+    click("Chat tab")
+    find(hierarchy(), "GoreeNativeDraft42")
     snapshot(folder, "chat-dark")
     click("Settings tab")
     find(hierarchy(), "Dark · follows system")
     snapshot(folder, "settings-dark")
     adb("shell", "cmd", "uimode", "night", "no")
+    time.sleep(2)
+    assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity crashed restoring light theme"
+    find(hierarchy(), "Light · follows system")
+    click("Chat tab")
+    find(hierarchy(), "GoreeNativeDraft42")
+
+    # A force stop is a process lifetime boundary, not a configuration change.
+    # The offline preview must not persist this synthetic draft to local storage.
+    adb("shell", "am", "force-stop", PACKAGE)
+    assert "Status: ok" in adb("shell", "am", "start", "-W", "-n", ACTIVITY)
+    assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity failed clean restart"
+    after_restart = hierarchy()
+    find(after_restart, "Local message draft")
+    assert not any(n.attrib.get("text") == "GoreeNativeDraft42" for n in after_restart.iter()), \
+        "Unsent draft unexpectedly survived process stop"
 
     runtime = adb("logcat", "-d", "-s", "AndroidRuntime:E")
     assert f"Process: {PACKAGE}" not in runtime, "Native startup/navigation crash detected"
-    print("PASS native emulator Chat/Projects/Settings, accessibility, composer and no crash")
+    print("PASS native emulator Chat/Projects/Settings, theme-change draft retention, process-stop privacy and no crash")
 
 
 if __name__ == "__main__":
