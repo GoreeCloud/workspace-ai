@@ -42,13 +42,18 @@ password="$(cat "$qa/test-password")"
 request_with_auth() {
   printf 'user = "synthetic-qa:%s"\n' "$password" | curl "${args[@]}" --config - "$@"
 }
+expected_peer_status="${WORKSPACE_AI_QA_EXPECT_UPSTREAM_STATUS:-200}"
+case "$expected_peer_status" in
+  200|403) ;;
+  *) echo 'FAIL: unsupported synthetic upstream status expectation' >&2; exit 1 ;;
+esac
 success="$(request_with_auth --write-out '%{http_code} %{ssl_verify_result}' "$url")"
-test "$success" = '200 0'
-echo "PASS synthetic HTTPS owner test credential accepted: $success"
+test "$success" = "$expected_peer_status 0" || { echo 'FAIL synthetic HTTPS peer credential acceptance expectation' >&2; exit 1; }
+echo "PASS synthetic HTTPS owner auth and upstream status $expected_peer_status: $success"
 
 # Caddy must replace, never forward, an attacker-chosen upstream peer token.
 spoofed="$(request_with_auth -H 'X-GoreeCloud-Gateway-Token: 0000000000000000000000000000000000000000000000000000000000000000' --write-out '%{http_code} %{ssl_verify_result}' "$url")"
-test "$spoofed" = '200 0' || { echo 'FAIL gateway did not replace spoofed client peer token' >&2; exit 1; }
+test "$spoofed" = "$expected_peer_status 0" || { echo 'FAIL gateway did not enforce expected upstream peer token' >&2; exit 1; }
 echo "PASS synthetic HTTPS proxy overwrote spoofed gateway peer token: $spoofed"
 
 origin="$(request_with_auth -X POST -H 'Origin: https://untrusted.invalid' --write-out '%{http_code}' 'https://workspace-ai-dev.goreecloud.com/api/chat')"
