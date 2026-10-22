@@ -14,7 +14,6 @@ workspace-ai-dev.goreecloud.com {
             header_up -X-Remote-User
             header_up -X-Auth-User
             # Overwrite untrusted client-supplied peer credentials before proxying.
-            header_up -X-GoreeCloud-Gateway-Token
             header_up X-GoreeCloud-Gateway-Token {$WORKSPACE_AI_SYNTHETIC_GATEWAY_TOKEN}
         }
     }
