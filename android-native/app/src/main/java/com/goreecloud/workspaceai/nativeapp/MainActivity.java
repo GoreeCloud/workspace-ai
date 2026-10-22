@@ -188,6 +188,9 @@ public final class MainActivity extends Activity {
         }
         composer.setVisibility(selected == 0 ? View.VISIBLE : View.GONE);
         content.removeAllViews();
+        if (Build.VERSION.SDK_INT >= 28) {
+            content.setAccessibilityPaneTitle(selected == 0 ? "Chat" : selected == 1 ? "Projects" : "Settings");
+        }
         ScrollView scroll = new ScrollView(this);
         scroll.setFillViewport(true);
         scroll.setVerticalScrollBarEnabled(false);
@@ -203,7 +206,7 @@ public final class MainActivity extends Activity {
     private void showChat(LinearLayout page) {
         page.addView(eyebrow("YOUR SPACE TO THINK"));
         page.addView(space(10));
-        page.addView(label("Make room for what’s next.", 29, INK, true));
+        page.addView(sectionHeading("Make room for what’s next.", 29));
         page.addView(space(9));
         page.addView(label("Bring questions, ideas, and plans together in one place.", 14, SOFT, false));
         page.addView(space(24));
@@ -255,7 +258,7 @@ public final class MainActivity extends Activity {
     private void showProjects(LinearLayout page) {
         page.addView(eyebrow("YOUR WORKSPACE"));
         page.addView(space(11));
-        page.addView(label("Projects", 30, INK, true));
+        page.addView(sectionHeading("Projects", 30));
         page.addView(space(9));
         page.addView(label("A place for all your connected work.", 14, SOFT, false));
         page.addView(space(28));
@@ -266,7 +269,7 @@ public final class MainActivity extends Activity {
     private void showSettings(LinearLayout page) {
         page.addView(eyebrow("WORKSPACE PREFERENCES"));
         page.addView(space(11));
-        page.addView(label("Settings", 30, INK, true));
+        page.addView(sectionHeading("Settings", 30));
         page.addView(space(9));
         page.addView(label("Know exactly what this build can do.", 14, SOFT, false));
         page.addView(space(26));
@@ -320,6 +323,12 @@ public final class MainActivity extends Activity {
         description.setGravity(Gravity.CENTER);
         card.addView(description);
         return card;
+    }
+
+    private TextView sectionHeading(String content, int textSize) {
+        TextView heading = label(content, textSize, INK, true);
+        if (Build.VERSION.SDK_INT >= 28) heading.setAccessibilityHeading(true);
+        return heading;
     }
 
     private TextView eyebrow(String s) {
