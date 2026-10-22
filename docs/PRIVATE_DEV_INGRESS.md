@@ -123,6 +123,8 @@ curl -i --max-time 10 https://workspace-ai-dev.goreecloud.com/api/status
 
 The repository also provides a read-only, credential-free acceptance probe. Run it on an authorized NetBird workstation after certificate and gateway configuration:
 
+The probe validates that all resolved IPv4 addresses belong to the private NetBird range and that a no-payload UDP route lookup selects a local overlay source address **before** attempting certificate-verified HTTPS. It does not send a test UDP datagram, expose the selected addresses in output, bypass TLS checks, or use credentials. A passing client-side route check **cannot establish the address that Docker/Caddy actually observes** after bridge/NAT processing; capture that independently from an authorized client before enabling real ingress.
+
 ```sh
 node scripts/private-dev-ingress-check.mjs
 ```

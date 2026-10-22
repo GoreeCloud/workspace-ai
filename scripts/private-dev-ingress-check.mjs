@@ -3,14 +3,9 @@
 // Run on an authorized NetBird device only. Never prints cookies or response bodies.
 import {lookup} from 'node:dns/promises'
 import {request} from 'node:https'
-import {isIP} from 'node:net'
+import {isNetBirdIPv4,routeSourceIPv4} from './private-dev-netbird-route.mjs'
 
 const hostname = 'workspace-ai-dev.goreecloud.com'
-const isNetBirdIPv4 = address => {
-  if (isIP(address) !== 4) return false
-  const [first, second] = address.split('.').map(Number)
-  return first === 100 && second >= 64 && second <= 127
-}
 
 async function status(path) {
   return new Promise((resolve,reject) => {
@@ -35,6 +30,13 @@ try {
     throw new Error('Hostname must resolve exclusively to approved NetBird overlay IPv4 addresses')
   }
   console.log('PASS private NetBird DNS resolution')
+  for(const address of new Set(entries.map(entry=>entry.address))){
+    const source=await routeSourceIPv4(address)
+    if(!isNetBirdIPv4(source)){
+      throw new Error('Private hostname route does not select a NetBird overlay source address')
+    }
+  }
+  console.log('PASS client selected NetBird overlay source address (not proof of Caddy-observed peer IP)')
   for (const path of ['/', '/api/status']) {
     const code = await status(path)
     if (![401,403].includes(code)) {
