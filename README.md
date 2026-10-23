@@ -5,6 +5,7 @@ A local-first, open-source AI chat workspace with **Sign in with ChatGPT** plan 
 ## Features
 
 - Responsive desktop/mobile chat interface, streaming replies, conversation history, Markdown rendering, and export.
+- Interrupted generation is marked as incomplete on the next page load, with partial answer text retained; malformed browser history locks editing instead of silently overwriting saved data.
 - GC UI collapsible sidebar with MCP, API, Projects, Pinned, All Chats, and Settings; compact mode and expanded groups persist locally.
 - Project workspaces with independent instructions, glyphs, editable project-isolated memory notes, optional reference-file sharing, text references, integration profiles and movable conversations.
 - Versioned JSON backup and validated restore for conversations, projects, and pins; supports merge or explicit replacement, with credential-free archives and storage-failure rollback attempts.

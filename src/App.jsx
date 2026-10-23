@@ -14,7 +14,8 @@ import {prepareProjectDeletion} from './project-deletion.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {accountScopedKey,browserAccountScope} from './account-workspace-scope.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
-import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem} from './browser-storage-guard.js';
+import {consumeChatResponse,recoverInterruptedChats} from './chat-response-stream.js';
+import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem,readableChatHistory} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import ChatAttachments from './ChatAttachments.jsx';
 import {normalizeChatAttachments,messageWithAttachments,imageInputsForMessage} from './chat-attachments.js';
@@ -25,7 +26,7 @@ import {appendPromptDraft,promptsForContext} from './prompt-library.js';
 import {Sparkles,Plus,Menu,Settings2,Trash2,ArrowUp,Square,ChevronDown,Copy,ShieldCheck,CheckCircle,Download,X,AlertTriangle,KeyRound,ArrowLeft,Ellipsis,Pin,PinOff,Archive,ArchiveRestore,Search,Mic,MicOff,Maximize2,Minimize2} from 'lucide-react';
 const KEY=accountScopedKey('workspace-ai-history-v1');
 const ACTIVE_WORKSPACE_KEY=accountScopedKey(WORKSPACE_KEY);
-const initial=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return []}};
+const initial=()=>{try{const value=JSON.parse(localStorage.getItem(KEY)||'[]');return readableChatHistory(value)?recoverInterruptedChats(value):[]}catch{return []}};
 function report(error){return error instanceof Error?error.message:String(error)}
 async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});const json=await r.json();if(!r.ok)throw Error(json.error||'Request failed');return json}
 export default function App(){
@@ -200,7 +201,7 @@ async function send(value=draft){
   let pending;try{pending=normalizeChatAttachments(attachmentsDraft)}catch(e){setError(report(e));return}
   const images=imageInputsForMessage({attachments:pending});
   const text=value.trim()||(pending.length?'Please review the attached content.':'');
-  if(!text||!ready||busy||storageConflict)return;
+  if(!text||!ready||busy||controller.current||storageConflict)return;
   if(images.length&&provider!=='api'){setError('Images require the separately billed OpenAI API. Choose OpenAI API under Models & billing before sending.');return}
   if(!chat&&chatsRef.current.length>=50){setError('Workspace AI stores at most 50 conversations. Delete an old chat before starting another.');return}
   const id=chat?.id||crypto.randomUUID();
@@ -210,7 +211,7 @@ async function send(value=draft){
   const requestHistory=[...scopedChatMessages(chat),message]; // Send only the current project segment.
   let preparedMessages
   try{preparedMessages=inferenceMessages(requestHistory.map(m=>({...m,content:messageWithAttachments(m)})),context)}catch(e){setError(report(e));return}
-  const answer={id:crypto.randomUUID(),role:'assistant',content:''};
+  const answer={id:crypto.randomUUID(),role:'assistant',content:'',pending:true};
   if(!commitChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:activeProjectId||null,updatedAt:Date.now()},...v]))return;
   setCurrent(id);setDraft('');setAttachmentsDraft([]);setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
@@ -220,29 +221,14 @@ async function send(value=draft){
     }),signal:stop.signal});
     if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
     if(!response.body)throw Error('The server returned no stream');
-    const reader=response.body.getReader(),decoder=new TextDecoder();
-    let buffer='',complete=false;
-    const update=line=>{
-      if(!line.trim())return;
-      const e=JSON.parse(line);
+    await consumeChatResponse(response.body,e=>{
       if(e.type==='meta')changeLast(id,m=>({...m,provider:e.provider,model:e.model}));
-      if(e.type==='delta')changeLast(id,m=>({...m,content:m.content+(e.text||'')}));
-      if(e.type==='complete')complete=true;
-      if(e.type==='error')throw Error(e.message||'Streaming error');
-    };
-    try{
-      while(true){
-        const event=await reader.read();if(event.done)break;
-        buffer+=decoder.decode(event.value,{stream:true});
-        let i=buffer.indexOf('\n');
-        while(i!==-1){update(buffer.slice(0,i));buffer=buffer.slice(i+1);i=buffer.indexOf('\n')}
-      }
-      if(buffer.trim())update(buffer);
-    }finally{reader.releaseLock()}
-    if(!complete)throw Error('Response ended unexpectedly');
+      if(e.type==='delta')changeLast(id,m=>({...m,content:m.content+e.text}));
+    });
+    changeLast(id,m=>({...m,pending:false}));
   }catch(e){
     const message=stop.signal.aborted?'Generation stopped':report(e);
-    changeLast(id,m=>({...m,error:true,content:m.content||message}));
+    changeLast(id,m=>({...m,pending:false,error:true,content:m.content||message}));
     setError(message);
   }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
 }
