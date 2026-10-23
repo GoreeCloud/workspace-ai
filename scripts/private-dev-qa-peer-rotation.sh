@@ -69,6 +69,7 @@ docker run --rm --pull never --user 1000:1000 \
     const request=http.get({hostname:"workspace-ai-private-dev",port:3031,
       path:"/api/status",timeout:5000,headers:{
         Host:"workspace-ai-dev.goreecloud.com",
+        "X-GoreeCloud-Gateway-Version":"1",
         "X-GoreeCloud-Gateway-Token":credential
       }},res=>{res.resume();res.on("end",()=>{
         if(res.statusCode!==403){console.error("FAIL: stale peer unexpectedly accepted");process.exitCode=1}

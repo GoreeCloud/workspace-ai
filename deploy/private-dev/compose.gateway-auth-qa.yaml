@@ -16,7 +16,7 @@ services:
         - CMD
         - node
         - -e
-        - "const fs=require('node:fs');const http=require('node:http');const token=fs.readFileSync(process.env.WORKSPACE_AI_PRIVATE_DEV_GATEWAY_TOKEN_FILE,'utf8').trim();http.get({host:'127.0.0.1',port:3031,path:'/api/status',headers:{Host:'workspace-ai-dev.goreecloud.com','X-GoreeCloud-Gateway-Token':token}},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+        - "const fs=require('node:fs');const http=require('node:http');const token=fs.readFileSync(process.env.WORKSPACE_AI_PRIVATE_DEV_GATEWAY_TOKEN_FILE,'utf8').trim();http.get({host:'127.0.0.1',port:3031,path:'/api/status',headers:{Host:'workspace-ai-dev.goreecloud.com','X-GoreeCloud-Gateway-Version':'1','X-GoreeCloud-Gateway-Token':token}},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
       interval: 10s
       timeout: 4s
       retries: 3

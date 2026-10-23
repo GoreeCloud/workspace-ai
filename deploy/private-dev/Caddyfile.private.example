@@ -42,6 +42,7 @@ workspace-ai-dev.goreecloud.com {
             header_up -X-Auth-User
             # Requires a separate owner-provisioned gateway peer token. This
             # overwrites client-supplied values; the backend MUST enforce it.
+            header_up X-GoreeCloud-Gateway-Version 1
             header_up X-GoreeCloud-Gateway-Token {$WORKSPACE_AI_DEV_GATEWAY_TOKEN}
         }
     }

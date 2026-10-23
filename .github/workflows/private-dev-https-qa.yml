@@ -86,7 +86,7 @@ jobs:
                   r=>{r.resume();r.on("end",()=>ok(r.statusCode))}).on("error",fail);
               });
               (async()=>{
-                for(const headers of [{},{"X-GoreeCloud-Gateway-Token":"0".repeat(64)}]){
+                for(const headers of [{},{"X-GoreeCloud-Gateway-Version":"1","X-GoreeCloud-Gateway-Token":"0".repeat(64)}]){
                   const result=await request(headers);
                   if(result!==403)throw Error("Untrusted private Docker peer returned "+result);
                 }

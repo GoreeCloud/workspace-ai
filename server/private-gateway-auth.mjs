@@ -4,6 +4,8 @@ import {constants, closeSync, fstatSync, openSync, readFileSync} from 'node:fs'
 import {timingSafeEqual} from 'node:crypto'
 
 export const GATEWAY_TOKEN_HEADER = 'x-goreecloud-gateway-token'
+export const GATEWAY_VERSION_HEADER = 'x-goreecloud-gateway-version'
+export const GATEWAY_CONTRACT_VERSION = '1'
 
 export function loadPrivateGatewayToken(env = process.env) {
   const required = env.WORKSPACE_AI_PRIVATE_DEV_GATEWAY_REQUIRED

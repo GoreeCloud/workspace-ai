@@ -52,9 +52,9 @@ test "$success" = "$expected_peer_status 0" || { echo 'FAIL synthetic HTTPS peer
 echo "PASS synthetic HTTPS owner auth and upstream status $expected_peer_status: $success"
 
 # Caddy must replace, never forward, an attacker-chosen upstream peer token.
-spoofed="$(request_with_auth -H 'X-GoreeCloud-Gateway-Token: 0000000000000000000000000000000000000000000000000000000000000000' --write-out '%{http_code} %{ssl_verify_result}' "$url")"
+spoofed="$(request_with_auth -H 'X-GoreeCloud-Gateway-Token: 0000000000000000000000000000000000000000000000000000000000000000' -H 'X-GoreeCloud-Gateway-Version: 0' --write-out '%{http_code} %{ssl_verify_result}' "$url")"
 test "$spoofed" = "$expected_peer_status 0" || { echo 'FAIL gateway did not enforce expected upstream peer token' >&2; exit 1; }
-echo "PASS synthetic HTTPS proxy overwrote spoofed gateway peer token: $spoofed"
+echo "PASS synthetic HTTPS proxy overwrote spoofed gateway peer token and contract version: $spoofed"
 
 origin="$(request_with_auth -X POST -H 'Origin: https://untrusted.invalid' --write-out '%{http_code}' 'https://workspace-ai-dev.goreecloud.com/api/chat')"
 test "$origin" = '403'

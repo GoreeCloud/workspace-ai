@@ -8,7 +8,7 @@ import {mkdtemp,writeFile,chmod,rm,symlink} from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
-import {GATEWAY_TOKEN_HEADER,loadPrivateGatewayToken,matchesPrivateGatewayToken} from '../server/private-gateway-auth.mjs'
+import {GATEWAY_TOKEN_HEADER,GATEWAY_VERSION_HEADER,GATEWAY_CONTRACT_VERSION,loadPrivateGatewayToken,matchesPrivateGatewayToken} from '../server/private-gateway-auth.mjs'
 
 const devEnv = {
   WORKSPACE_AI_PRIVATE_DEV_ENABLED:'true',
@@ -69,9 +69,10 @@ test('private gateway peer credential protects real server before Host and Origi
     }
     for(const name of ['OPENAI_API_KEY','WORKSPACE_AI_AGENT_OWNER_KEY','WORKSPACE_SYNC_OAUTH_CLIENT_IDS'])delete env[name]
     child=spawn(process.execPath,[fileURLToPath(new URL('../server/index.mjs',import.meta.url))],{env,cwd:dir,stdio:'ignore'})
-    const request=(host,token,origin,method='GET',route='/api/status')=>new Promise((ok,fail)=>{
+    const request=(host,token,origin,method='GET',route='/api/status',version=GATEWAY_CONTRACT_VERSION)=>new Promise((ok,fail)=>{
       const headers={Host:host}
       if(token!==undefined)headers[GATEWAY_TOKEN_HEADER]=token
+      if(version!==null)headers[GATEWAY_VERSION_HEADER]=version
       if(origin!==undefined)headers.Origin=origin
       const req=httpRequest({host:'127.0.0.1',port,method,path:route,headers,timeout:3000},res=>{
         res.resume();res.on('end',()=>ok(res.statusCode))
@@ -87,6 +88,9 @@ test('private gateway peer credential protects real server before Host and Origi
     }
     assert.equal(ready,true)
     assert.equal(await request(host,undefined),403)
+    assert.equal(await request(host,secret,undefined,'GET','/api/status',null),403)
+    assert.equal(await request(host,secret,undefined,'GET','/api/status','0'),403)
+    assert.equal(await request(host,secret,undefined,'GET','/api/status','2'),403)
     assert.equal(await request(host,randomBytes(32).toString('hex')),403)
     assert.equal(await request('attacker.invalid',secret),403)
     assert.equal(await request(host,secret,'https://attacker.invalid','POST','/api/chat'),403)

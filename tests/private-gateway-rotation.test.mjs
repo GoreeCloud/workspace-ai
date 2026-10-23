@@ -23,7 +23,7 @@ async function reservePort() {
 async function status(port,token) {
   return new Promise((resolve,reject)=>{
     const req=httpRequest({hostname:'127.0.0.1',port,path:'/api/status',timeout:2500,
-      headers:{Host:hostname,'X-GoreeCloud-Gateway-Token':token}},res=>{
+      headers:{Host:hostname,'X-GoreeCloud-Gateway-Version':'1','X-GoreeCloud-Gateway-Token':token}},res=>{
       res.resume()
       res.on('end',()=>resolve(res.statusCode))
     })
