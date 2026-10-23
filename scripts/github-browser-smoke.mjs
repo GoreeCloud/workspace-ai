@@ -1,4 +1,4 @@
-// Synthetic Chromium acceptance for the native GoreeCloud GitHub browser.
+// Synthetic Chromium acceptance for the GoreeCloud provider browser and chat.
 // No provider credentials, paid inference, or external data are used.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
@@ -84,6 +84,19 @@ try {
       const raw=typeof input==='string'?input:input?.url
       const url=new URL(raw,location.href)
       const wrap=body=>Promise.resolve(new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}}))
+      if(url.pathname==='/api/status')return wrap({connected:false,planEnabled:false,apiConfigured:true,apiKeySource:'synthetic-qa',accounts:[]})
+      if(url.pathname==='/api/chat'){
+        const count=Number(sessionStorage.getItem('qa-chat-requests')||'0')+1
+        sessionStorage.setItem('qa-chat-requests',String(count))
+        const frame=count===1
+          ? '{"type":"meta","provider":"api","model":"synthetic-qa"}\\n{"type":"delta","text":"Synthetic partial response"}\\n'
+          : '{"type":"meta","provider":"api","model":"synthetic-qa"}\\n{"type":"delta","text":"Complete after recovery"}\\n{"type":"complete"}\\n'
+        const encoder=new TextEncoder()
+        return Promise.resolve(new Response(new ReadableStream({start(controller){
+          controller.enqueue(encoder.encode(frame))
+          if(count!==1)controller.close()
+        }}),{status:200,headers:{'Content-Type':'application/x-ndjson'}}))
+      }
       if(url.pathname==='/api/integrations')return wrap({executionEnabled:false,services:[{
         id:'github',name:'GitHub',kind:'api',category:'Development',auth:'token',
         connected:true,hasSessionToken:true,status:'connected',message:'Synthetic authorized connection',
@@ -164,11 +177,41 @@ try {
   await wait("document.querySelector('.promptCard strong')?.textContent==='Review test'")
   await evaluate("document.querySelector('.promptCard button.primary').click()")
   await wait("document.querySelector('textarea[aria-label=\"Message to Workspace AI\"]')?.value==='Review this example'")
+  // An intercepted, indefinite response stream must persist a partial answer
+  // before reload and recover it as interrupted, without losing the question.
+  const chooseSyntheticApi=async()=>{
+    await evaluate("document.querySelector('button[aria-label=\"Chat options\"]').click()")
+    await wait("document.querySelector('.chatHeaderPopup')!==null")
+    await evaluate("[...document.querySelectorAll('.chatHeaderPopup button')].find(b=>b.textContent==='Settings').click()")
+    await wait("document.querySelector('.settingsTabs')!==null")
+    await evaluate("[...document.querySelectorAll('.settingsTabs button')].find(b=>b.textContent==='Models & billing').click()")
+    await wait("document.querySelector('.settingsPanel:not([hidden]) .segments button')!==null")
+    await evaluate("[...document.querySelectorAll('.settingsPanel:not([hidden]) .segments button')].find(b=>b.textContent==='OpenAI API').click()")
+    await wait("[...document.querySelectorAll('.settingsPanel:not([hidden]) .segments button')].some(b=>b.textContent==='OpenAI API'&&b.getAttribute('aria-pressed')==='true')")
+    await evaluate("document.querySelector('button[aria-label=\"Close settings\"]').click()")
+  }
+  await chooseSyntheticApi()
+  await wait("document.querySelector('button[aria-label=\"Send message\"]')?.disabled===false")
+  await evaluate("document.querySelector('button[aria-label=\"Send message\"]').click()")
+  await wait("(()=>{const chat=JSON.parse(localStorage.getItem('workspace-ai-history-v1')||'[]')[0];return chat?.messages?.[1]?.pending===true&&chat.messages[1].content==='Synthetic partial response'})()")
+  assert.equal(await evaluate("sessionStorage.getItem('qa-chat-requests')"),'1')
+  await send('Page.reload',{ignoreCache:true})
+  await wait("(()=>{const chat=JSON.parse(localStorage.getItem('workspace-ai-history-v1')||'[]')[0];return chat?.messages?.[0]?.content==='Review this example'&&chat.messages[1].content==='Synthetic partial response'&&chat.messages[1].pending===false&&chat.messages[1].error===true})()")
+  await evaluate("document.querySelector('.workspaceNavLink[aria-label=\"All Chats\"]').click()")
+  await wait("document.querySelector('.chatJump')!==null")
+  await evaluate("document.querySelector('.chatJump').click()")
+  await wait("document.querySelector('.message.assistant .markdown')?.textContent==='Synthetic partial response'")
+  await chooseSyntheticApi()
+  await evaluate("(()=>{const e=document.querySelector('textarea[aria-label=\"Message to Workspace AI\"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'Second synthetic message');e.dispatchEvent(new Event('input',{bubbles:true}))})()")
+  await wait("document.querySelector('button[aria-label=\"Send message\"]')?.disabled===false")
+  await evaluate("document.querySelector('button[aria-label=\"Send message\"]').click()")
+  await wait("(()=>{const a=JSON.parse(localStorage.getItem('workspace-ai-history-v1')||'[]')[0]?.messages;return a?.length===4&&a[3]?.content==='Complete after recovery'&&a[3].pending===false&&!a[3].error})()")
+  assert.equal(await evaluate("sessionStorage.getItem('qa-chat-requests')"),'2','No duplicate stream request')
   assert.deepEqual(exceptions,[],'Saved prompt browser workflow has no JavaScript exceptions')
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true})
   assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Horizontal mobile overflow')
   assert.deepEqual(exceptions,[],'Browser JavaScript exceptions')
-  console.log(JSON.stringify({passed:true,repositoryBrowser:true,issues:true,pullRequests:true,pagination:true,dropbox:true,mobile:true}))
+  console.log(JSON.stringify({passed:true,repositoryBrowser:true,issues:true,pullRequests:true,pagination:true,dropbox:true,streamRecovery:true,mobile:true}))
 } finally {
   try{ws?.close()}catch{}
   chrome.kill('SIGTERM')

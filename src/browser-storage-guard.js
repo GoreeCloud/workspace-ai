@@ -7,6 +7,14 @@ export class BrowserStorageConflict extends Error {
   this.name='BrowserStorageConflict'
  }
 }
+
+export function readableChatHistory(value) {
+ return Array.isArray(value) && value.every(chat =>
+  chat && typeof chat === 'object' && !Array.isArray(chat) && typeof chat.id === 'string' &&
+  Array.isArray(chat.messages) && chat.messages.every(message =>
+   message && typeof message === 'object' && !Array.isArray(message) &&
+   ['user','assistant'].includes(message.role) && typeof message.content === 'string'))
+}
 export function createBrowserStorageGuard(storage,keys) {
  if(!Array.isArray(keys)||keys.length===0||new Set(keys).size!==keys.length)
   throw Error('Invalid browser storage keys')
@@ -54,7 +62,7 @@ export function createBrowserStorageGuard(storage,keys) {
 export function browserStorageLoadProblem(storage,chatsKey,workspaceKey) {
  try {
   const chats=storage.getItem(chatsKey)
-  if(chats!==null&&!Array.isArray(JSON.parse(chats)))throw Error('Invalid saved conversations')
+  if(chats!==null&&!readableChatHistory(JSON.parse(chats)))throw Error('Invalid saved conversations')
   const workspace=storage.getItem(workspaceKey)
   if(workspace!==null) {
    const value=JSON.parse(workspace)
