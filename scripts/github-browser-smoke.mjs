@@ -180,10 +180,14 @@ try {
   // An intercepted, indefinite response stream must persist a partial answer
   // before reload and recover it as interrupted, without losing the question.
   const chooseSyntheticApi=async()=>{
-    await evaluate("document.querySelector('button[aria-label=\"Open settings\"]').click()")
+    await evaluate("document.querySelector('button[aria-label=\"Chat options\"]').click()")
+    await wait("document.querySelector('.chatHeaderPopup')!==null")
+    await evaluate("[...document.querySelectorAll('.chatHeaderPopup button')].find(b=>b.textContent==='Settings').click()")
     await wait("document.querySelector('.settingsTabs')!==null")
     await evaluate("[...document.querySelectorAll('.settingsTabs button')].find(b=>b.textContent==='Models & billing').click()")
+    await wait("document.querySelector('.settingsPanel:not([hidden]) .segments button')!==null")
     await evaluate("[...document.querySelectorAll('.settingsPanel:not([hidden]) .segments button')].find(b=>b.textContent==='OpenAI API').click()")
+    await wait("[...document.querySelectorAll('.settingsPanel:not([hidden]) .segments button')].some(b=>b.textContent==='OpenAI API'&&b.getAttribute('aria-pressed')==='true')")
     await evaluate("document.querySelector('button[aria-label=\"Close settings\"]').click()")
   }
   await chooseSyntheticApi()
