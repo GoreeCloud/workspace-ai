@@ -3,6 +3,7 @@ package com.goreecloud.workspaceai.nativeapp;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.res.Configuration;
 import android.content.res.ColorStateList;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -31,6 +32,7 @@ public final class MainActivity extends Activity {
     private int CANVAS, SURFACE, INK, SOFT, BRAND, PALE, BORDER, MUTED;
     private int HERO_START, HERO_END, HERO_TEXT, SETTINGS_TILE, DISABLED_SEND;
     private boolean darkMode;
+    private boolean compactLandscape;
     private FrameLayout content;
     private LinearLayout composer, nav;
     private EditText draft;
@@ -62,6 +64,11 @@ public final class MainActivity extends Activity {
         GcUiNativePalette colors = GcUiNativePalette.forConfiguration(
                 getResources().getConfiguration());
         darkMode = colors.dark;
+        Configuration configuration = getResources().getConfiguration();
+        // Phones in landscape have little vertical room once system bars, the
+        // editor and navigation are present. Tablets keep the full layout.
+        compactLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                && configuration.screenHeightDp < 500;
         CANVAS = colors.canvas;
         SURFACE = colors.surface;
         INK = colors.ink;
@@ -120,12 +127,14 @@ public final class MainActivity extends Activity {
     private View makeHeader() {
         LinearLayout bar = row();
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(20), dp(12), dp(18), dp(12));
+        bar.setPadding(dp(compactLandscape ? 18 : 20),
+                dp(compactLandscape ? 4 : 12), dp(18), dp(compactLandscape ? 4 : 12));
         bar.setBackgroundColor(SURFACE);
         FrameLayout logo = new FrameLayout(this);
         logo.setBackground(round(BRAND, 14, 0));
         logo.addView(new IconView(3, SURFACE), new FrameLayout.LayoutParams(dp(24), dp(24), Gravity.CENTER));
-        bar.addView(logo, new LinearLayout.LayoutParams(dp(45), dp(45)));
+        bar.addView(logo, new LinearLayout.LayoutParams(
+                dp(compactLandscape ? 36 : 45), dp(compactLandscape ? 36 : 45)));
         LinearLayout brand = column();
         brand.setPadding(dp(12), 0, 0, 0);
         brand.addView(label("Workspace AI", 18, INK, true));
@@ -145,9 +154,11 @@ public final class MainActivity extends Activity {
 
     private LinearLayout makeComposer() {
         LinearLayout wrapper = column();
-        wrapper.setPadding(dp(18), dp(8), dp(18), dp(9));
+        wrapper.setPadding(dp(18), dp(compactLandscape ? 3 : 8), dp(18),
+                dp(compactLandscape ? 3 : 9));
         LinearLayout card = column();
-        card.setPadding(dp(15), dp(10), dp(12), dp(10));
+        card.setPadding(dp(15), dp(compactLandscape ? 4 : 10), dp(12),
+                dp(compactLandscape ? 4 : 10));
         card.setBackground(round(SURFACE, 18, BORDER));
         wrapper.addView(card);
         draft = new EditText(this);
@@ -158,8 +169,8 @@ public final class MainActivity extends Activity {
         draft.setBackgroundColor(Color.TRANSPARENT);
         draft.setPadding(0, dp(2), 0, dp(6));
         draft.setSingleLine(false);
-        draft.setMinLines(2);
-        draft.setMaxLines(5);
+        draft.setMinLines(compactLandscape ? 1 : 2);
+        draft.setMaxLines(compactLandscape ? 2 : 5);
         draft.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE |
                 InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         draft.setContentDescription("Local message draft");
@@ -174,14 +185,16 @@ public final class MainActivity extends Activity {
                 new FrameLayout.LayoutParams(dp(21), dp(21), Gravity.CENTER));
         send.setEnabled(false);
         send.setContentDescription("Send disabled until secure AI connection is available");
-        actions.addView(send, new LinearLayout.LayoutParams(dp(42), dp(42)));
+        actions.addView(send, new LinearLayout.LayoutParams(
+                dp(compactLandscape ? 36 : 42), dp(compactLandscape ? 36 : 42)));
         card.addView(actions);
         return wrapper;
     }
 
     private LinearLayout makeNavigation() {
         LinearLayout bar = row();
-        bar.setPadding(dp(12), dp(5), dp(12), dp(5));
+        bar.setPadding(dp(12), dp(compactLandscape ? 2 : 5), dp(12),
+                dp(compactLandscape ? 2 : 5));
         bar.setBackgroundColor(SURFACE);
         tabs = new LinearLayout[3];
         tabIcons = new IconView[3];
@@ -192,7 +205,8 @@ public final class MainActivity extends Activity {
             LinearLayout tab = column();
             tab.setGravity(Gravity.CENTER);
             IconView icon = new IconView(i, SOFT);
-            tab.addView(icon, new LinearLayout.LayoutParams(dp(22), dp(22)));
+            tab.addView(icon, new LinearLayout.LayoutParams(
+                    dp(compactLandscape ? 18 : 22), dp(compactLandscape ? 18 : 22)));
             TextView name = label(titles[i], 11, SOFT, false);
             name.setPadding(0, dp(3), 0, 0);
             name.setGravity(Gravity.CENTER);
@@ -203,7 +217,8 @@ public final class MainActivity extends Activity {
             tab.setFocusable(true);
             tab.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
             tab.setOnClickListener(v -> showTab(selected));
-            bar.addView(tab, new LinearLayout.LayoutParams(0, dp(59), 1));
+            bar.addView(tab, new LinearLayout.LayoutParams(
+                    0, dp(compactLandscape ? 44 : 59), 1));
             tabs[i] = tab;
             tabIcons[i] = icon;
             tabLabels[i] = name;
@@ -240,7 +255,9 @@ public final class MainActivity extends Activity {
         scroll.setFillViewport(true);
         scroll.setVerticalScrollBarEnabled(false);
         LinearLayout page = column();
-        page.setPadding(dp(22), dp(25), dp(22), dp(24));
+        page.setPadding(dp(compactLandscape ? 18 : 22),
+                dp(compactLandscape ? 10 : 25), dp(compactLandscape ? 18 : 22),
+                dp(compactLandscape ? 14 : 24));
         scroll.addView(page);
         content.addView(scroll);
         if (selected == 0) showChat(page);
@@ -250,11 +267,12 @@ public final class MainActivity extends Activity {
 
     private void showChat(LinearLayout page) {
         page.addView(eyebrow("YOUR SPACE TO THINK"));
-        page.addView(space(10));
-        page.addView(sectionHeading("Make room for what’s next.", 29));
-        page.addView(space(9));
-        page.addView(label("Bring questions, ideas, and plans together in one place.", 14, SOFT, false));
-        page.addView(space(24));
+        page.addView(space(compactLandscape ? 5 : 10));
+        page.addView(sectionHeading("Make room for what’s next.", compactLandscape ? 24 : 29));
+        page.addView(space(compactLandscape ? 5 : 9));
+        page.addView(label("Bring questions, ideas, and plans together in one place.",
+                compactLandscape ? 13 : 14, SOFT, false));
+        page.addView(space(compactLandscape ? 12 : 24));
         LinearLayout hero = column();
         GradientDrawable background = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 new int[]{HERO_START, HERO_END});
