@@ -1,0 +1,51 @@
+# REVIEW-ONLY template; do not append to the live Caddyfile without prior validation.
+# Requires Caddy v2.8+ with Porkbun DNS plugin, a private DNS rewrite,
+# secret env values already installed in Caddy, and a dedicated isolated
+# Docker network on which the name workspace-ai-private-dev resolves.
+#
+# WORKSPACE_AI_DEV_BCRYPT_HASH must be a genuine bcrypt hash of a new,
+# owner-controlled development-only password. NEVER use a production password.
+# The username is scoped to this development site. No password is committed.
+# WORKSPACE_AI_DEV_GATEWAY_TOKEN is a separate random 32-byte hex token,
+# delivered privately to Caddy and to a restricted backend token file.
+# NEVER activate this route unless backend peer auth is enabled and tested.
+workspace-ai-dev.goreecloud.com {
+    tls {
+        dns porkbun {
+            api_key {$PORKBUN_API_KEY}
+            api_secret_key {$PORKBUN_API_SECRET_KEY}
+        }
+        propagation_delay 30s
+        propagation_timeout 10m
+        resolvers 1.1.1.1 8.8.8.8
+    }
+
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options nosniff
+        Referrer-Policy no-referrer
+        X-Robots-Tag "noindex, nofollow"
+    }
+
+    @netbird_client remote_ip 100.64.0.0/10
+    handle @netbird_client {
+        # Basic authentication is a temporary single-owner development gate,
+        # not full application identity, tenancy, session management or SSO.
+        basic_auth {
+            goreecloud {$WORKSPACE_AI_DEV_BCRYPT_HASH}
+        }
+        reverse_proxy workspace-ai-private-dev:3031 {
+            # Do not forward the gateway's Basic credentials to the app.
+            header_up -Authorization
+            header_up -Proxy-Authorization
+            header_up -X-Remote-User
+            header_up -X-Auth-User
+            # Requires a separate owner-provisioned gateway peer token. This
+            # overwrites client-supplied values; the backend MUST enforce it.
+            header_up X-GoreeCloud-Gateway-Version 1
+            header_up X-GoreeCloud-Gateway-Token {$WORKSPACE_AI_DEV_GATEWAY_TOKEN}
+        }
+    }
+
+    respond "Forbidden" 403
+}

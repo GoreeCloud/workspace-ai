@@ -1,0 +1,22 @@
+# SYNTHETIC QA ONLY — isolated Docker-only gateway; never use as a live VPS route.
+# The production/private access template remains Caddyfile.private.example.
+# QA_CLIENT_SUBNET refers to temporary Docker bridge peers, NOT the NetBird policy.
+workspace-ai-dev.goreecloud.com {
+    tls internal
+    @qa_clients remote_ip 172.16.0.0/12
+    handle @qa_clients {
+        basic_auth {
+            synthetic-qa {$WORKSPACE_AI_SYNTHETIC_BCRYPT_HASH}
+        }
+        reverse_proxy workspace-ai-private-dev:3031 {
+            header_up -Authorization
+            header_up -Proxy-Authorization
+            header_up -X-Remote-User
+            header_up -X-Auth-User
+            # Overwrite untrusted client-supplied peer credentials before proxying.
+            header_up X-GoreeCloud-Gateway-Version 1
+            header_up X-GoreeCloud-Gateway-Token {$WORKSPACE_AI_SYNTHETIC_GATEWAY_TOKEN}
+        }
+    }
+    respond "Forbidden" 403
+}

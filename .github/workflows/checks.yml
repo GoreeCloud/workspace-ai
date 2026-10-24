@@ -42,3 +42,47 @@ jobs:
             echo "Retrying transient Chromium startup with a fresh test profile."
             CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github
           fi
+
+  private-dev-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Syntax-check read-only private HTTPS acceptance probe
+        run: node --check scripts/private-dev-ingress-check.mjs
+      - name: Validate synthetic private gateway acceptance script
+        run: bash -n scripts/private-dev-qa-gateway-check.sh
+      - name: Syntax-check Caddy candidate preflight
+        run: bash -n scripts/private-dev-caddy-preflight.sh
+      - name: Syntax-check disposable TLS QA gateway rehearsal
+        run: bash -n scripts/private-dev-qa-gateway-rehearsal.sh
+      - name: Validate isolated Docker Compose configuration
+        run: docker compose -f deploy/private-dev/compose.yaml config --quiet
+      - name: Build and start private development smoke backend
+        run: docker compose -f deploy/private-dev/compose.yaml up --build -d --wait --wait-timeout 180
+      - name: Verify private backend and no published ports
+        shell: bash
+        run: |
+          set -euo pipefail
+          cid="$(docker compose -f deploy/private-dev/compose.yaml ps -q workspace-ai)"
+          test -n "$cid"
+          test -z "$(docker port "$cid")"
+          test "$(docker inspect -f '{{.HostConfig.ReadonlyRootfs}}' "$cid")" = true
+          docker exec "$cid" node --input-type=module -e '
+            import http from "node:http";
+            const call=(host,method="GET",origin)=>new Promise((resolve,reject)=>{
+              const headers={Host:host};
+              if(origin)headers.Origin=origin;
+              const req=http.request({hostname:"127.0.0.1",port:3031,path:"/api/status",method,headers},res=>{
+                res.resume();res.on("end",()=>resolve(res.statusCode));
+              });
+              req.once("error",reject);req.end();
+            });
+            if(await call("workspace-ai-dev.goreecloud.com")!==200)process.exit(1);
+            if(await call("127.0.0.1:3031")!==403)process.exit(2);
+            if(await call("workspace-ai-dev.goreecloud.com","POST","https://invalid.example")!==403)process.exit(3);
+          '
+      - name: Reusable private runtime isolation acceptance
+        run: bash scripts/private-dev-runtime-check.sh
+      - name: Remove isolated smoke resources
+        if: always()
+        run: docker compose -f deploy/private-dev/compose.yaml down --remove-orphans
