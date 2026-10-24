@@ -273,19 +273,28 @@ public final class MainActivity extends Activity {
         page.addView(label("Bring questions, ideas, and plans together in one place.",
                 compactLandscape ? 13 : 14, SOFT, false));
         page.addView(space(compactLandscape ? 12 : 24));
-        LinearLayout hero = column();
-        GradientDrawable background = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{HERO_START, HERO_END});
-        background.setCornerRadius(dp(23));
-        hero.setBackground(background);
-        hero.setPadding(dp(21), dp(23), dp(21), dp(22));
-        hero.addView(new IconView(3, HERO_TEXT), new LinearLayout.LayoutParams(dp(29), dp(29)));
-        hero.addView(space(19));
-        hero.addView(label("Ideas deserve a great home.", 20, HERO_TEXT, true));
-        hero.addView(space(8));
-        hero.addView(label("Offline developer preview. Secure AI messaging is not connected yet.", 13, HERO_TEXT, false));
-        page.addView(hero);
-        page.addView(space(26));
+        if (compactLandscape) {
+            // A tall promotional card is visually cut off above the landscape
+            // composer on phones. Use a concise, truthful status surface.
+            TextView notice = label("● Offline developer preview · nothing is sent", 12, BRAND, false);
+            notice.setPadding(dp(14), dp(9), dp(14), dp(9));
+            notice.setBackground(round(PALE, 12, 0));
+            page.addView(notice);
+        } else {
+            LinearLayout hero = column();
+            GradientDrawable background = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[]{HERO_START, HERO_END});
+            background.setCornerRadius(dp(23));
+            hero.setBackground(background);
+            hero.setPadding(dp(21), dp(23), dp(21), dp(22));
+            hero.addView(new IconView(3, HERO_TEXT), new LinearLayout.LayoutParams(dp(29), dp(29)));
+            hero.addView(space(19));
+            hero.addView(label("Ideas deserve a great home.", 20, HERO_TEXT, true));
+            hero.addView(space(8));
+            hero.addView(label("Offline developer preview. Secure AI messaging is not connected yet.", 13, HERO_TEXT, false));
+            page.addView(hero);
+        }
+        page.addView(space(compactLandscape ? 12 : 26));
         page.addView(label("Start with a draft", 17, INK, true));
         page.addView(space(6));
         page.addView(label("Try an idea — nothing is sent.", 12, SOFT, false));
