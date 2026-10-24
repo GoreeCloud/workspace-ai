@@ -23,6 +23,12 @@ export function isPublicIPv4(address){
   )
 }
 
+export function isNetBirdOverlayIPv4(address){
+  if(typeof address!=='string' || isIP(address)!==4) return false
+  const [a,b]=address.split('.').map(Number)
+  return a===100 && b>=64 && b<=127
+}
+
 // Newer Node HTTPS clients request an array of address records (`all:true`).
 // Preserve the same forced address under either lookup callback signature.
 export function forcedIPv4Lookup(publicIPv4){
@@ -44,8 +50,10 @@ export function probePublicDeny(publicIPv4,headers={}){
     },res=>{
       const code=res.statusCode
       const server=res.headers.server
+      const localAddress=res.socket?.localAddress
+      const remoteAddress=res.socket?.remoteAddress
       res.resume()
-      res.once('end',()=>resolve({code,server}))
+      res.once('end',()=>resolve({code,server,localAddress,remoteAddress}))
     })
     req.once('timeout',()=>req.destroy(new Error('Public HTTPS probe timed out')))
     req.once('error',reject)
@@ -68,7 +76,10 @@ export async function main(publicIPv4){
     }]
   ]
   for(const [label,headers] of attempts){
-    const {code,server}=await probePublicDeny(publicIPv4,headers)
+    const {code,server,localAddress,remoteAddress}=await probePublicDeny(publicIPv4,headers)
+    if(remoteAddress!==publicIPv4 || typeof localAddress!=='string' || isIP(localAddress)!==4 || isNetBirdOverlayIPv4(localAddress) || localAddress.startsWith('127.')){
+      throw new Error(`${label}: not proven to use a direct, non-NetBird IPv4 path to the requested public VPS address`)
+    }
     if(code!==403 || String(server).toLowerCase()!=='caddy'){
       throw new Error(`${label}: expected HTTPS 403 from Caddy; received HTTP ${code} via ${server||'unknown server'}`)
     }
