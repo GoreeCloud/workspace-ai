@@ -42,6 +42,20 @@ test('native unsent draft survives configuration recreation only in memory',()=>
   assert.doesNotMatch(source,/SharedPreferences|openFileOutput|FileOutputStream/)
 })
 
+test('phone landscape conserves the scrollable content viewport without changing tablet layout',()=>{
+  assert.match(source,/configuration\.orientation == Configuration\.ORIENTATION_LANDSCAPE/)
+  assert.match(source,/configuration\.screenHeightDp < 500/)
+  assert.match(source,/draft\.setMinLines\(compactLandscape \? 1 : 2\)/)
+  assert.match(source,/draft\.setMaxLines\(compactLandscape \? 2 : 5\)/)
+  assert.match(source,/dp\(compactLandscape \? 44 : 59\)/)
+  assert.match(source,/dp\(compactLandscape \? 10 : 25\)/)
+  assert.match(source,/page\.addView\(sectionHeading\("Make room for what’s next\.", compactLandscape \? 24 : 29\)\)/)
+  assert.match(source,/if \(compactLandscape\) \{[\s\S]*?TextView notice = label\("● Offline developer preview · nothing is sent"/)
+  assert.match(source,/notice\.setBackground\(round\(PALE, 12, 0\)\)/)
+  assert.match(source,/space\(compactLandscape \? 30 : 26\)/)
+  assert.match(source,/scroll\.setFillViewport\(true\)/)
+})
+
 test('native tab changes dismiss the message keyboard and expose selected state',()=>{
   assert.match(source,/selected != 0 && draft != null && draft\.hasFocus\(\)/)
   assert.match(source,/hideSoftInputFromWindow\(draft\.getWindowToken\(\), 0\)/)
@@ -119,5 +133,16 @@ test('emulator QA only recovers an identified launcher ANR with bounded attempts
   assert.match(qa,/tap_element\(find\(root, "Wait"\)\)/)
   assert.match(qa,/pidof", PACKAGE/)
   assert.match(qa,/ro\.kernel\.qemu/)
+  assert.doesNotMatch(qa,/force-stop", "com\.google\.android\.apps\.nexuslauncher"/)
+})
+
+test('emulator native element retries are bounded and require actual draft focus',()=>{
+  const qa = readFileSync(new URL('../scripts/native-android-emulator-smoke.py',import.meta.url),'utf8')
+  assert.match(qa,/def await_element\(label, attempts=5\):/)
+  assert.match(qa,/for attempt in range\(attempts\):/)
+  assert.match(qa,/pidof", PACKAGE/)
+  assert.match(qa,/for focus_attempt in range\(4\):/)
+  assert.match(qa,/editor\.attrib\.get\("focused"\) == "true"/)
+  assert.match(qa,/snapshot\(folder, "composer-after-input"\)/)
   assert.doesNotMatch(qa,/force-stop", "com\.google\.android\.apps\.nexuslauncher"/)
 })

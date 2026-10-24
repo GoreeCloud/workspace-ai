@@ -67,6 +67,27 @@ def find(root, label):
     raise AssertionError(f"Missing accessible UI element: {label}; hierarchy labels={labels!r}")
 
 
+def await_element(label, attempts=5):
+    """Retry transient UIAutomator omissions without suppressing real app failures.
+
+    A cold Android emulator may temporarily omit entire focusable panes while
+    Pixel Launcher recovers. Every attempt queries a fresh hierarchy, and an
+    absent/crashed native process or persistent missing target still fails CI.
+    """
+    for attempt in range(attempts):
+        root = hierarchy()
+        try:
+            return find(root, label)
+        except AssertionError:
+            assert adb("shell", "pidof", PACKAGE).strip(), \
+                f"Native Activity exited while waiting for {label}"
+            if attempt + 1 == attempts:
+                raise
+            print(f"Transient missing native target {label!r} ({attempt + 1}/{attempts}); retrying")
+            time.sleep(1)
+    raise AssertionError(f"Unreachable native target retry bound: {label}")
+
+
 def tap_element(element):
     coords = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]",
                       element.attrib.get("bounds", ""))
@@ -77,7 +98,7 @@ def tap_element(element):
 
 
 def click(label):
-    tap_element(find(hierarchy(), label))
+    tap_element(await_element(label))
     time.sleep(0.6)
 
 
@@ -85,7 +106,7 @@ def await_chat_tab(folder):
     # hierarchy() performs bounded system-only ANR recovery before returning.
     layout = hierarchy()
     ET.ElementTree(layout).write(folder / "startup-hierarchy.xml", encoding="unicode")
-    find(layout, "Chat tab")
+    await_element("Chat tab")
     assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity exited during emulator startup"
     return layout
 
@@ -117,27 +138,39 @@ def main():
     # produce inspectable screenshots rather than empty CI artifacts.
     snapshot(folder, "startup")
     layout = await_chat_tab(folder)
-    find(layout, "Chat tab")
-    find(hierarchy(), "Projects tab")
-    find(hierarchy(), "Settings tab")
-    find(hierarchy(), "Local message draft")
+    await_element("Chat tab")
+    await_element("Projects tab")
+    await_element("Settings tab")
+    await_element("Local message draft")
     snapshot(folder, "chat")
 
     click("Projects tab")
-    find(hierarchy(), "Your projects will live here")
+    await_element("Your projects will live here")
     snapshot(folder, "projects")
 
     click("Settings tab")
-    find(hierarchy(), "Connection")
-    find(hierarchy(), "Privacy")
+    await_element("Connection")
+    await_element("Privacy")
     snapshot(folder, "settings")
 
     click("Chat tab")
     click("Local message draft")
+    # Do not inject synthetic text until the editor actually owns focus.
+    # Launcher ANR recovery can briefly steal focus immediately after a tap.
+    for focus_attempt in range(4):
+        editor = await_element("Local message draft")
+        if editor.attrib.get("focused") == "true":
+            break
+        print(f"Native editor not yet focused ({focus_attempt + 1}/4); tapping again")
+        tap_element(editor)
+        time.sleep(1)
+    else:
+        raise AssertionError("Native draft editor did not acquire focus")
     time.sleep(1)
     adb("shell", "input", "text", "GoreeNativeDraft42")
-    find(hierarchy(), "GoreeNativeDraft42")
-    find(hierarchy(), "Send disabled until secure AI connection is available")
+    snapshot(folder, "composer-after-input")
+    await_element("GoreeNativeDraft42")
+    await_element("Send disabled until secure AI connection is available")
     snapshot(folder, "composer-keyboard")
 
     # Changing system theme recreates an Activity on a stock emulator. Verify
@@ -148,19 +181,19 @@ def main():
     time.sleep(2)
     assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity crashed during theme transition"
     await_chat_tab(folder)
-    find(hierarchy(), "Your projects will live here")
+    await_element("Your projects will live here")
     click("Chat tab")
-    find(hierarchy(), "GoreeNativeDraft42")
+    await_element("GoreeNativeDraft42")
     snapshot(folder, "chat-dark")
     click("Settings tab")
-    find(hierarchy(), "Dark · follows system")
+    await_element("Dark · follows system")
     snapshot(folder, "settings-dark")
     adb("shell", "cmd", "uimode", "night", "no")
     time.sleep(2)
     assert adb("shell", "pidof", PACKAGE).strip(), "Native Activity crashed restoring light theme"
-    find(hierarchy(), "Light · follows system")
+    await_element("Light · follows system")
     click("Chat tab")
-    find(hierarchy(), "GoreeNativeDraft42")
+    await_element("GoreeNativeDraft42")
 
     # A force stop is a process lifetime boundary, not a configuration change.
     # The offline preview must not persist this synthetic draft to local storage.
