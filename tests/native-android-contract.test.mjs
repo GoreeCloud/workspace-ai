@@ -42,6 +42,17 @@ test('native unsent draft survives configuration recreation only in memory',()=>
   assert.doesNotMatch(source,/SharedPreferences|openFileOutput|FileOutputStream/)
 })
 
+test('phone landscape conserves the scrollable content viewport without changing tablet layout',()=>{
+  assert.match(source,/configuration\.orientation == Configuration\.ORIENTATION_LANDSCAPE/)
+  assert.match(source,/configuration\.screenHeightDp < 500/)
+  assert.match(source,/draft\.setMinLines\(compactLandscape \? 1 : 2\)/)
+  assert.match(source,/draft\.setMaxLines\(compactLandscape \? 2 : 5\)/)
+  assert.match(source,/dp\(compactLandscape \? 44 : 59\)/)
+  assert.match(source,/dp\(compactLandscape \? 10 : 25\)/)
+  assert.match(source,/page\.addView\(sectionHeading\("Make room for what’s next\.", compactLandscape \? 24 : 29\)\)/)
+  assert.match(source,/scroll\.setFillViewport\(true\)/)
+})
+
 test('native tab changes dismiss the message keyboard and expose selected state',()=>{
   assert.match(source,/selected != 0 && draft != null && draft\.hasFocus\(\)/)
   assert.match(source,/hideSoftInputFromWindow\(draft\.getWindowToken\(\), 0\)/)
