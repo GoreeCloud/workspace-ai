@@ -4,6 +4,7 @@
 import {lookup} from 'node:dns/promises'
 import {request} from 'node:https'
 import {isNetBirdIPv4,routeSourceIPv4} from './private-dev-netbird-route.mjs'
+import {isExpectedOwnerBasicChallenge} from './private-dev-auth-challenge.mjs'
 
 const hostname = 'workspace-ai-dev.goreecloud.com'
 
@@ -16,7 +17,7 @@ async function status(path) {
     }, res => {
       const code = res.statusCode
       res.resume()
-      res.once('end', () => resolve(code))
+      res.once('end', () => resolve({code, challenge: res.headers['www-authenticate']}))
     })
     req.once('timeout', () => req.destroy(new Error('TLS/HTTPS timeout')))
     req.once('error', reject)
@@ -38,11 +39,11 @@ try {
   }
   console.log('PASS client selected NetBird overlay source address (not proof of Caddy-observed peer IP)')
   for (const path of ['/', '/api/status']) {
-    const code = await status(path)
-    if (![401,403].includes(code)) {
-      throw new Error(path + ': unauthenticated access returned HTTP ' + code + ', expected 401 or 403')
+    const {code, challenge} = await status(path)
+    if (!isExpectedOwnerBasicChallenge(code, challenge)) {
+      throw new Error(path + ': expected HTTP 401 with an owner Basic authentication challenge; received HTTP ' + code)
     }
-    console.log('PASS unauthenticated request denied: ' + path + ' (HTTP ' + code + ')')
+    console.log('PASS owner Basic authentication challenge: ' + path + ' (HTTP 401)')
   }
   console.log('PASS trusted HTTPS and default-deny gateway checks')
   console.log('NOTE: authenticated browser/mobile, VPN disconnect, rollback, and credential-isolation tests remain separate gates')
