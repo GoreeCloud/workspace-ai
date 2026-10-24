@@ -52,6 +52,7 @@ test('phone landscape conserves the scrollable content viewport without changing
   assert.match(source,/page\.addView\(sectionHeading\("Make room for what’s next\.", compactLandscape \? 24 : 29\)\)/)
   assert.match(source,/if \(compactLandscape\) \{[\s\S]*?TextView notice = label\("● Offline developer preview · nothing is sent"/)
   assert.match(source,/notice\.setBackground\(round\(PALE, 12, 0\)\)/)
+  assert.match(source,/space\(compactLandscape \? 30 : 26\)/)
   assert.match(source,/scroll\.setFillViewport\(true\)/)
 })
 
