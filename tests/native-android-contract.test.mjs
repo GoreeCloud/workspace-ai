@@ -135,3 +135,14 @@ test('emulator QA only recovers an identified launcher ANR with bounded attempts
   assert.match(qa,/ro\.kernel\.qemu/)
   assert.doesNotMatch(qa,/force-stop", "com\.google\.android\.apps\.nexuslauncher"/)
 })
+
+test('emulator native element retries are bounded and require actual draft focus',()=>{
+  const qa = readFileSync(new URL('../scripts/native-android-emulator-smoke.py',import.meta.url),'utf8')
+  assert.match(qa,/def await_element\(label, attempts=5\):/)
+  assert.match(qa,/for attempt in range\(attempts\):/)
+  assert.match(qa,/pidof", PACKAGE/)
+  assert.match(qa,/for focus_attempt in range\(4\):/)
+  assert.match(qa,/editor\.attrib\.get\("focused"\) == "true"/)
+  assert.match(qa,/snapshot\(folder, "composer-after-input"\)/)
+  assert.doesNotMatch(qa,/force-stop", "com\.google\.android\.apps\.nexuslauncher"/)
+})
