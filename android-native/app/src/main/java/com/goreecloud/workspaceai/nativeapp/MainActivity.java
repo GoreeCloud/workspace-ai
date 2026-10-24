@@ -294,7 +294,9 @@ public final class MainActivity extends Activity {
             hero.addView(label("Offline developer preview. Secure AI messaging is not connected yet.", 13, HERO_TEXT, false));
             page.addView(hero);
         }
-        page.addView(space(compactLandscape ? 12 : 26));
+        // Keep the next scrollable section entirely below the short landscape
+        // fold instead of exposing a few clipped pixels of its heading.
+        page.addView(space(compactLandscape ? 30 : 26));
         page.addView(label("Start with a draft", 17, INK, true));
         page.addView(space(6));
         page.addView(label("Try an idea — nothing is sent.", 12, SOFT, false));
