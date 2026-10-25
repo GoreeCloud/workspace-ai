@@ -1,6 +1,7 @@
 // Optional interactive QA for a running, loopback-bound Workspace AI server.
 // Usage: CHROMIUM_EXECUTABLE=/path/to/chrome WORKSPACE_AI_BASE_URL=http://127.0.0.1:3031 npm run browser:smoke
 import assert from 'node:assert/strict'
+import {SERVICES} from '../server/services.mjs'
 import { spawn } from 'node:child_process'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -103,14 +104,16 @@ try {
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('workspace-ai-workspace-v1')).collapsed"), true)
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
   await wait("document.querySelector('.workspacePage h1')?.textContent==='API integrations'")
-  await wait("document.querySelectorAll('.workspaceCards .workspaceCard').length===7")
+  const expectedApiServices = SERVICES.filter(service => service.kind === 'api').length
+  await wait("document.querySelectorAll('.workspaceCards .workspaceCard').length===" + expectedApiServices)
   const apiServices = await evaluate("document.querySelectorAll('.workspaceCards .workspaceCard').length")
-  assert.equal(apiServices, 7)
+  assert.equal(apiServices, expectedApiServices)
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=MCP]').click()")
   await wait("document.querySelector('.workspacePage h1')?.textContent==='MCP connections'")
-  await wait("document.querySelectorAll('.workspaceCards .workspaceCard').length===3")
+  const expectedMcpServices = SERVICES.filter(service => service.kind === 'mcp').length
+  await wait("document.querySelectorAll('.workspaceCards .workspaceCard').length===" + expectedMcpServices)
   const mcpServices = await evaluate("document.querySelectorAll('.workspaceCards .workspaceCard').length")
-  assert.equal(mcpServices, 3)
+  assert.equal(mcpServices, expectedMcpServices)
   await send('Emulation.setDeviceMetricsOverride', { width: 430, height: 880, deviceScaleFactor: 1, mobile: true })
   await send('Page.reload', { ignoreCache: true })
   await wait("document.querySelector('.menu')!==null")
