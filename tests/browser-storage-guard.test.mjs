@@ -117,3 +117,16 @@ test('malformed saved messages block startup without overwriting private history
  assert.equal(storage.getItem(CHAT),corrupt)
  assert.equal(readableChatHistory([{id:'one',messages:[{role:'assistant',content:'Partial',pending:true}]}]),true)
 })
+
+
+test('over-capacity saved conversations stay intact and force read-only startup',async()=>{
+ const {readFile}=await import('node:fs/promises')
+ const history=Array.from({length:51},(_,i)=>({id:'chat-'+i,messages:[{id:'msg-'+i,role:'user',content:'Saved '+i}]}))
+ const serialized=JSON.stringify(history)
+ const storage=store({[CHAT]:serialized,[WORKSPACE]:'{"projects":[],"pinned":[]}'})
+ assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/more than 50 conversations/)
+ assert.equal(storage.getItem(CHAT),serialized)
+ const app=await readFile(new URL('../src/App.jsx',import.meta.url),'utf8')
+ assert.match(app,/storageGuard\.current\.write\(KEY,JSON\.stringify\(chats\)\)/)
+ assert.doesNotMatch(app,/chats\.slice\(0,50\)/)
+})

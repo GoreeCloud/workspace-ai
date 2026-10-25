@@ -62,7 +62,11 @@ export function createBrowserStorageGuard(storage,keys) {
 export function browserStorageLoadProblem(storage,chatsKey,workspaceKey) {
  try {
   const chats=storage.getItem(chatsKey)
-  if(chats!==null&&!readableChatHistory(JSON.parse(chats)))throw Error('Invalid saved conversations')
+  if(chats!==null) {
+   const history=JSON.parse(chats)
+   if(!readableChatHistory(history))throw Error('Invalid saved conversations')
+   if(history.length>50)return 'Saved Workspace AI browser data has more than 50 conversations. This tab is read-only to avoid discarding history. Preserve the original data before reducing the conversation count.'
+  }
   const workspace=storage.getItem(workspaceKey)
   if(workspace!==null) {
    const value=JSON.parse(workspace)

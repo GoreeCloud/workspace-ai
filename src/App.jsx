@@ -72,7 +72,7 @@ function commitChats(change) {
 }
 useEffect(()=>{
  if(storageConflict)return;
- try{storageGuard.current.write(KEY,JSON.stringify(chats.slice(0,50)));}
+ try{storageGuard.current.write(KEY,JSON.stringify(chats));}
  catch(error){handleStorageFailure(error)}
 },[chats,storageConflict]);
 useEffect(()=>{
