@@ -22,22 +22,31 @@ const port = await new Promise((resolve, reject) => {
     socket.close(() => resolve(selected))
   })
 })
-const chrome = spawn(executable, [
-  '--headless=new', '--disable-gpu', '--disable-dev-shm-usage',
+const browserArgs = [
+  '--headless=new', '--disable-gpu', '--disable-dev-shm-usage', '--no-first-run',
   '--remote-debugging-port=' + port, '--user-data-dir=' + profile, 'about:blank'
-], { stdio: 'ignore' })
+]
+// Only disable sandbox for isolated CI/root-run QA, never in a personal browser.
+if (process.env.CI === 'true' || (typeof process.getuid === 'function' && process.getuid() === 0)) browserArgs.unshift('--no-sandbox')
+const chrome = spawn(executable, browserArgs, { stdio: ['ignore', 'ignore', 'pipe'] })
+let browserStderr = ''
+chrome.stderr?.on('data', chunk => { browserStderr = (browserStderr + chunk.toString()).slice(-3000) })
 let ws
 try {
   let tab
-  for (let i = 0; i < 40; i++) {
-    if (chrome.exitCode !== null) throw Error('Chromium exited before connecting.')
+  for (let i = 0; i < 120; i++) {
+    if (chrome.exitCode !== null) throw Error('Chromium exited before connecting. ' + browserStderr)
     try {
-      const response = await fetch('http://127.0.0.1:' + port + '/json/new?' + encodeURIComponent(base.href), { method: 'PUT' })
-      if (response.ok) { tab = await response.json(); break }
+      const response = await fetch('http://127.0.0.1:' + port + '/json/list')
+      if (response.ok) {
+        const targets = await response.json()
+        tab = Array.isArray(targets) ? targets.find(target => target.type === 'page' && target.webSocketDebuggerUrl) : null
+        if (tab) break
+      }
     } catch {}
     await delay(150)
   }
-  assert.ok(tab?.webSocketDebuggerUrl, 'Could not launch a Chromium debugging target.')
+  assert.ok(tab?.webSocketDebuggerUrl, 'Could not open a Chromium debugging target. ' + browserStderr)
   ws = new WebSocket(tab.webSocketDebuggerUrl)
   await new Promise((resolve, reject) => {
     ws.addEventListener('open', resolve, { once: true })
@@ -45,8 +54,10 @@ try {
   })
   let sequence = 0
   const pending = new Map()
+  const exceptions = []
   ws.addEventListener('message', event => {
     const item = JSON.parse(event.data)
+    if (item.method === 'Runtime.exceptionThrown') exceptions.push(item.params?.exceptionDetails?.text || 'Browser exception')
     if (!pending.has(item.id)) return
     const [resolve, reject] = pending.get(item.id)
     pending.delete(item.id)
@@ -62,49 +73,56 @@ try {
     if (result.exceptionDetails) throw Error('Browser JavaScript evaluation failed.')
     return result.result.value
   }
+  async function wait(expression) {
+    for (let i = 0; i < 80; i++) {
+      try { if (await evaluate(expression)) return } catch {}
+      await delay(100)
+    }
+    throw Error('Browser timed out waiting for: ' + expression)
+  }
   await send('Page.enable')
   await send('Runtime.enable')
-  await delay(1400)
-  const nav = await evaluate("[...document.querySelectorAll('.workspaceNavLink')].map(n=>n.textContent.trim())")
-  assert.deepEqual(nav, ['MCP','API','Projects','Pinned','All Chats','Settings'])
+  await send('Page.navigate', {url: base.href})
+  await wait("document.querySelectorAll('.workspaceNavLink').length===9")
+  const nav = await evaluate("[...document.querySelectorAll('.workspaceNavLink')].map(n=>n.getAttribute('aria-label'))")
+  assert.deepEqual(nav, ['MCP','API','Projects','Agents','Prompts','Pinned','All Chats','Archived','Settings'])
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=Projects]').click()")
-  await delay(150)
-  assert.equal(await evaluate("document.querySelector('.workspacePage h1')?.textContent"), 'Projects')
-  await evaluate("document.querySelector('.workspaceProjectActions input').focus()")
+  await wait("document.querySelector('.workspacePage h1')?.textContent==='Projects'")
+  await evaluate("document.querySelector('input[aria-label=\"Project name\"]').focus()")
   await send('Input.insertText', { text: 'Browser QA Project' })
   await evaluate("document.querySelector('.workspaceProjectActions button[type=submit]').click()")
-  await delay(180)
-  assert.ok(await evaluate("document.body.innerText.includes('Browser QA Project')"))
+  await wait("document.querySelector('.projectStudioHeader h2')?.textContent==='Browser QA Project'")
+  assert.equal(await evaluate("JSON.parse(localStorage.getItem('workspace-ai-workspace-v1'))?.projects?.some(p=>p.name==='Browser QA Project')"), true)
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=Projects]').click()")
-  await delay(100)
-  await evaluate("[...document.querySelectorAll('.workspaceNavChildren button')].find(n=>n.title==='Browser QA Project').click()")
-  await delay(160)
-  assert.equal(await evaluate("document.querySelector('.workspacePageTop h2')?.textContent"), 'Browser QA Project')
+  await wait("document.querySelector('.projectNavJump[title=\"Browser QA Project\"]')!==null")
+  await evaluate("document.querySelector('.projectNavJump[title=\"Browser QA Project\"]').click()")
+  await wait("document.querySelector('.projectStudioHeader h2')?.textContent==='Browser QA Project'")
   await evaluate("document.querySelector('.sidebarCollapse').click()")
-  await delay(200)
+  await wait("document.querySelector('.workspaceSidebar').classList.contains('compact')")
   assert.equal(await evaluate("document.querySelector('.workspaceSidebar').classList.contains('compact')"), true)
   assert.equal(await evaluate("JSON.parse(localStorage.getItem('workspace-ai-workspace-v1')).collapsed"), true)
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
-  await delay(350)
-  assert.equal(await evaluate("document.querySelector('.workspacePage h1')?.textContent"), 'API integrations')
+  await wait("document.querySelector('.workspacePage h1')?.textContent==='API integrations'")
+  await wait("document.querySelectorAll('.workspaceCards .workspaceCard').length===7")
   const apiServices = await evaluate("document.querySelectorAll('.workspaceCards .workspaceCard').length")
   assert.equal(apiServices, 7)
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=MCP]').click()")
-  await delay(350)
-  assert.equal(await evaluate("document.querySelector('.workspacePage h1')?.textContent"), 'MCP connections')
+  await wait("document.querySelector('.workspacePage h1')?.textContent==='MCP connections'")
+  await wait("document.querySelectorAll('.workspaceCards .workspaceCard').length===3")
   const mcpServices = await evaluate("document.querySelectorAll('.workspaceCards .workspaceCard').length")
   assert.equal(mcpServices, 3)
   await send('Emulation.setDeviceMetricsOverride', { width: 430, height: 880, deviceScaleFactor: 1, mobile: true })
   await send('Page.reload', { ignoreCache: true })
-  await delay(500)
+  await wait("document.querySelector('.menu')!==null")
   await evaluate("document.querySelector('.menu').click()")
-  await delay(120)
+  await wait("document.querySelector('.workspaceSidebar').classList.contains('open')")
   assert.equal(await evaluate("document.querySelector('.workspaceSidebar').classList.contains('open')"), true)
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
-  await delay(280)
+  await wait("!document.querySelector('.workspaceSidebar').classList.contains('open')")
   assert.equal(await evaluate("document.querySelector('.workspaceSidebar').classList.contains('open')"), false)
   assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth')) < 6)
-  console.log(JSON.stringify({ passed: true, sidebarSections: nav.length, apiServices, mcpServices, mobileDrawer: 'passed' }))
+  assert.deepEqual(exceptions, [], 'Uncaught browser exceptions during navigation QA')
+  console.log(JSON.stringify({ passed: true, sidebarSections: nav.length, apiServices, mcpServices, mobileDrawer: 'passed', browserExceptions: 0 }))
 } finally {
   try { ws?.close() } catch {}
   chrome.kill('SIGTERM')
