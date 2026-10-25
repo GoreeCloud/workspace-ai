@@ -130,3 +130,31 @@ test('over-capacity saved conversations stay intact and force read-only startup'
  assert.match(app,/storageGuard\.current\.write\(KEY,JSON\.stringify\(chats\)\)/)
  assert.doesNotMatch(app,/chats\.slice\(0,50\)/)
 })
+
+test('oversized saved projects and pins are preserved behind a read-only startup warning',()=>{
+ const projects=Array.from({length:101},(_,i)=>newProject('project-'+i,'Project '+i,1))
+ const oversized=JSON.stringify({projects,pinned:[]})
+ const storage=store({[CHAT]:'[]',[WORKSPACE]:oversized})
+ assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/projects or pins exceed/)
+ assert.equal(storage.getItem(WORKSPACE),oversized)
+ const tooManyPins=JSON.stringify({projects:[],pinned:Array.from({length:201},(_,i)=>'chat-'+i)})
+ const pinStorage=store({[CHAT]:'[]',[WORKSPACE]:tooManyPins})
+ assert.match(browserStorageLoadProblem(pinStorage,CHAT,WORKSPACE),/projects or pins exceed/)
+ assert.equal(pinStorage.getItem(WORKSPACE),tooManyPins)
+ const valid=JSON.stringify({projects:projects.slice(0,100),pinned:[]})
+ assert.equal(browserStorageLoadProblem(store({[CHAT]:'[]',[WORKSPACE]:valid}),CHAT,WORKSPACE),null)
+})
+
+test('malformed and duplicate saved projects stay intact instead of being skipped on load',()=>{
+ const badFixtures=[
+  {projects:[{id:'missing-name'}],pinned:[]},
+  {projects:[newProject('duplicate','One'),newProject('duplicate','Two')],pinned:[]},
+  {projects:[{...newProject('invalid-file','Project'),files:[null]}],pinned:[]}
+ ]
+ for(const fixture of badFixtures){
+  const serialized=JSON.stringify(fixture)
+  const storage=store({[CHAT]:'[]',[WORKSPACE]:serialized})
+  assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/read-only/)
+  assert.equal(storage.getItem(WORKSPACE),serialized)
+ }
+})

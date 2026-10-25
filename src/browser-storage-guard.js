@@ -1,3 +1,5 @@
+import {normalizeProjects} from './project-model.js'
+
 // Best-effort stale-tab protection for browser-local data.
 // localStorage provides atomic individual writes but no compare-and-swap transaction:
 // an overlapping write between verify and setItem is still possible.
@@ -72,6 +74,10 @@ export function browserStorageLoadProblem(storage,chatsKey,workspaceKey) {
    const value=JSON.parse(workspace)
    if(!value||typeof value!=='object'||Array.isArray(value)||
     !Array.isArray(value.projects)||!Array.isArray(value.pinned))throw Error('Invalid saved workspace')
+   if(value.projects.length>100 || value.pinned.length>200)return 'Saved Workspace AI projects or pins exceed browser storage limits. This tab is read-only to prevent dropping saved data. Preserve the original data before repairing it.'
+   // The loader otherwise skips malformed projects. Block edits instead of
+   // silently persisting an incomplete normalized workspace on first change.
+   normalizeProjects(value.projects)
   }
   return null
  }catch {
