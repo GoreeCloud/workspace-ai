@@ -112,3 +112,20 @@ test('failed storage writes attempt rollback and do not trigger app state change
  persistWorkspaceRestore(storage,'chat','workspace',restored)
  assert.deepEqual(JSON.parse(state.get('chat')).map(c=>c.id),['a'])
 })
+
+test('merge refuses to truncate oversized existing conversations',()=>{
+ const local=Array.from({length:BACKUP_MAX_CHATS+1},(_,i)=>chat('local-'+i))
+ const before=JSON.stringify(local)
+ assert.throws(()=>prepareWorkspaceRestore(local,workspace,backup(),'merge'),/existing conversations exceed the 50-conversation limit/)
+ assert.equal(JSON.stringify(local),before)
+ assert.throws(()=>prepareWorkspaceRestore(null,workspace,backup(),'merge'),/existing conversations are unreadable/)
+ assert.deepEqual(prepareWorkspaceRestore(local,workspace,backup(),'replace').chats.map(c=>c.id),['a'])
+})
+
+test('merge refuses to truncate oversized existing project metadata',()=>{
+ const projects=Array.from({length:101},(_,i)=>({id:'local-'+i,name:'Local '+i,createdAt:1}))
+ const localWorkspace={...workspace,projects,pinned:[]}
+ const before=JSON.stringify(localWorkspace)
+ assert.throws(()=>prepareWorkspaceRestore([],localWorkspace,backup(),'merge'),/existing projects exceed the 100-project limit/)
+ assert.equal(JSON.stringify(localWorkspace),before)
+})

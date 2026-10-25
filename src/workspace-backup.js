@@ -127,13 +127,16 @@ export function prepareWorkspaceRestore(existingChats, existingWorkspace, archiv
   chats: imported.chats, workspace: imported.workspace,
   addedChats: imported.chats.length, skippedChats: 0
  }
- const oldChats = Array.isArray(existingChats) ? existingChats.slice(0, BACKUP_MAX_CHATS) : []
+ if (!Array.isArray(existingChats)) throw Error('Cannot merge backup: existing conversations are unreadable')
+ if (existingChats.length > BACKUP_MAX_CHATS) throw Error('Cannot merge backup: existing conversations exceed the 50-conversation limit; preserve your data before merging')
+ const oldChats = existingChats
  const oldWorkspace = record(existingWorkspace) ? existingWorkspace : {}
  const ids = new Set(oldChats.map(c => c.id))
  const incoming = imported.chats.filter(c => !ids.has(c.id))
  const room = Math.max(0, BACKUP_MAX_CHATS - oldChats.length)
  const added = incoming.slice(0, room)
  const projects = Array.isArray(oldWorkspace.projects) ? oldWorkspace.projects : []
+ if (projects.length > MAX_PROJECTS) throw Error('Cannot merge backup: existing projects exceed the 100-project limit; preserve your data before merging')
  const projectIds = new Set(projects.map(p => p.id))
  const additions = imported.workspace.projects.filter(p => !projectIds.has(p.id)).map(p => ({...p,shareFilesWith:p.shareFilesWith.filter(id=>!projectIds.has(id))}))
  const mergedProjects = [...projects, ...additions].slice(0, MAX_PROJECTS)
