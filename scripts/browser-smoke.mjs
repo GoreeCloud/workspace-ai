@@ -116,6 +116,11 @@ try {
   assert.equal(mcpServices, expectedMcpServices)
   await send('Emulation.setDeviceMetricsOverride', { width: 430, height: 880, deviceScaleFactor: 1, mobile: true })
   await send('Page.reload', { ignoreCache: true })
+  // Reload starts in Chat, whose top bar deliberately has no mobile menu.
+  // Enter a workspace section before exercising the responsive drawer.
+  await wait("document.querySelector('.workspaceNavLink[aria-label=API]')!==null")
+  await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
+  await wait("document.querySelector('.workspacePage h1')?.textContent==='API integrations'")
   await wait("document.querySelector('.menu')!==null")
   await evaluate("document.querySelector('.menu').click()")
   await wait("document.querySelector('.workspaceSidebar').classList.contains('open')")
