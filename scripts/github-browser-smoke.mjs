@@ -88,13 +88,14 @@ try {
       if(url.pathname==='/api/chat'){
         const count=Number(sessionStorage.getItem('qa-chat-requests')||'0')+1
         sessionStorage.setItem('qa-chat-requests',String(count))
-        const frame=count===1
+        const frame=count===1||count===3
           ? '{"type":"meta","provider":"api","model":"synthetic-qa"}\\n{"type":"delta","text":"Synthetic partial response"}\\n'
           : '{"type":"meta","provider":"api","model":"synthetic-qa"}\\n{"type":"delta","text":"Complete after recovery"}\\n{"type":"complete"}\\n'
         const encoder=new TextEncoder()
         return Promise.resolve(new Response(new ReadableStream({start(controller){
           controller.enqueue(encoder.encode(frame))
-          if(count!==1)controller.close()
+          if(init?.signal) init.signal.addEventListener('abort',()=>{try{controller.error(new DOMException('Aborted','AbortError'))}catch{}},{once:true})
+          if(count!==1&&count!==3)controller.close()
         }}),{status:200,headers:{'Content-Type':'application/x-ndjson'}}))
       }
       if(url.pathname==='/api/integrations')return wrap({executionEnabled:false,services:[{
@@ -216,6 +217,18 @@ try {
   await evaluate("document.querySelector('button[aria-label=\"Send message\"]').click()")
   await wait("(()=>{const a=JSON.parse(localStorage.getItem('workspace-ai-history-v1')||'[]')[0]?.messages;return a?.length===4&&a[3]?.content==='Complete after recovery'&&a[3].pending===false&&!a[3].error})()")
   assert.equal(await evaluate("sessionStorage.getItem('qa-chat-requests')"),'2','No duplicate stream request')
+  // A third half-open stream must stop immediately on offline and retain the
+  // latest saved partial reply. Reconnection must not resubmit the user prompt.
+  await evaluate("(()=>{const e=document.querySelector('textarea[aria-label=\"Message to Workspace AI\"]');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'Offline synthetic message');e.dispatchEvent(new Event('input',{bubbles:true}))})()")
+  await wait("document.querySelector('button[aria-label=\"Send message\"]')?.disabled===false")
+  await evaluate("document.querySelector('button[aria-label=\"Send message\"]').click()")
+  await wait("(()=>{const a=JSON.parse(localStorage.getItem('workspace-ai-history-v1')||'[]')[0]?.messages;return a?.length===6&&a[5]?.pending===true&&a[5].content==='Synthetic partial response'})()")
+  await evaluate("window.dispatchEvent(new Event('offline'))")
+  await wait("(()=>{const a=JSON.parse(localStorage.getItem('workspace-ai-history-v1')||'[]')[0]?.messages;return a?.length===6&&a[5]?.pending===false&&a[5].error===true&&a[5].content==='Synthetic partial response'})()")
+  await wait("document.querySelector('.notice.error button')?.textContent==='Retry connection'")
+  await evaluate("window.dispatchEvent(new Event('online'))")
+  await wait("![...document.querySelectorAll('.notice.error button')].some(b=>b.textContent==='Retry connection')")
+  assert.equal(await evaluate("sessionStorage.getItem('qa-chat-requests')"),'3','Offline stream was not automatically retried')
   assert.deepEqual(exceptions,[],'Saved prompt browser workflow has no JavaScript exceptions')
   await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true})
   assert.ok((await evaluate('document.documentElement.scrollWidth-window.innerWidth'))<10,'Horizontal mobile overflow')
