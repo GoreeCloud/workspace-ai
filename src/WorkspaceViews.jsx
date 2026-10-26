@@ -1,6 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react'
 import {FolderKanban,Pin,PinOff,Search,Plus,Trash2,Plug,Waypoints,Settings2,RefreshCw,Archive,ArchiveRestore,KeyRound,ChevronDown,ChevronUp,ListTodo,Pencil,Check,X,Ellipsis} from 'lucide-react'
 import {searchChats} from './workspace-state.js'
+import {readApiResponse} from './api-response.js'
 import TodoistBrowser from './TodoistBrowser.jsx'
 import GitHubBrowser from './GitHubBrowser.jsx'
 import DropboxBrowser from './DropboxBrowser.jsx'
@@ -12,14 +13,14 @@ import SettingsCategories from './SettingsCategories.jsx'
 import {chatsForProject} from './project-sidebar.js'
 async function post(url,body){
  const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body||{})})
- const result=await response.json();if(!response.ok)throw Error(result.error||'Request failed');return result
+ return readApiResponse(response)
 }
 const STATUS={connected:'Connected',invalid:'Rejected',restricted:'Restricted',unavailable:'Unavailable','ready-for-discovery':'Ready for discovery','setup-required':'Setup required'}
 function IntegrationsView({kind}){
  const [services,setServices]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState('')
  const [editing,setEditing]=useState(null),[tokens,setTokens]=useState({}),[busy,setBusy]=useState(null),[details,setDetails]=useState(null),[browser,setBrowser]=useState(null)
  const refresh=async()=>{
-  try{const r=await fetch('/api/integrations');if(!r.ok)throw Error('Integration service unavailable');const j=await r.json();setServices(j.services||[]);setError('')}
+  try{const r=await fetch('/api/integrations');const j=await readApiResponse(r,'Integration service unavailable');setServices(j.services||[]);setError('')}
   catch(e){setError(e.message||'Unable to load services')}finally{setLoading(false)}
  }
  useEffect(()=>{refresh()},[])

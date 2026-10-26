@@ -14,7 +14,8 @@ import {prepareProjectDeletion} from './project-deletion.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {accountScopedKey,browserAccountScope} from './account-workspace-scope.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
-import {consumeChatResponse,recoverInterruptedChats} from './chat-response-stream.js';
+import {consumeChatResponse,recoverInterruptedChats} from './chat-response-stream.js'
+import {readApiResponse} from './api-response.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem,readableChatHistory} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import ChatAttachments from './ChatAttachments.jsx';
@@ -28,7 +29,7 @@ const KEY=accountScopedKey('workspace-ai-history-v1');
 const ACTIVE_WORKSPACE_KEY=accountScopedKey(WORKSPACE_KEY);
 const initial=()=>{try{const value=JSON.parse(localStorage.getItem(KEY)||'[]');return readableChatHistory(value)?recoverInterruptedChats(value):[]}catch{return []}};
 function report(error){return error instanceof Error?error.message:String(error)}
-async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});const json=await r.json();if(!r.ok)throw Error(json.error||'Request failed');return json}
+async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});return readApiResponse(r)}
 export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
@@ -219,7 +220,7 @@ async function send(value=draft){
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json',...(browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{})},body:JSON.stringify({
       messages:preparedMessages,images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
-    if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
+    if(!response.ok)await readApiResponse(response,'Response failed')
     if(!response.body)throw Error('The server returned no stream');
     await consumeChatResponse(response.body,e=>{
       if(e.type==='meta')changeLast(id,m=>({...m,provider:e.provider,model:e.model}));
