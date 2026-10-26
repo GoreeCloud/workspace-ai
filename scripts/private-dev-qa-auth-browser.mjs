@@ -124,5 +124,7 @@ try {
  chrome.kill('SIGTERM')
  await Promise.race([new Promise(resolve=>chrome.once('exit',resolve)),delay(3000)])
  if(chrome.exitCode===null)chrome.kill('SIGKILL')
- await rm(profile,{recursive:true,force:true})
+ // Chromium child processes may briefly recreate profile files after the main
+ // process exits. Node's bounded ENOTEMPTY/EBUSY retries make cleanup reliable.
+ await rm(profile,{recursive:true,force:true,maxRetries:25,retryDelay:200})
 }
