@@ -31,10 +31,24 @@ test('rejects malformed and oversized backup data before restore',()=>{
  assert.throws(()=>parseWorkspaceBackup('not json'),/valid JSON/)
  assert.throws(()=>parseWorkspaceBackup(JSON.stringify({...backup(),version:5})),/Unsupported/)
  assert.throws(()=>parseWorkspaceBackup(JSON.stringify({...backup(),chats:[chat('a'),chat('a')]})),/Duplicate conversation/)
+ const duplicateMessages={...chat('a'),messages:[{id:'same',role:'user',content:'One'},{id:'same',role:'assistant',content:'Two'}]}
+ assert.throws(()=>parseWorkspaceBackup(JSON.stringify({...backup(),chats:[duplicateMessages]})),/Duplicate message ID/)
  assert.throws(()=>parseWorkspaceBackup(JSON.stringify({...backup(),chats:[{...chat('a'),messages:[{id:'1',role:'system',content:'bad'}]}]})),/role/)
  assert.throws(()=>parseWorkspaceBackup(JSON.stringify({...backup(),workspace:{...workspace,projects:[...workspace.projects,workspace.projects[0]]}})),/Duplicate project/)
  assert.throws(()=>parseWorkspaceBackup(JSON.stringify({...backup(),chats:Array.from({length:BACKUP_MAX_CHATS+1},(_,i)=>chat('c'+i))})),/limit/)
  assert.throws(()=>parseWorkspaceBackup(' '.repeat(12*1024*1024+1)),/too large/)
+})
+
+test('export rejects over-capacity chat history rather than silently losing conversations',()=>{
+ const tooMany=Array.from({length:BACKUP_MAX_CHATS+1},(_,i)=>chat('c'+i))
+ assert.throws(()=>createWorkspaceBackup(tooMany,{...workspace,pinned:[]}),/50-conversation limit/)
+})
+
+test('message identity validation is scoped to each conversation',()=>{
+ const first={...chat('a'),messages:[{id:'shared',role:'user',content:'First'}]}
+ const second={...chat('b'),messages:[{id:'shared',role:'assistant',content:'Second'}]}
+ const result=parseWorkspaceBackup(JSON.stringify({...backup(),chats:[first,second]}))
+ assert.equal(result.chats.length,2)
 })
 
 test('drops orphaned project and pin references on import',()=>{
@@ -97,4 +111,21 @@ test('failed storage writes attempt rollback and do not trigger app state change
  assert.equal(state.get('workspace'),'metadata')
  persistWorkspaceRestore(storage,'chat','workspace',restored)
  assert.deepEqual(JSON.parse(state.get('chat')).map(c=>c.id),['a'])
+})
+
+test('merge refuses to truncate oversized existing conversations',()=>{
+ const local=Array.from({length:BACKUP_MAX_CHATS+1},(_,i)=>chat('local-'+i))
+ const before=JSON.stringify(local)
+ assert.throws(()=>prepareWorkspaceRestore(local,workspace,backup(),'merge'),/existing conversations exceed the 50-conversation limit/)
+ assert.equal(JSON.stringify(local),before)
+ assert.throws(()=>prepareWorkspaceRestore(null,workspace,backup(),'merge'),/existing conversations are unreadable/)
+ assert.deepEqual(prepareWorkspaceRestore(local,workspace,backup(),'replace').chats.map(c=>c.id),['a'])
+})
+
+test('merge refuses to truncate oversized existing project metadata',()=>{
+ const projects=Array.from({length:101},(_,i)=>({id:'local-'+i,name:'Local '+i,createdAt:1}))
+ const localWorkspace={...workspace,projects,pinned:[]}
+ const before=JSON.stringify(localWorkspace)
+ assert.throws(()=>prepareWorkspaceRestore([],localWorkspace,backup(),'merge'),/existing projects exceed the 100-project limit/)
+ assert.equal(JSON.stringify(localWorkspace),before)
 })

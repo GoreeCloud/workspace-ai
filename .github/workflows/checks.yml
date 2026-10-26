@@ -42,6 +42,8 @@ jobs:
             echo "Retrying transient Chromium startup with a fresh test profile."
             CHROMIUM_EXECUTABLE="$CHROME" npm run browser:github
           fi
+          # Second isolated profile: navigation, project persistence, sidebar and mobile layout.
+          CHROMIUM_EXECUTABLE="$CHROME" npm run browser:smoke
 
   private-dev-smoke:
     runs-on: ubuntu-latest

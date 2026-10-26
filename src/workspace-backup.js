@@ -66,6 +66,7 @@ function validateChats(value) {
   const projectId = c.projectId == null ? null : requiredString(c.projectId, 'conversation project', 160)
   const contextStart=c.contextStart??0
   if(!Number.isSafeInteger(contextStart)||contextStart<0||contextStart>c.messages.length)throw Error('Invalid conversation context boundary')
+  const messageIds = new Set()
   return {
    id, title, projectId, contextStart,
    archived:c.archived===true,
@@ -74,7 +75,10 @@ function validateChats(value) {
     if (!record(m) || !['user','assistant'].includes(m.role)) throw Error('Invalid message role')
     const content = optionalString(m.content, 'message content', 200000)
     if (content === undefined) throw Error('Missing message content')
-    const out = {id: requiredString(m.id, 'message ID', 160), role: m.role, content}
+    const messageId = requiredString(m.id, 'message ID', 160)
+    if (messageIds.has(messageId)) throw Error('Duplicate message ID in conversation')
+    messageIds.add(messageId)
+    const out = {id: messageId, role: m.role, content}
     if(m.attachments!==undefined)out.attachments=normalizeChatAttachments(m.attachments)
     if (m.provider !== undefined) {
      if (!['plan','api'].includes(m.provider)) throw Error('Invalid message provider')
@@ -109,7 +113,9 @@ export function createWorkspaceBackup(chats, workspace, now = new Date()) {
  // Round-trip through the validator to copy only documented fields.
  return parseWorkspaceBackup(JSON.stringify({
   kind: BACKUP_KIND, version: BACKUP_VERSION, exportedAt: now.toISOString(),
-  chats: chats.slice(0, BACKUP_MAX_CHATS),
+  // Never silently discard conversations from an export. The validator will
+  // explain when the source exceeds the supported archive capacity.
+  chats,
   workspace
  }))
 }
@@ -121,13 +127,16 @@ export function prepareWorkspaceRestore(existingChats, existingWorkspace, archiv
   chats: imported.chats, workspace: imported.workspace,
   addedChats: imported.chats.length, skippedChats: 0
  }
- const oldChats = Array.isArray(existingChats) ? existingChats.slice(0, BACKUP_MAX_CHATS) : []
+ if (!Array.isArray(existingChats)) throw Error('Cannot merge backup: existing conversations are unreadable')
+ if (existingChats.length > BACKUP_MAX_CHATS) throw Error('Cannot merge backup: existing conversations exceed the 50-conversation limit; preserve your data before merging')
+ const oldChats = existingChats
  const oldWorkspace = record(existingWorkspace) ? existingWorkspace : {}
  const ids = new Set(oldChats.map(c => c.id))
  const incoming = imported.chats.filter(c => !ids.has(c.id))
  const room = Math.max(0, BACKUP_MAX_CHATS - oldChats.length)
  const added = incoming.slice(0, room)
  const projects = Array.isArray(oldWorkspace.projects) ? oldWorkspace.projects : []
+ if (projects.length > MAX_PROJECTS) throw Error('Cannot merge backup: existing projects exceed the 100-project limit; preserve your data before merging')
  const projectIds = new Set(projects.map(p => p.id))
  const additions = imported.workspace.projects.filter(p => !projectIds.has(p.id)).map(p => ({...p,shareFilesWith:p.shareFilesWith.filter(id=>!projectIds.has(id))}))
  const mergedProjects = [...projects, ...additions].slice(0, MAX_PROJECTS)

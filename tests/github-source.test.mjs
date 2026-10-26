@@ -62,18 +62,19 @@ test('GitHub source errors do not leak token or provider details',async()=>{
 })
 test('session-scoped HTTP route checks origin, revoked connections and server revision',async()=>{
  let revision=1,credential=token,invalidations=0
- let resume
+ let resume, signalStarted
  const pending=new Promise(resolve=>{resume=resolve})
+ const started=new Promise(resolve=>{signalStarted=resolve})
  const app=express()
  attachGitHubSourceRoute(app,{origins:new Set(['http://127.0.0.1:3031']),getToken:()=>credential,
   getRevision:()=>revision,invalidate:()=>{invalidations++;credential=null;revision++}},
-  async()=>pending)
+  async()=>{signalStarted();return pending})
  const server=await new Promise(resolve=>{const s=app.listen(0,'127.0.0.1',()=>resolve(s))})
  const base='http://127.0.0.1:'+server.address().port+'/api/integrations/github/source?repo=workspace-ai&path=README.md'
  try{
   assert.equal((await fetch(base,{headers:{Origin:'https://outside.example'}})).status,403)
   const inFlight=fetch(base,{headers:{Origin:'http://127.0.0.1:3031'}})
-  await new Promise(resolve=>setTimeout(resolve,10))
+  await started // Wait until the request captures the original session revision.
   revision++
   resume({...request,readOnly:true,sha,content:'old state'})
   assert.equal((await inFlight).status,409)
