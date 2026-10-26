@@ -154,7 +154,7 @@ function refresh(){return connectionRefresh.current()}
 useEffect(()=>{
  void refresh();
  const onOnline=()=>{void refresh()};
- const onOffline=()=>connectionRefresh.current.offline();
+ const onOffline=()=>{connectionRefresh.current.offline();controller.current?.abort('network-offline')};
  const onVisible=()=>{if(document.visibilityState==='visible'){if(navigator.onLine===false)onOffline();else void refresh()}};
  window.addEventListener('online',onOnline);
  window.addEventListener('offline',onOffline);
@@ -260,7 +260,7 @@ async function send(value=draft){
     if(!changeLast(id,answer.id,m=>({...m,pending:false})))
       throw Error('The completed response could not be saved in browser storage. Reload and preserve a backup before retrying.');
   }catch(e){
-    const message=stop.signal.aborted?'Generation stopped':report(e);
+    const message=stop.signal.aborted?(stop.signal.reason==='network-offline'?'Connection lost while generating. Your partial answer was preserved.':'Generation stopped'):report(e);
     // A failed browser write leaves the last durable partial reply pending.
     // Recovery on reload marks it interrupted instead of claiming success.
     if(changeLast(id,answer.id,m=>({...m,pending:false,error:true,content:m.content||message})))setError(message);
