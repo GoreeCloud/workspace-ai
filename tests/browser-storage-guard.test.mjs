@@ -118,6 +118,46 @@ test('malformed saved messages block startup without overwriting private history
  assert.equal(readableChatHistory([{id:'one',messages:[{role:'assistant',content:'Partial',pending:true}]}]),true)
 })
 
+test('duplicate or empty conversation IDs fail closed without deleting or merging history',()=>{
+ const fixtures=[
+  [{id:'same',messages:[{role:'user',content:'First'}]},{id:'same',messages:[{role:'user',content:'Second'}]}],
+  [{id:'',messages:[{role:'assistant',content:'Keep'}]}],
+  [{id:'   ',messages:[{role:'assistant',content:'Keep'}]}]
+ ]
+ for(const history of fixtures){
+  const raw=JSON.stringify(history)
+  const storage=store({[CHAT]:raw,[WORKSPACE]:'{"projects":[],"pinned":[]}'})
+  assert.equal(readableChatHistory(history),false)
+  assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/read-only/)
+  assert.equal(storage.getItem(CHAT),raw)
+ }
+})
+
+test('duplicate or malformed message IDs cannot corrupt rendering or streamed replies',()=>{
+ const base={id:'chat',messages:[{id:'one',role:'user',content:'Original'}]}
+ const fixtures=[
+  {...base,messages:[base.messages[0],{id:'one',role:'assistant',content:'Different text'}]},
+  {...base,messages:[{id:'',role:'assistant',content:'Keep'}]},
+  {...base,messages:[{id:null,role:'assistant',content:'Keep'}]}
+ ]
+ for(const chat of fixtures){
+  const raw=JSON.stringify([chat])
+  const storage=store({[CHAT]:raw,[WORKSPACE]:'{"projects":[],"pinned":[]}'})
+  assert.equal(readableChatHistory([chat]),false)
+  assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/read-only/)
+  assert.equal(storage.getItem(CHAT),raw)
+ }
+})
+
+test('unique conversation identifiers and older messages without IDs remain readable',()=>{
+ const saved=[
+  {id:'chat-a',messages:[{role:'user',content:'Legacy message'},{id:'reply-a',role:'assistant',content:'Reply'}]},
+  {id:'chat-b',messages:[{id:'question-b',role:'user',content:'Another'},{id:'reply-b',role:'assistant',content:'Answer'}]}
+ ]
+ assert.equal(readableChatHistory(saved),true)
+ assert.equal(browserStorageLoadProblem(store({[CHAT]:JSON.stringify(saved),[WORKSPACE]:'{"projects":[],"pinned":[]}'}),CHAT,WORKSPACE),null)
+})
+
 
 test('over-capacity saved conversations stay intact and force read-only startup',async()=>{
  const {readFile}=await import('node:fs/promises')

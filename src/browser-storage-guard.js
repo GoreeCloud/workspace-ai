@@ -11,11 +11,26 @@ export class BrowserStorageConflict extends Error {
 }
 
 export function readableChatHistory(value) {
- return Array.isArray(value) && value.every(chat =>
-  chat && typeof chat === 'object' && !Array.isArray(chat) && typeof chat.id === 'string' &&
-  Array.isArray(chat.messages) && chat.messages.every(message =>
-   message && typeof message === 'object' && !Array.isArray(message) &&
-   ['user','assistant'].includes(message.role) && typeof message.content === 'string'))
+ if(!Array.isArray(value))return false
+ const chatIds=new Set()
+ return value.every(chat => {
+  if(!chat||typeof chat!=='object'||Array.isArray(chat)||
+    typeof chat.id!=='string'||!chat.id.trim()||chatIds.has(chat.id)||
+    !Array.isArray(chat.messages))return false
+  chatIds.add(chat.id)
+  const messageIds=new Set()
+  return chat.messages.every(message => {
+   if(!message||typeof message!=='object'||Array.isArray(message)||
+     !['user','assistant'].includes(message.role)||typeof message.content!=='string')return false
+   // Older saved messages may lack IDs; only reject malformed or repeated IDs
+   // when an ID is present, rather than rewriting legacy user data.
+   if(message.id!==undefined){
+    if(typeof message.id!=='string'||!message.id.trim()||messageIds.has(message.id))return false
+    messageIds.add(message.id)
+   }
+   return true
+  })
+ })
 }
 export function createBrowserStorageGuard(storage,keys) {
  if(!Array.isArray(keys)||keys.length===0||new Set(keys).size!==keys.length)
