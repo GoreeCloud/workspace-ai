@@ -84,7 +84,7 @@ try {
       const raw=typeof input==='string'?input:input?.url
       const url=new URL(raw,location.href)
       const wrap=body=>Promise.resolve(new Response(JSON.stringify(body),{status:200,headers:{'Content-Type':'application/json'}}))
-      if(url.pathname==='/api/status')return wrap({connected:false,planEnabled:false,apiConfigured:true,apiKeySource:'synthetic-qa',accounts:[]})
+      if(url.pathname==='/api/status')return window.__qaStatusFailure ? Promise.reject(Error('Synthetic connection unavailable')) : wrap({connected:false,planEnabled:false,apiConfigured:true,apiKeySource:'synthetic-qa',accounts:[]})
       if(url.pathname==='/api/chat'){
         const count=Number(sessionStorage.getItem('qa-chat-requests')||'0')+1
         sessionStorage.setItem('qa-chat-requests',String(count))
@@ -144,6 +144,15 @@ try {
   await send('Page.addScriptToEvaluateOnNewDocument',{source:fakeScript})
   await send('Page.navigate',{url:base.href})
   await wait("document.querySelector('.workspaceNavLink[aria-label=API]')!==null")
+  await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
+  // A browser reconnection must clear stale provider readiness and self-heal
+  // without reloading, while leaving chat/project storage untouched.
+  await wait("document.querySelector('.connected')?.textContent==='API ready'")
+  await evaluate("window.__qaStatusFailure=true; window.dispatchEvent(new Event('online'))")
+  await wait("document.querySelector('.notice.error button')?.textContent==='Retry connection'")
+  assert.equal(await evaluate("document.querySelector('.connected')?.textContent==='Not connected'"),true)
+  await evaluate("window.__qaStatusFailure=false; document.dispatchEvent(new Event('visibilitychange'))")
+  await wait("document.querySelector('.connected')?.textContent==='API ready' && ![...document.querySelectorAll('.notice.error button')].some(b=>b.textContent==='Retry connection')")
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
   await wait("document.querySelector('.workspaceCardHead strong')?.textContent==='GitHub'")
   await evaluate("[...document.querySelectorAll('.workspaceCard .outline')].find(n=>n.textContent.includes('Browse repositories')).click()")
