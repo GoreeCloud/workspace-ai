@@ -92,6 +92,21 @@ def verify_live(project, paths, baseline_tag, candidate_tag):
     return baseline_id, candidate_id
 
 
+def check_expected_ids(baseline_id, candidate_id, expected_baseline_id, expected_candidate_id):
+    pattern = r"sha256:[0-9a-f]{64}"
+    require(isinstance(expected_baseline_id, str) and
+            isinstance(expected_candidate_id, str) and
+            re.fullmatch(pattern, expected_baseline_id) and
+            re.fullmatch(pattern, expected_candidate_id),
+            "STOP: explicit approved image IDs required")
+    require(baseline_id == expected_baseline_id,
+            "STOP: preserved baseline image ID changed")
+    require(candidate_id == expected_candidate_id,
+            "STOP: staged candidate image ID changed")
+    require(baseline_id != candidate_id, "STOP: baseline equals candidate")
+    return True
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", required=True)
@@ -99,6 +114,8 @@ def main(argv=None):
     parser.add_argument("--override", required=True)
     parser.add_argument("--baseline-image", required=True)
     parser.add_argument("--candidate-image", required=True)
+    parser.add_argument("--expected-baseline-id", required=True)
+    parser.add_argument("--expected-candidate-id", required=True)
     cfg = parser.parse_args(argv)
     require(re.fullmatch(r"[a-z0-9][a-z0-9_-]{2,90}", cfg.project),
             "STOP: invalid Compose project")
@@ -107,6 +124,8 @@ def main(argv=None):
                      cfg.baseline_image, cfg.candidate_image)
     old_id, new_id = verify_live(cfg.project, cfg.file, cfg.baseline_image,
                                  cfg.candidate_image)
+    check_expected_ids(old_id, new_id, cfg.expected_baseline_id,
+                       cfg.expected_candidate_id)
     print("PASS: candidate changes only the application image in resolved Compose")
     print("PASS: read-only root, gateway mount, ports and private networking retained")
     print("PASS: healthy live image matches the preserved rollback image")

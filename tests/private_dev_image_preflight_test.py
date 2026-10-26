@@ -99,6 +99,16 @@ class PrivateImagePreflightTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "STOP"):
                     check(old, new, OLD, NEW)
 
+    def test_expected_image_ids_cannot_drift_or_be_unpinned(self):
+        old = 'sha256:' + 'a' * 64
+        new = 'sha256:' + 'b' * 64
+        self.assertTrue(module.check_expected_ids(old, new, old, new))
+        for args in [(old, new, new, old), (old, new, old, 'sha256:' + 'c' * 64),
+                     (old, new, 'unknown', new), (old, old, old, old)]:
+            with self.subTest(args=args):
+                with self.assertRaisesRegex(ValueError, 'STOP'):
+                    module.check_expected_ids(*args)
+
     def test_cli_errors_do_not_echo_inputs(self):
         result = subprocess.run(
             [sys.executable, str(script), "--baseline-image", "SECRET_SYNTHETIC"],
