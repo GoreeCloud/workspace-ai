@@ -44,6 +44,17 @@ test('private gateway token is opt-in, restricted, and strictly validated', asyn
     await writeFile(file,'synthetic-weak',{mode:0o600})
     assert.throws(()=>loadPrivateGatewayToken(env),/restricted regular file|exactly 32 random bytes/)
     await writeFile(file,secret,{mode:0o600})
+    assert.deepEqual(loadPrivateGatewayToken(env),key)
+    // A space, CRLF or trailing tab must not be silently trimmed into a
+    // valid credential; only 64 hex bytes plus optional LF is canonical.
+    for(const value of [secret+' ', secret+'\r', secret.slice(0,63)+' ', ' '+secret.slice(1)]){
+      await writeFile(file,value,{mode:0o600})
+      assert.throws(()=>loadPrivateGatewayToken(env),/exactly 32 random bytes/)
+    }
+    await writeFile(file,secret+'\r\n',{mode:0o600})
+    assert.throws(()=>loadPrivateGatewayToken(env),/restricted regular file/)
+    await writeFile(file,secret+'\n',{mode:0o600})
+    assert.deepEqual(loadPrivateGatewayToken(env),key)
     const link=path.join(dir,'linked.token')
     await symlink(file,link)
     assert.throws(()=>loadPrivateGatewayToken({...env,WORKSPACE_AI_PRIVATE_DEV_GATEWAY_TOKEN_FILE:link}),/ELOOP/)
