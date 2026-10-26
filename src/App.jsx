@@ -16,7 +16,10 @@ import {prepareProjectDeletion} from './project-deletion.js';
 import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {accountScopedKey,browserAccountScope} from './account-workspace-scope.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
-import {consumeChatResponse,recoverInterruptedChats} from './chat-response-stream.js';
+import {consumeChatResponse,recoverInterruptedChats} from './chat-response-stream.js'
+import {updateStreamingReply} from './chat-stream-state.js'
+import {readApiResponse} from './api-response.js';
+import {createConnectionRefresher} from './connection-refresh.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem,readableChatHistory} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import ChatAttachments from './ChatAttachments.jsx';
@@ -30,11 +33,12 @@ const KEY=accountScopedKey('workspace-ai-history-v1');
 const ACTIVE_WORKSPACE_KEY=accountScopedKey(WORKSPACE_KEY);
 const initial=()=>{try{const value=JSON.parse(localStorage.getItem(KEY)||'[]');return readableChatHistory(value)?recoverInterruptedChats(value):[]}catch{return []}};
 function report(error){return error instanceof Error?error.message:String(error)}
-async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});const json=await r.json();if(!r.ok)throw Error(json.error||'Request failed');return json}
+async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});return readApiResponse(r)}
 export default function App(){
 useEffect(()=>installMobileComposerViewport(),[]);
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
+const [connectionError,setConnectionError]=useState(''),[modelWarning,setModelWarning]=useState('');
 const [settingsTab,setSettingsTab]=useState('connections');
 const [attachmentsDraft,setAttachmentsDraft]=useState([]),[chatMenuOpen,setChatMenuOpen]=useState(false),[chatSearchOpen,setChatSearchOpen]=useState(false),[chatSearchQuery,setChatSearchQuery]=useState(''),[chatFullscreen,setChatFullscreen]=useState(false),[listening,setListening]=useState(false);
 const recognitionRef=useRef(null);
@@ -73,11 +77,13 @@ function commitChats(change) {
   return true;
  }catch(error){handleStorageFailure(error);return false}
 }
+// Persist a recovered interrupted reply once when the tab opens. All further
+// conversation changes are committed synchronously before the UI changes.
 useEffect(()=>{
  if(storageConflict)return;
- try{storageGuard.current.write(KEY,JSON.stringify(chats.slice(0,50)));}
+ try{storageGuard.current.write(KEY,JSON.stringify(chatsRef.current));}
  catch(error){handleStorageFailure(error)}
-},[chats,storageConflict]);
+},[]);
 useEffect(()=>{
  const onStorage=event=>{
   if(event.storageArea!==localStorage)return;
@@ -138,8 +144,32 @@ useEffect(()=>{
  document.addEventListener('keydown',onKey);
  return ()=>document.removeEventListener('keydown',onKey);
 },[settings,busy]);
-async function refresh(){try{const s=await api('/api/status');setStatus(s);if(s.planEnabled){const m=await api('/api/models');setModels(m.planModels||[]);setPlanModel(old=>(m.planModels||[]).some(v=>v.slug===old)?old:(m.planModels?.[0]?.slug||''));if(m.error)setError(m.error)}}catch(e){setError(report(e))}}
-useEffect(()=>{refresh();const auth=new URLSearchParams(location.search).get('auth');if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}},[]);
+const connectionRefresh=useRef(null);
+if(!connectionRefresh.current)connectionRefresh.current=createConnectionRefresher({
+ readStatus:()=>api('/api/status'),
+ readModels:()=>api('/api/models'),
+ publish:({status:next,models:list,connectionError:problem,modelError:warning})=>{
+  setStatus(next);setModels(list);setConnectionError(problem);setModelWarning(warning);
+  setPlanModel(previous=>list.some(model=>model.slug===previous)?previous:(list[0]?.slug||''));
+ }
+});
+function refresh(){return connectionRefresh.current()}
+useEffect(()=>{
+ void refresh();
+ const onOnline=()=>{void refresh()};
+ const onOffline=()=>{connectionRefresh.current.offline();controller.current?.abort('network-offline')};
+ const onVisible=()=>{if(document.visibilityState==='visible'){if(navigator.onLine===false)onOffline();else void refresh()}};
+ window.addEventListener('online',onOnline);
+ window.addEventListener('offline',onOffline);
+ document.addEventListener('visibilitychange',onVisible);
+ const auth=new URLSearchParams(location.search).get('auth');
+ if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}
+ return ()=>{
+  window.removeEventListener('online',onOnline);
+  window.removeEventListener('offline',onOffline);
+  document.removeEventListener('visibilitychange',onVisible);
+ };
+},[]);
 function newChat(projectId){if(busy||storageConflict)return;setCurrent(null);setMemoryDraft(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setAttachmentsDraft([]);setChatMenuOpen(false);setChatSearchOpen(false);setChatSearchQuery('');setMobile(false);setError('');prompt.current?.focus()}
 function remove(id){if(busy||storageConflict||!confirm('Permanently delete this local chat and its attachments?'))return;if(!commitChats(v=>v.filter(c=>c.id!==id)))return;updateWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id){setCurrent(null);setView('chats')}}
 function openChat(id){if(busy)return;setCurrent(id);setMemoryDraft(null);setAttachmentsDraft([]);setChatMenuOpen(false);setChatSearchQuery('');setChatSearchOpen(false);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
@@ -182,7 +212,7 @@ function useSavedPrompt(item){
  }catch(e){setError(report(e))}
 }
 function navigate(id){setView(id);setMobile(false);setChatMenuOpen(false);setChatSearchOpen(false);setChatFullscreen(false)}
-function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
+function changeLast(id,replyId,fn){return commitChats(v=>updateStreamingReply(v,id,replyId,fn))}
 async function signIn(add=false){try{if(busy||storageConflict)return;const r=await api(add?'/api/auth/start?mode=add':'/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
 async function signOut(){
  if(busy||storageConflict||!status.accountId)return
@@ -222,17 +252,22 @@ async function send(value=draft){
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json',...(browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{})},body:JSON.stringify({
       messages:preparedMessages,images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
     }),signal:stop.signal});
-    if(!response.ok){const e=await response.json().catch(()=>({}));throw Error(e.error||'Response failed')}
+    if(!response.ok)await readApiResponse(response,'Response failed')
     if(!response.body)throw Error('The server returned no stream');
     await consumeChatResponse(response.body,e=>{
-      if(e.type==='meta')changeLast(id,m=>({...m,provider:e.provider,model:e.model}));
-      if(e.type==='delta')changeLast(id,m=>({...m,content:m.content+e.text}));
+      if(e.type==='meta'&&!changeLast(id,answer.id,m=>({...m,provider:e.provider,model:e.model})))
+        throw Error('The streamed response could not be saved in this browser. Reload and preserve a backup before retrying.');
+      if(e.type==='delta'&&!changeLast(id,answer.id,m=>({...m,content:m.content+e.text})))
+        throw Error('The streamed response could not be saved in this browser. Reload and preserve a backup before retrying.');
     });
-    changeLast(id,m=>({...m,pending:false}));
+    if(!changeLast(id,answer.id,m=>({...m,pending:false})))
+      throw Error('The completed response could not be saved in browser storage. Reload and preserve a backup before retrying.');
   }catch(e){
-    const message=stop.signal.aborted?'Generation stopped':report(e);
-    changeLast(id,m=>({...m,pending:false,error:true,content:m.content||message}));
-    setError(message);
+    const message=stop.signal.aborted?(stop.signal.reason==='network-offline'?'Connection lost while generating. Your partial answer was preserved.':'Generation stopped'):report(e);
+    // A failed browser write leaves the last durable partial reply pending.
+    // Recovery on reload marks it interrupted instead of claiming success.
+    if(changeLast(id,answer.id,m=>({...m,pending:false,error:true,content:m.content||message})))setError(message);
+    else setError('The response could not be saved in browser storage. Reload and preserve a backup before retrying.');
   }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
 }
 function saveReviewedMemory(){
@@ -272,6 +307,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  mobile={mobile} onMobile={setMobile} selectedProject={selectedProject} onProject={setSelectedProject} onUsePrompt={useSavedPrompt}/>
 <main className="main">
  {storageConflict&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{storageConflict}</span><button type="button" onClick={()=>window.location.reload()}>Reload latest</button></div>}
+ {(connectionError||modelWarning)&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{connectionError||modelWarning}</span><button type="button" onClick={()=>{void refresh()}}>Retry connection</button></div>}
  <header className="topbar"><div>
  {view==='chat'?<><button className="iconButton" type="button" aria-label="Back to chats or project" onClick={backFromChat}><ArrowLeft size={20}/></button><strong className="chatHeaderTitle" title={chat?.title||activeProject?.name||'New chat'}>{chat?.title||activeProject?.name||'New chat'}</strong></>:
  <><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{{mcp:'MCP',api:'API',projects:'Projects',agents:'Agents',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',archived:'Archived',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></>}

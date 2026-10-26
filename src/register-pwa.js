@@ -10,8 +10,8 @@ export async function requestWorkspaceInstallation(){
  if(!prompt)return false
  installPrompt=null
  await prompt.prompt()
- await prompt.userChoice
- return true
+ const choice=await prompt.userChoice
+ return choice?.outcome==='accepted'
 }
 export function registerWorkspacePwa(){
  if(typeof window==='undefined'||!('serviceWorker' in navigator)||location.protocol==='file:')return

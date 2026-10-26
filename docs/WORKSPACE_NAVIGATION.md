@@ -4,7 +4,7 @@
 
 ## Navigation
 
-The sidebar is ordered MCP, API, Projects, Pinned, All Chats, Settings. It is collapsible on desktop, uses title tooltips for icon-only navigation, and opens as an overlay on smaller displays. Expanded groups and compact-mode choice are saved under `workspace-ai-workspace-v1` in browser local storage.
+The sidebar is ordered MCP, API, Projects, Agents, Prompts, Pinned, All Chats, Archived, Settings. It is collapsible on desktop, uses title tooltips for icon-only navigation, and opens as an overlay on smaller displays. Expanded groups and compact-mode choice are saved under `workspace-ai-workspace-v1` in browser local storage.
 
 Projects support create/delete, glyph selection, individual instructions and user-edited notes, opt-in one-way memory/file sharing, local text attachments, read-only Dropbox text imports, and chat moving/assignment. Pins and chat search remain browser-local. Project-specific integration choices are metadata only, **not** executable tool permissions. Google Drive import, binary formats, automatic memory and cloud synchronization remain unsupported. See [PROJECT_WORKSPACES.md](PROJECT_WORKSPACES.md) for limits and security boundaries.
 
