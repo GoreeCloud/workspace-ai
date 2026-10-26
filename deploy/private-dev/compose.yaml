@@ -1,0 +1,52 @@
+# PRE-INGRESS private smoke environment. Intentionally no host ports or credentials.
+# Never attach the public reverse proxy or a production network to this workload
+# until authentication, private TLS, isolation and rollback have been reviewed.
+name: goreecloud-workspace-ai-private-dev
+services:
+  workspace-ai:
+    build:
+      context: ../..
+      dockerfile: deploy/private-dev/Dockerfile
+    image: goreecloud-workspace-ai-private-dev:local
+    restart: unless-stopped
+    user: "1000:1000"
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      HOME: /home/node
+      NODE_ENV: production
+      WORKSPACE_AI_PORT: "3031"
+      WORKSPACE_AI_PRIVATE_DEV_ENABLED: "true"
+      WORKSPACE_AI_PRIVATE_DEV_ORIGIN: https://workspace-ai-dev.goreecloud.com
+      WORKSPACE_AI_PRIVATE_DEV_BIND_ALL: "true"
+      WORKSPACE_AI_PRIVATE_DEV_ISOLATED_CONTAINER: "true"
+      WORKSPACE_AI_ENABLE_SCHEDULED_AGENTS: "false"
+    tmpfs:
+      - /home/node:rw,nosuid,nodev,size=8m,uid=1000,gid=1000,mode=0700
+      - /tmp:rw,nosuid,nodev,size=16m
+    pids_limit: 100
+    mem_limit: 512m
+    cpus: 1
+    expose:
+      - "3031"
+    ports: []
+    networks:
+      - private_smoke
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "require('node:http').get({host:'127.0.0.1',port:3031,path:'/api/status',headers:{Host:'workspace-ai-dev.goreecloud.com'}},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+      interval: 20s
+      timeout: 4s
+      retries: 3
+      start_period: 25s
+networks:
+  private_smoke:
+    driver: bridge
+    internal: true

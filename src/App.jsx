@@ -1,5 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import ReactMarkdown from 'react-markdown';
+import {installMobileComposerViewport} from './mobile-composer-viewport.js';
+import {shouldSendOnComposerEnter} from './chat-composer-keyboard.js';
 import remarkGfm from 'remark-gfm';
 import ConnectionField from './ConnectionField.jsx';
 import WorkspaceNavigation from './WorkspaceNavigation.jsx';
@@ -34,6 +36,7 @@ const initial=()=>{try{const value=JSON.parse(localStorage.getItem(KEY)||'[]');r
 function report(error){return error instanceof Error?error.message:String(error)}
 async function api(url,data){const extra=url==='/api/models'&&browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{};const r=await fetch(url,data?{method:'POST',headers:{'content-type':'application/json',...extra},body:JSON.stringify(data)}:{headers:extra});return readApiResponse(r)}
 export default function App(){
+useEffect(()=>installMobileComposerViewport(),[]);
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
 const [connectionError,setConnectionError]=useState(''),[modelWarning,setModelWarning]=useState('');
@@ -356,7 +359,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  </div></article>)}<div ref={bottom}/></section></>}</div>
  {view==='chat'&&<div className="composerArea">{chat&&conversationContextStart(chat)>0&&<p className="disclaimer" role="status">This chat was moved between projects. Older messages remain visible, but the AI does not receive them in new requests.</p>}{activeProject&&<div className="workspaceScope">Project: {activeProject.name} · {activeProject.files?.length||0} files · Project instructions active {chat?<button title="Move chat to no project" aria-label="Move chat out of project" disabled={busy} onClick={()=>assignChat(chat.id,null)}>Remove from project</button>:<button title="New chat outside project" aria-label="Start a chat outside this project" onClick={()=>setSelectedProject(null)}>×</button>}</div>}{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
  {!ready&&<div className="notice"><span>Connect ChatGPT or configure a separately billed OpenAI API connection.</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}
- <div className="composer"><textarea ref={prompt} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={12000} rows={2} placeholder="Ask anything…" aria-label="Message to Workspace AI" onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send()}}}/>
+ <div className="composer"><textarea ref={prompt} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={12000} rows={2} placeholder="Ask anything…" aria-label="Message to Workspace AI" onKeyDown={e=>{if(shouldSendOnComposerEnter(e,{mobileViewport:window.matchMedia('(max-width: 800px)').matches,coarsePointer:window.matchMedia('(pointer: coarse)').matches})){e.preventDefault();void send()}}}/>
  <div className="composerBottom">
   <ChatAttachments items={attachmentsDraft} onChange={setAttachmentsDraft} onError={setError} disabled={busy||Boolean(storageConflict)} availablePrompts={promptsForContext(workspace.prompts||[],activeProjectId)} onSavedPrompt={item=>{try{setDraft(old=>appendPromptDraft(old,item.content))}catch(e){setError(report(e))}}}/>
   <button type="button" className="chatEmbeddedButton" disabled={busy} aria-label={listening?'Stop microphone dictation':'Start microphone dictation'} title="Voice dictation (browser microphone)" onClick={toggleDictation}>{listening?<MicOff size={20}/>:<Mic size={20}/>}</button>

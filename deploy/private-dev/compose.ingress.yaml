@@ -1,0 +1,16 @@
+# REVIEW-ONLY opt-in override. This requires a pre-created, explicitly
+# audited PRIVATE Docker network joined by the authorized Caddy container.
+# It is NOT included in the default synthetic smoke command or CI deployment.
+# NEVER publish backend ports or attach the app to Docker's shared proxy network.
+services:
+  workspace-ai:
+    networks:
+      private_smoke: {}
+      private_ingress:
+        aliases:
+          - workspace-ai-private-dev
+
+networks:
+  private_ingress:
+    external: true
+    name: goreecloud-workspace-ai-private-ingress
