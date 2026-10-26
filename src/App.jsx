@@ -17,6 +17,7 @@ import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {accountScopedKey,browserAccountScope} from './account-workspace-scope.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
 import {consumeChatResponse,recoverInterruptedChats} from './chat-response-stream.js'
+import {createChatStreamWatchdog} from './chat-stream-watchdog.js'
 import {updateStreamingReply} from './chat-stream-state.js'
 import {readApiResponse} from './api-response.js';
 import {createConnectionRefresher} from './connection-refresh.js';
@@ -248,6 +249,9 @@ async function send(value=draft){
   if(!commitChats(v=>chat?v.map(c=>c.id===id?{...c,messages:[...history,answer],updatedAt:Date.now()}:c):[{id,title:text.slice(0,52),messages:[...history,answer],projectId:activeProjectId||null,updatedAt:Date.now()},...v]))return;
   setCurrent(id);setDraft('');setAttachmentsDraft([]);setError('');setBusy(true);
   const stop=new AbortController();controller.current=stop;
+  // Independent of navigator.onLine: an isolated VPN outage can leave fetch hanging.
+  const streamWatchdog=createChatStreamWatchdog(stop);
+  streamWatchdog.start();
   try{
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json',...(browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{})},body:JSON.stringify({
       messages:preparedMessages,images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
@@ -259,16 +263,17 @@ async function send(value=draft){
         throw Error('The streamed response could not be saved in this browser. Reload and preserve a backup before retrying.');
       if(e.type==='delta'&&!changeLast(id,answer.id,m=>({...m,content:m.content+e.text})))
         throw Error('The streamed response could not be saved in this browser. Reload and preserve a backup before retrying.');
+      streamWatchdog.activity();
     });
     if(!changeLast(id,answer.id,m=>({...m,pending:false})))
       throw Error('The completed response could not be saved in browser storage. Reload and preserve a backup before retrying.');
   }catch(e){
-    const message=stop.signal.aborted?(stop.signal.reason==='network-offline'?'Connection lost while generating. Your partial answer was preserved.':'Generation stopped'):report(e);
+    const message=stop.signal.aborted?(stop.signal.reason==='network-offline'?'Connection lost while generating. Your partial answer was preserved.':stop.signal.reason==='stream-inactive'?'The connection stopped responding. Your partial answer was preserved. Check your private network before trying again.':'Generation stopped'):report(e);
     // A failed browser write leaves the last durable partial reply pending.
     // Recovery on reload marks it interrupted instead of claiming success.
     if(changeLast(id,answer.id,m=>({...m,pending:false,error:true,content:m.content||message})))setError(message);
     else setError('The response could not be saved in browser storage. Reload and preserve a backup before retrying.');
-  }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
+  }finally{streamWatchdog.stop();setBusy(false);controller.current=null;prompt.current?.focus()}
 }
 function saveReviewedMemory(){
  if(!memoryDraft||busy||!activeProject?.memoryEnabled||!chat||memoryDraft.projectId!==activeProject.id||memoryDraft.chatId!==chat.id)return;
