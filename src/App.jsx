@@ -17,6 +17,7 @@ import {persistWorkspaceChange} from './workspace-persistence.js';
 import {consumeChatResponse,recoverInterruptedChats} from './chat-response-stream.js'
 import {updateStreamingReply} from './chat-stream-state.js'
 import {readApiResponse} from './api-response.js';
+import {createConnectionRefresher} from './connection-refresh.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem,readableChatHistory} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
 import ChatAttachments from './ChatAttachments.jsx';
@@ -34,6 +35,7 @@ async function api(url,data){const extra=url==='/api/models'&&browserAccountScop
 export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
+const [connectionError,setConnectionError]=useState(''),[modelWarning,setModelWarning]=useState('');
 const [settingsTab,setSettingsTab]=useState('connections');
 const [attachmentsDraft,setAttachmentsDraft]=useState([]),[chatMenuOpen,setChatMenuOpen]=useState(false),[chatSearchOpen,setChatSearchOpen]=useState(false),[chatSearchQuery,setChatSearchQuery]=useState(''),[chatFullscreen,setChatFullscreen]=useState(false),[listening,setListening]=useState(false);
 const recognitionRef=useRef(null);
@@ -139,8 +141,32 @@ useEffect(()=>{
  document.addEventListener('keydown',onKey);
  return ()=>document.removeEventListener('keydown',onKey);
 },[settings,busy]);
-async function refresh(){try{const s=await api('/api/status');setStatus(s);if(s.planEnabled){const m=await api('/api/models');setModels(m.planModels||[]);setPlanModel(old=>(m.planModels||[]).some(v=>v.slug===old)?old:(m.planModels?.[0]?.slug||''));if(m.error)setError(m.error)}}catch(e){setError(report(e))}}
-useEffect(()=>{refresh();const auth=new URLSearchParams(location.search).get('auth');if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}},[]);
+const connectionRefresh=useRef(null);
+if(!connectionRefresh.current)connectionRefresh.current=createConnectionRefresher({
+ readStatus:()=>api('/api/status'),
+ readModels:()=>api('/api/models'),
+ publish:({status:next,models:list,connectionError:problem,modelError:warning})=>{
+  setStatus(next);setModels(list);setConnectionError(problem);setModelWarning(warning);
+  setPlanModel(previous=>list.some(model=>model.slug===previous)?previous:(list[0]?.slug||''));
+ }
+});
+function refresh(){return connectionRefresh.current()}
+useEffect(()=>{
+ void refresh();
+ const onOnline=()=>{void refresh()};
+ const onOffline=()=>connectionRefresh.current.offline();
+ const onVisible=()=>{if(document.visibilityState==='visible'){if(navigator.onLine===false)onOffline();else void refresh()}};
+ window.addEventListener('online',onOnline);
+ window.addEventListener('offline',onOffline);
+ document.addEventListener('visibilitychange',onVisible);
+ const auth=new URLSearchParams(location.search).get('auth');
+ if(auth){history.replaceState({},'',location.pathname);setSettings(true);if(auth==='failed')setError('ChatGPT sign-in failed. Try again.')}
+ return ()=>{
+  window.removeEventListener('online',onOnline);
+  window.removeEventListener('offline',onOffline);
+  document.removeEventListener('visibilitychange',onVisible);
+ };
+},[]);
 function newChat(projectId){if(busy||storageConflict)return;setCurrent(null);setMemoryDraft(null);setView('chat');setSelectedProject(typeof projectId==='string'?projectId:null);setDraft('');setAttachmentsDraft([]);setChatMenuOpen(false);setChatSearchOpen(false);setChatSearchQuery('');setMobile(false);setError('');prompt.current?.focus()}
 function remove(id){if(busy||storageConflict||!confirm('Permanently delete this local chat and its attachments?'))return;if(!commitChats(v=>v.filter(c=>c.id!==id)))return;updateWorkspace(w=>({...w,pinned:w.pinned.filter(v=>v!==id)}));if(current===id){setCurrent(null);setView('chats')}}
 function openChat(id){if(busy)return;setCurrent(id);setMemoryDraft(null);setAttachmentsDraft([]);setChatMenuOpen(false);setChatSearchQuery('');setChatSearchOpen(false);setView('chat');setMobile(false);setSelectedProject(chats.find(c=>c.id===id)?.projectId||null)}
@@ -278,6 +304,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  mobile={mobile} onMobile={setMobile} selectedProject={selectedProject} onProject={setSelectedProject} onUsePrompt={useSavedPrompt}/>
 <main className="main">
  {storageConflict&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{storageConflict}</span><button type="button" onClick={()=>window.location.reload()}>Reload latest</button></div>}
+ {(connectionError||modelWarning)&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{connectionError||modelWarning}</span><button type="button" onClick={()=>{void refresh()}}>Retry connection</button></div>}
  <header className="topbar"><div>
  {view==='chat'?<><button className="iconButton" type="button" aria-label="Back to chats or project" onClick={backFromChat}><ArrowLeft size={20}/></button><strong className="chatHeaderTitle" title={chat?.title||activeProject?.name||'New chat'}>{chat?.title||activeProject?.name||'New chat'}</strong></>:
  <><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{{mcp:'MCP',api:'API',projects:'Projects',agents:'Agents',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',archived:'Archived',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></>}
