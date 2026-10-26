@@ -12,6 +12,9 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       - name: Prepare local synthetic bcrypt tooling
         shell: bash
@@ -94,12 +97,17 @@ jobs:
               })().catch(error=>{console.error(error.message);process.exitCode=1});
             '
 
-      - name: Rehearse protected HTTPS gateway and spoofed peer header
+      - name: Rehearse protected HTTPS gateway and authenticated Chromium app acceptance
         env:
           GOREECLOUD_CADDY_IMAGE: caddy:2.10.2-alpine
+          WORKSPACE_AI_QA_BROWSER: '1'
         shell: bash
         run: |
           set -euo pipefail
+          node --check scripts/private-dev-qa-auth-browser.mjs
+          CHROMIUM_EXECUTABLE="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          test -n "$CHROMIUM_EXECUTABLE" || { echo 'Chromium unavailable for private HTTPS acceptance' >&2; exit 1; }
+          export CHROMIUM_EXECUTABLE
           bash scripts/private-dev-qa-gateway-rehearsal.sh
           test -z "$(docker ps --all --format '{{.Names}}' | grep '^goreecloud-workspace-ai-qa-rehearsal-' || true)"
 

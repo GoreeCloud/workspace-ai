@@ -68,4 +68,9 @@ done
 test "$ready" = true || { echo "FAIL: synthetic gateway CA not ready" >&2; exit 1; }
 WORKSPACE_AI_QA_DIR="$work" WORKSPACE_AI_QA_GATEWAY_CONTAINER="$name" \
   bash "$root/scripts/private-dev-qa-gateway-check.sh"
+if test "${WORKSPACE_AI_QA_BROWSER:-}" = 1; then
+  test "${GITHUB_ACTIONS:-}" = true || { echo 'FAIL: browser QA requires disposable GitHub CI' >&2; exit 1; }
+  WORKSPACE_AI_QA_DIR="$work" WORKSPACE_AI_QA_GATEWAY_CONTAINER="$name" \
+    node "$root/scripts/private-dev-qa-auth-browser.mjs"
+fi
 echo "PASS: one-shot isolated Caddy rehearsal finished; credentials and QA container will be removed"
