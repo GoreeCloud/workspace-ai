@@ -15,6 +15,7 @@ import {readWorkspace,WORKSPACE_KEY} from './workspace-state.js';
 import {accountScopedKey,browserAccountScope} from './account-workspace-scope.js';
 import {persistWorkspaceChange} from './workspace-persistence.js';
 import {consumeChatResponse,recoverInterruptedChats} from './chat-response-stream.js'
+import {updateStreamingReply} from './chat-stream-state.js'
 import {readApiResponse} from './api-response.js';
 import {BrowserStorageConflict,createBrowserStorageGuard,browserStorageLoadProblem,readableChatHistory} from './browser-storage-guard.js';
 import {moveChatToProject,scopedChatMessages,conversationContextStart} from './chat-project-boundary.js';
@@ -71,11 +72,13 @@ function commitChats(change) {
   return true;
  }catch(error){handleStorageFailure(error);return false}
 }
+// Persist a recovered interrupted reply once when the tab opens. All further
+// conversation changes are committed synchronously before the UI changes.
 useEffect(()=>{
  if(storageConflict)return;
- try{storageGuard.current.write(KEY,JSON.stringify(chats));}
+ try{storageGuard.current.write(KEY,JSON.stringify(chatsRef.current));}
  catch(error){handleStorageFailure(error)}
-},[chats,storageConflict]);
+},[]);
 useEffect(()=>{
  const onStorage=event=>{
   if(event.storageArea!==localStorage)return;
@@ -180,7 +183,7 @@ function useSavedPrompt(item){
  }catch(e){setError(report(e))}
 }
 function navigate(id){setView(id);setMobile(false);setChatMenuOpen(false);setChatSearchOpen(false);setChatFullscreen(false)}
-function changeLast(id,fn){setChats(v=>v.map(c=>c.id!==id?c:{...c,messages:c.messages.map((m,i,a)=>i===a.length-1?fn(m):m)}))}
+function changeLast(id,replyId,fn){return commitChats(v=>updateStreamingReply(v,id,replyId,fn))}
 async function signIn(add=false){try{if(busy||storageConflict)return;const r=await api(add?'/api/auth/start?mode=add':'/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
 async function signOut(){
  if(busy||storageConflict||!status.accountId)return
@@ -223,14 +226,19 @@ async function send(value=draft){
     if(!response.ok)await readApiResponse(response,'Response failed')
     if(!response.body)throw Error('The server returned no stream');
     await consumeChatResponse(response.body,e=>{
-      if(e.type==='meta')changeLast(id,m=>({...m,provider:e.provider,model:e.model}));
-      if(e.type==='delta')changeLast(id,m=>({...m,content:m.content+e.text}));
+      if(e.type==='meta'&&!changeLast(id,answer.id,m=>({...m,provider:e.provider,model:e.model})))
+        throw Error('The streamed response could not be saved in this browser. Reload and preserve a backup before retrying.');
+      if(e.type==='delta'&&!changeLast(id,answer.id,m=>({...m,content:m.content+e.text})))
+        throw Error('The streamed response could not be saved in this browser. Reload and preserve a backup before retrying.');
     });
-    changeLast(id,m=>({...m,pending:false}));
+    if(!changeLast(id,answer.id,m=>({...m,pending:false})))
+      throw Error('The completed response could not be saved in browser storage. Reload and preserve a backup before retrying.');
   }catch(e){
     const message=stop.signal.aborted?'Generation stopped':report(e);
-    changeLast(id,m=>({...m,pending:false,error:true,content:m.content||message}));
-    setError(message);
+    // A failed browser write leaves the last durable partial reply pending.
+    // Recovery on reload marks it interrupted instead of claiming success.
+    if(changeLast(id,answer.id,m=>({...m,pending:false,error:true,content:m.content||message})))setError(message);
+    else setError('The response could not be saved in browser storage. Reload and preserve a backup before retrying.');
   }finally{setBusy(false);controller.current=null;prompt.current?.focus()}
 }
 function saveReviewedMemory(){

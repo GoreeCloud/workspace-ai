@@ -127,7 +127,8 @@ test('over-capacity saved conversations stay intact and force read-only startup'
  assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/more than 50 conversations/)
  assert.equal(storage.getItem(CHAT),serialized)
  const app=await readFile(new URL('../src/App.jsx',import.meta.url),'utf8')
- assert.match(app,/storageGuard\.current\.write\(KEY,JSON\.stringify\(chats\)\)/)
+ assert.match(app,/storageGuard\.current\.write\(KEY,JSON\.stringify\(chatsRef\.current\)\)/)
+ assert.match(app,/function changeLast\(id,replyId,fn\)\{return commitChats/)
  assert.doesNotMatch(app,/chats\.slice\(0,50\)/)
 })
 
