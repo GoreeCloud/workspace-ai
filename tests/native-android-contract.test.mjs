@@ -1,0 +1,148 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import {readFileSync} from 'node:fs'
+const root = new URL('../android-native/',import.meta.url)
+const source = readFileSync(new URL('app/src/main/java/com/goreecloud/workspaceai/nativeapp/MainActivity.java',root),'utf8')
+const manifest = readFileSync(new URL('app/src/main/AndroidManifest.xml',root),'utf8')
+const build = readFileSync(new URL('app/build.gradle.kts',root),'utf8')
+
+test('native Android starter contains no WebView or browser-wrapper APIs',()=>{
+  assert.doesNotMatch(source,/import\s+android\.webkit|new\s+WebView\s*\(|\.loadUrl\s*\(/)
+  assert.match(source,/extends Activity/)
+  assert.match(source,/new EditText\(this\)/)
+  assert.match(source,/new AlertDialog\.Builder\(this\)/)
+})
+
+test('native light theme requests readable Android system bar icons',()=>{
+  assert.match(source,/View\.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR/)
+  assert.match(source,/View\.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR/)
+  assert.ok(source.indexOf('setContentView(root)') < source.indexOf('getWindow().getDecorView().setSystemUiVisibility'), 'system-bar appearance requires a ready decor view')
+})
+
+test('offline Android starter requests no network or data permissions',()=>{
+  assert.doesNotMatch(manifest,/<uses-permission/)
+  assert.match(manifest,/android:allowBackup="false"/)
+  assert.match(manifest,/android:usesCleartextTraffic="false"/)
+  assert.match(manifest,/android:windowSoftInputMode="adjustResize"/)
+  assert.match(build,/applicationId = "com\.goreecloud\.workspaceai\.nativeapp"/)
+})
+
+test('native preview cannot claim secure AI messaging without backend',()=>{
+  assert.match(source,/send\.setEnabled\(false\)/)
+  assert.match(source,/Offline developer preview/)
+  assert.doesNotMatch(source,/HttpURLConnection|OkHttpClient|ACCESS_TOKEN|API_KEY/)
+})
+
+test('native unsent draft survives configuration recreation only in memory',()=>{
+  assert.match(source,/onRetainNonConfigurationInstance\(\)/)
+  assert.match(source,/getLastNonConfigurationInstance\(\)/)
+  assert.match(source,/draft\.setText\(previous\.text\)/)
+  assert.match(source,/showTab\(previous\.tab\)/)
+  assert.doesNotMatch(source,/onSaveInstanceState\s*\(/)
+  assert.doesNotMatch(source,/SharedPreferences|openFileOutput|FileOutputStream/)
+})
+
+test('phone landscape conserves the scrollable content viewport without changing tablet layout',()=>{
+  assert.match(source,/configuration\.orientation == Configuration\.ORIENTATION_LANDSCAPE/)
+  assert.match(source,/configuration\.screenHeightDp < 500/)
+  assert.match(source,/draft\.setMinLines\(compactLandscape \? 1 : 2\)/)
+  assert.match(source,/draft\.setMaxLines\(compactLandscape \? 2 : 5\)/)
+  assert.match(source,/dp\(compactLandscape \? 44 : 59\)/)
+  assert.match(source,/dp\(compactLandscape \? 10 : 25\)/)
+  assert.match(source,/page\.addView\(sectionHeading\("Make room for what’s next\.", compactLandscape \? 24 : 29\)\)/)
+  assert.match(source,/if \(compactLandscape\) \{[\s\S]*?TextView notice = label\("● Offline developer preview · nothing is sent"/)
+  assert.match(source,/notice\.setBackground\(round\(PALE, 12, 0\)\)/)
+  assert.match(source,/space\(compactLandscape \? 30 : 26\)/)
+  assert.match(source,/scroll\.setFillViewport\(true\)/)
+})
+
+test('native tab changes dismiss the message keyboard and expose selected state',()=>{
+  assert.match(source,/selected != 0 && draft != null && draft\.hasFocus\(\)/)
+  assert.match(source,/hideSoftInputFromWindow\(draft\.getWindowToken\(\), 0\)/)
+  assert.match(source,/draft\.clearFocus\(\)/)
+  assert.match(source,/tabs\[i\]\.setStateDescription\(active \? "Selected" : "Not selected"\)/)
+})
+
+test('navigation exposes native pane titles and semantic section headings',()=>{
+  assert.match(source,/content\.setAccessibilityPaneTitle\(/)
+  assert.match(source,/heading\.setAccessibilityHeading\(true\)/)
+  assert.match(source,/sectionHeading\("Make room for what’s next\."/)
+  assert.match(source,/sectionHeading\("Projects", 30\)/)
+  assert.match(source,/sectionHeading\("Settings", 30\)/)
+})
+
+test('screenshot-led native review guards centered nav and non-sending starter links',()=>{
+  assert.match(source,/name\.setGravity\(Gravity\.CENTER\)/)
+  assert.match(source,/ViewGroup\.LayoutParams\.WRAP_CONTENT, ViewGroup\.LayoutParams\.WRAP_CONTENT/)
+  assert.match(source,/tabs\[i\]\.setBackground\(navSurface\(active \? PALE : SURFACE\)\)/)
+  assert.match(source,/card\.addView\(new IconView\(5, BRAND\)/)
+  assert.match(source,/Starter prompts navigate into the draft; they do not send it/)
+})
+
+test('native Chat Projects Settings are individually focusable accessibility targets',()=>{
+  assert.match(source,/tab\.setContentDescription\(titles\[i\] \+ " tab"\)/)
+  assert.match(source,/tab\.setFocusable\(true\)/)
+  assert.match(source,/tab\.setImportantForAccessibility\(View\.IMPORTANT_FOR_ACCESSIBILITY_YES\)/)
+})
+
+test('settings and appearance use distinct native symbols',()=>{
+  assert.match(source,/Settings should be a cog, distinct from Appearance's sun/)
+  assert.match(source,/page\.addView\(infoRow\("Appearance", darkMode \? "Dark · follows system" : "Light · follows system", 6\)\)/)
+  assert.match(source,/gear\.close\(\)/)
+})
+
+test('settings icons correctly distinguish connection security, privacy and appearance',()=>{
+  assert.match(source,/infoRow\("Connection", "Offline developer preview", 7\)/)
+  assert.match(source,/infoRow\("Privacy", "Drafts remain in this app session", 8\)/)
+  assert.match(source,/infoRow\("Appearance", darkMode \? "Dark · follows system" : "Light · follows system", 6\)/)
+  assert.match(source,/Connection security: a distinct padlock/)
+  assert.match(source,/Privacy: shield, not a conversation icon/)
+  assert.match(source,/shield\.close\(\)/)
+})
+
+test('system light and dark modes map to pinned GC UI semantic roles',()=>{
+  const palette = readFileSync(new URL('app/src/main/java/com/goreecloud/workspaceai/nativeapp/GcUiNativePalette.java',root),'utf8')
+  const day = readFileSync(new URL('app/src/main/res/values/styles.xml',root),'utf8')
+  const night = readFileSync(new URL('app/src/main/res/values-night/styles.xml',root),'utf8')
+  assert.match(palette,/b83213cf26627b60f26cd1416405152bbb1d4fcb/)
+  assert.match(palette,/Configuration\.UI_MODE_NIGHT_YES/)
+  for (const color of ['0xFFECF0F8','0xFF10131E','0xFF5145D9','0xFFC5BFFF','0xFF20243A','0xFFF2F2FA']) {
+    assert.ok(palette.includes(color), 'Missing native palette role '+color)
+  }
+  assert.match(manifest,/android:theme="@style\/GoreeCloudWorkspaceTheme"/)
+  assert.match(day,/Theme\.Material\.Light\.NoActionBar/)
+  assert.match(night,/Theme\.Material\.NoActionBar/)
+  assert.match(source,/GcUiNativePalette\.forConfiguration/)
+  assert.match(source,/darkMode \? "Dark · follows system" : "Light · follows system"/)
+  assert.match(source,/darkMode \? 0 :/)
+})
+
+test('native screenshot audit preserves honest and accessible touch affordances',()=>{
+  const palette = readFileSync(new URL('app/src/main/java/com/goreecloud/workspaceai/nativeapp/GcUiNativePalette.java',root),'utf8')
+  assert.match(palette,/0xFF323748/) // disabled dark send surface is neutral, not the active brand accent
+  assert.match(source,/bar\.addView\(settings, new LinearLayout\.LayoutParams\(dp\(48\), dp\(48\)\)\)/)
+  assert.match(source,/About this native preview  ›/)
+  assert.match(source,/about\.setContentDescription\("About this native preview\. Opens app information dialog\."\)/)
+  assert.doesNotMatch(source,/About this native preview  ↗/)
+})
+
+test('emulator QA only recovers an identified launcher ANR with bounded attempts',()=>{
+  const qa = readFileSync(new URL('../scripts/native-android-emulator-smoke.py',import.meta.url),'utf8')
+  assert.match(qa,/for attempt in range\(7\)/)
+  assert.match(qa,/Pixel Launcher isn't responding/)
+  assert.match(qa,/tap_element\(find\(root, "Wait"\)\)/)
+  assert.match(qa,/pidof", PACKAGE/)
+  assert.match(qa,/ro\.kernel\.qemu/)
+  assert.doesNotMatch(qa,/force-stop", "com\.google\.android\.apps\.nexuslauncher"/)
+})
+
+test('emulator native element retries are bounded and require actual draft focus',()=>{
+  const qa = readFileSync(new URL('../scripts/native-android-emulator-smoke.py',import.meta.url),'utf8')
+  assert.match(qa,/def await_element\(label, attempts=5\):/)
+  assert.match(qa,/for attempt in range\(attempts\):/)
+  assert.match(qa,/pidof", PACKAGE/)
+  assert.match(qa,/for focus_attempt in range\(4\):/)
+  assert.match(qa,/editor\.attrib\.get\("focused"\) == "true"/)
+  assert.match(qa,/snapshot\(folder, "composer-after-input"\)/)
+  assert.doesNotMatch(qa,/force-stop", "com\.google\.android\.apps\.nexuslauncher"/)
+})
