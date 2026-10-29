@@ -2,7 +2,7 @@
 // No ChatGPT subscription token is used for paid image inference.
 const RATIOS = Object.freeze({'1:1':'1024x1024','3:2':'1536x1024','2:3':'1024x1536'})
 const OPENAI=['gpt-image-2.5-flare','gpt-image-2.5-sunburst']
-const GOOGLE=['gemini-3.1-flash-image','gemini-nano-banana-2.1']
+const GOOGLE=['gemini-nano-banana-2.1','gemini-3.1-flash-image']
 const MAX_INPUT=4*1024*1024,MAX_OUTPUT=16*1024*1024
 const mimePattern=/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/
 const error=(message,status=400)=>Object.assign(Error(message),{status})
