@@ -40,7 +40,7 @@ test('Chrome MCP passes URL restrictions to the isolated launch process',async()
     if(message.method==='initialize')result={capabilities:{tools:{}}}
     if(message.method==='tools/list')result={tools:[{name:'list_pages'}]}
     if(message.method==='tools/call')result={content:[{type:'text',text:'No pages open'}]}
-    queueMicrotask(()=>child.stdout.emit('data',Buffer.from(JSON.stringify({jsonrpc:'2.0',id:message.id,result})+'\\n')))
+    queueMicrotask(()=>child.stdout.emit('data',Buffer.from(JSON.stringify({jsonrpc:'2.0',id:message.id,result})+'\n')))
    }
    done?.()
   }}
