@@ -312,7 +312,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  {(connectionError||modelWarning)&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{connectionError||modelWarning}</span><button type="button" onClick={()=>{void refresh()}}>Retry connection</button></div>}
  <header className="topbar"><div>
  {view==='chat'?<><button className="iconButton" type="button" aria-label="Back to chats or project" onClick={backFromChat}><ArrowLeft size={20}/></button><strong className="chatHeaderTitle" title={chat?.title||activeProject?.name||'New chat'}>{chat?.title||activeProject?.name||'New chat'}</strong></>:
- <><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{{mcp:'MCP',api:'API',projects:'Projects',agents:'Agents',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',archived:'Archived',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></>}
+ <><button className="iconButton menu" onClick={()=>setMobile(true)} aria-label="Open navigation"><Menu size={19}/></button><strong>{{mcp:'MCP',api:'API',projects:'Projects',agents:'Agents',images:'Image Studio',prompts:'Prompts',pinned:'Pinned',chats:'All Chats',archived:'Archived',settings:'Settings'}[view]}</strong><span className="beta">BETA</span></>}
  </div><div>
  {view==='chat'?<div className="chatHeaderMenu">
   <button type="button" className="iconButton" aria-label="Chat options" aria-expanded={chatMenuOpen} onClick={()=>setChatMenuOpen(v=>!v)}><Ellipsis size={21}/></button>
