@@ -1,0 +1,27 @@
+/* GoreeCloud UI semantic tokens: Remote Operations surfaces. */
+.remoteOps{display:grid;gap:18px;align-content:start}
+.remoteOps .workspacePageTop{margin:0}
+.remoteOpsPanel{display:grid;gap:12px;border:1px solid var(--gc-outline);border-radius:16px;background:var(--gc-surface);padding:20px;min-width:0}
+.remoteOpsPanel h2{font-size:16px;margin:0}
+.remoteOpsPanel p,.remoteOpsPanel small{color:var(--gc-text-soft);font-size:13px;line-height:1.55;margin:0}
+.remoteOpsPanel label{font-size:13px;font-weight:650;color:var(--gc-text)}
+.remoteOpsPanel input,.remoteOpsPanel select,.remoteOpsPanel textarea{width:100%;min-width:0;background:var(--gc-surface-raised);color:var(--gc-text);border:1px solid var(--gc-outline);border-radius:10px;padding:12px;font:inherit}
+.remoteOpsPanel textarea{resize:vertical}
+.remoteOpsRow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.remoteOpsRow input{flex:1;min-width:220px}
+.remoteOpsRow h2{margin-right:auto}
+.remoteOpsRow button,.remoteOpsPanel>button{display:inline-flex;align-items:center;gap:8px;min-height:40px}
+.remoteOpsModes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.remoteOpsModes button{display:grid;gap:6px;text-align:left;min-width:0;border:1px solid var(--gc-outline);background:var(--gc-surface);color:var(--gc-text);border-radius:15px;padding:18px;cursor:pointer}
+.remoteOpsModes button.selected{border-color:var(--gc-brand);box-shadow:0 0 0 2px var(--gc-brand-container)}
+.remoteOpsModes small{color:var(--gc-text-soft);font-size:12px}
+.remoteOpsNote{display:flex;align-items:flex-start;gap:10px;padding:13px 16px;border-radius:12px;background:var(--gc-surface-raised);color:var(--gc-text-soft);font-size:13px;line-height:1.5}
+.remoteOpsNote svg{flex:none}
+.remoteOpsSummary{display:grid;gap:10px;padding:15px;border-radius:12px;background:var(--gc-surface-raised);border:1px solid var(--gc-outline);overflow-wrap:anywhere}
+.remoteOpsSummary code,.remoteOpsPanel>code{white-space:pre-wrap;word-break:break-word;padding:9px;border-radius:9px;background:var(--gc-surface-raised);font-size:12px}
+.remoteOpsPanel pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow-y:auto;background:var(--gc-surface-raised);border-radius:10px;padding:14px;font-size:12px}
+.remoteOpsError,.remoteOpsFeedback{display:flex;gap:9px;align-items:center;font-size:13px;padding:13px;border-radius:11px}
+.remoteOpsError{color:var(--gc-danger,#9e2435);border:1px solid var(--gc-outline)}
+.remoteOpsFeedback{color:var(--gc-text);background:var(--gc-surface-raised)}
+.remoteOpsPanel ul{display:grid;gap:9px;padding-left:19px;font-size:12px;color:var(--gc-text-soft)}
+@media(max-width:720px){.remoteOpsModes{grid-template-columns:1fr}.remoteOpsPanel{padding:15px}.remoteOpsRow{align-items:stretch}.remoteOpsRow input{min-width:100%}}
