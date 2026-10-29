@@ -13,7 +13,7 @@ Workspace AI can propose an existing approved action, stage its exact target, ob
 - Every execution requires staging, explicit APPROVE, and a separate Execute action. Critical actions also require CONFIRM CRITICAL. Tickets expire after five minutes and cannot be replayed.
 - SSH enforces host-key verification, no agent forwarding, no tunnel forwarding, and no interactive prompts. Configure least-privileged authorized accounts and independently verify host fingerprints.
 - Chrome MCP launches an isolated temporary headless profile; it does not access existing signed-in personal Chrome tabs. New URLs require a configured HTTPS hostname.
-- The Chrome hostname check is not a network sandbox for redirects, page scripts or subresources. Keep sensitive systems isolated and treat page contents as untrusted.
+- The Chrome hostname check is not a network sandbox for redirects, page scripts or subresources. **Chrome execution is not approved for production** until browser-level URL filtering, process isolation, and a live acceptance test are implemented and verified. Treat page contents as untrusted.
 - Output size, execution time and concurrency are restricted. The redacted audit is memory-only and is not a durable compliance log.
 
 ## Private configuration
@@ -28,9 +28,21 @@ Set these server environment variables outside Git. All defaults are disabled.
     WORKSPACE_CHROME_MCP_EXECUTABLE=/absolute/path/to/chrome-devtools-mcp
     WORKSPACE_CHROME_MCP_ALLOWED_HOSTS=developer.chrome.com,example.org
 
-The catalog is a private regular file, mode 0600, owned by the service operator. Use docs/remote-operations.example.json as a **template only**. Never commit real SSH keys, SSH usernames or production host inventories.
+The catalog is a private regular file, mode 0600, owned by the service operator. Use the private catalog structure described below as a **template only**. Never commit real SSH keys, SSH usernames or production host inventories.
 
 Install and pin a reviewed version of [Google Chrome DevTools MCP](https://github.com/ChromeDevTools/chrome-devtools-mcp) separately. The service does not auto-install it. Chrome or Chrome for Testing must be available. The local MCP client uses headless isolated mode, disables usage telemetry and performance CrUX, and forbids file navigation and JavaScript evaluation where supported.
+
+## Private device catalog example
+
+Store an owner-only JSON inventory **outside the repository** with this structure, replacing every example value with a verified destination and command:
+
+    {"devices":[{"id":"staging-host","label":"Authorized staging system","host":"example.org","user":"operator","port":22,"keyFile":"/private/ssh/id_ed25519","knownHostsFile":"/private/ssh/known_hosts","commands":[{"id":"uptime","label":"Inspect uptime","command":"uptime","mode":"read","risk":"medium"}]}]}
+
+The example does not grant access to a real device. Verify SSH host fingerprints out of band and use a least-privileged identity. The separate ChatGPT Remote Desktop Commander connection is not imported by Workspace AI.
+
+## Browser network acceptance requirement
+
+Current Chrome DevTools MCP exposes an `--allowed-url-pattern` option that can constrain subresource and redirect traffic, but it requires **Chrome 149 or newer**. Workspace AI's current client performs hostname checks only for `new_page`; this is **not equivalent** to browser network isolation. Do not enable Chrome MCP on an untrusted network or against sensitive services until Chrome 149+, network allowlisting, denial tests for redirects/subresources, and isolated process/OS permissions are independently verified. See the upstream [Chrome MCP configuration reference](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/configuration.md).
 
 ## Operator workflow
 
