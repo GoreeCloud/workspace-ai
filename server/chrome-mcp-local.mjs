@@ -18,7 +18,7 @@ export function chromeExecutablePath(input=process.env.WORKSPACE_CHROME_MCP_EXEC
  const candidate=input||resolve(ROOT,'node_modules/.bin/chrome-devtools-mcp')
  return isAbsolute(candidate)&&existsSync(candidate)?candidate:null
 }
-export function createChromeLocalClient({executable=chromeExecutablePath(),runner=spawn}={}){
+export function createChromeLocalClient({executable=chromeExecutablePath(),allowedHosts=[],runner=spawn}={}){
  let child=null,sequence=0,buffer='',broken=null,initialized=false
  const pending=new Map()
  const failAll=error=>{for(const p of pending.values()){clearTimeout(p.timer);p.reject(error)}pending.clear()}
@@ -35,15 +35,18 @@ export function createChromeLocalClient({executable=chromeExecutablePath(),runne
  }
  function start(){
   if(!executable)throw Error('Chrome DevTools MCP is not installed or configured.')
+  if(!Array.isArray(allowedHosts)||allowedHosts.length===0||allowedHosts.length>24||allowedHosts.some(host=>typeof host!=='string'||!(/^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/).test(host)||host.includes('..')||host==='localhost'||/^\d+\.\d+\.\d+\.\d+$/.test(host)))throw Error('Chrome MCP requires an exact approved hostname allowlist.')
+  const patterns=[...new Set(allowedHosts)].map(host=>'--allowed-url-pattern=https://'+host+'/*')
   const env={
    PATH:process.env.PATH||'/usr/bin:/bin',
    HOME:process.env.HOME||'/tmp',
    TMPDIR:process.env.TMPDIR||'/tmp',
    CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS:'1',
-   CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS:'1'
+   CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS:'1',
+   CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY:'1'
   }
   // Disable telemetry, JavaScript evaluation and file navigation where supported.
-  child=runner(executable,['--isolated','--headless','--no-usage-statistics','--no-performance-crux','--no-file-navigations','--no-javascript-evaluation'],{
+  child=runner(executable,['--isolated','--headless','--no-usage-statistics','--no-performance-crux','--no-file-navigations','--no-javascript-evaluation','--redact-network-headers','--no-source-maps','--category-network=false','--category-memory=false','--category-debugging=false','--category-performance=false','--category-emulation=false',...patterns],{
    cwd:ROOT,env,stdio:['pipe','pipe','pipe'],shell:false
   })
   child.stdout.on('data',chunk=>{
