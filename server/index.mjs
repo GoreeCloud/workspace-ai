@@ -12,6 +12,7 @@ import {attachMcpLiveRoutes} from './mcp-live-routes.mjs'
 import {attachGoogleRoutes} from './google-routes.mjs'
 import {attachAgentRoutes} from './agent-routes.mjs'
 import {attachAccountSyncRelay} from './account-sync-relay.mjs'
+import {attachImageStudioRoutes} from './image-studio.mjs'
 import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
 
@@ -52,6 +53,7 @@ app.use((req, res, next) => {
   next()
 })
 app.use('/api/chat',express.json({limit:'520kb'}))
+app.use('/api/image-studio',express.json({limit:'6mb'}))
 app.use(express.json({ limit: '90kb' }))
 const localOrigins=new Set([clientOrigin,'http://127.0.0.1:5173'])
 const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
@@ -60,6 +62,7 @@ attachMcpLiveRoutes(app,localOrigins,{broker:mcpApproval,...mcpIntegration,provi
 attachGoogleRoutes(app,localOrigins)
 attachAgentRoutes(app,localOrigins,{getApiKey:()=>environmentApiKey,model:apiModel})
 attachAccountSyncRelay(app,localOrigins)
+attachImageStudioRoutes(app,{getOpenaiKey:()=>apiKey,readProfile,activeAccountId})
 const credentialSettings = attachCredentialSettings(app, {
   allowedOrigins: new Set([clientOrigin, 'http://127.0.0.1:5173']),
   getCredential: () => apiKey,
