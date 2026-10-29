@@ -9,6 +9,7 @@ import { verifyApiKey } from './api-key-verification.mjs'
 import { attachIntegrationRoutes } from './integration-routes.mjs'
 import {attachMcpApprovalRoutes} from './mcp-approval-routes.mjs'
 import {attachMcpLiveRoutes} from './mcp-live-routes.mjs'
+import {attachRemoteOperationsRoutes} from './remote-operations-routes.mjs'
 import {attachGoogleRoutes} from './google-routes.mjs'
 import {attachAgentRoutes} from './agent-routes.mjs'
 import {attachAccountSyncRelay} from './account-sync-relay.mjs'
@@ -60,6 +61,7 @@ attachMcpLiveRoutes(app,localOrigins,{broker:mcpApproval,...mcpIntegration,provi
 attachGoogleRoutes(app,localOrigins)
 attachAgentRoutes(app,localOrigins,{getApiKey:()=>environmentApiKey,model:apiModel})
 attachAccountSyncRelay(app,localOrigins)
+attachRemoteOperationsRoutes(app,localOrigins,{readProfile,activeAccountId,getOpenaiKey:()=>apiKey})
 const credentialSettings = attachCredentialSettings(app, {
   allowedOrigins: new Set([clientOrigin, 'http://127.0.0.1:5173']),
   getCredential: () => apiKey,
