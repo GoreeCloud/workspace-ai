@@ -42,7 +42,7 @@ The example does not grant access to a real device. Verify SSH host fingerprints
 
 ## Browser network acceptance requirement
 
-Current Chrome DevTools MCP exposes an `--allowed-url-pattern` option that can constrain subresource and redirect traffic, but it requires **Chrome 149 or newer**. Workspace AI's current client performs hostname checks only for `new_page`; this is **not equivalent** to browser network isolation. Do not enable Chrome MCP on an untrusted network or against sensitive services until Chrome 149+, network allowlisting, denial tests for redirects/subresources, and isolated process/OS permissions are independently verified. See the upstream [Chrome MCP configuration reference](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/configuration.md).
+Chrome DevTools MCP exposes an `--allowed-url-pattern` option that can constrain subresource and redirect traffic, but it requires **Chrome 149 or newer**. The isolated client now refuses startup without an approved hostname list and constructs allowlist launch flags; **the application route does not yet pass its configured hostname list to that client**. Browser tool calls therefore fail closed, and Chrome MCP is not yet operational in this draft. Workspace AI's current client performs hostname checks only for `new_page`; this is **not equivalent** to browser network isolation. Do not enable Chrome MCP on an untrusted network or against sensitive services until Chrome 149+, network allowlisting, denial tests for redirects/subresources, and isolated process/OS permissions are independently verified. See the upstream [Chrome MCP configuration reference](https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/configuration.md).
 
 ## Operator workflow
 
