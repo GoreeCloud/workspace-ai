@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react'
+import './remote-operations.css'
 import {Terminal,Globe,ShieldCheck,Play,RefreshCw,RotateCcw,AlertTriangle,LockKeyhole} from 'lucide-react'
 import {browserAccountScope} from './account-workspace-scope.js'
 
