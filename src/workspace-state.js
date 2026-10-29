@@ -7,6 +7,7 @@ export const WORKSPACE_KEY='workspace-ai-workspace-v1'
 export const NAV_SECTIONS=[
  {id:'mcp',label:'MCP',icon:'plug'},
  {id:'api',label:'API',icon:'waypoints'},
+ {id:'remote',label:'Remote Operations',icon:'terminal'},
  {id:'projects',label:'Projects',icon:'folder-kanban'},
  {id:'agents',label:'Agents',icon:'bot'},
  {id:'prompts',label:'Prompts',icon:'book-open'},
