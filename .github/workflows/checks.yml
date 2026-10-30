@@ -49,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate fail-closed image-only release preflight
+        run: python3 -m unittest discover -s tests -p 'private_dev_image_preflight_test.py'
       - name: Syntax-check read-only private HTTPS acceptance probe
         run: node --check scripts/private-dev-ingress-check.mjs
       - name: Validate synthetic private gateway acceptance script

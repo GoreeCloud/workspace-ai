@@ -1,6 +1,6 @@
 // Development-only, file-backed authentication between the private ingress gateway
 // and the Workspace AI backend. Browser Host/Origin headers are not peer identity.
-import {constants, closeSync, fstatSync, openSync, readFileSync} from 'node:fs'
+import {constants, closeSync, fstatSync, openSync, readSync} from 'node:fs'
 import {timingSafeEqual} from 'node:crypto'
 
 export const GATEWAY_TOKEN_HEADER = 'x-goreecloud-gateway-token'
@@ -27,11 +27,19 @@ export function loadPrivateGatewayToken(env = process.env) {
     if (!stat.isFile() || ![64, 65].includes(stat.size) || (stat.mode & 0o077) !== 0) {
       throw new Error('Private gateway token must be a restricted regular file containing 32 random bytes in hex')
     }
-    const value = readFileSync(fd, 'utf8').trim()
-    if (!/^[a-fA-F0-9]{64}$/.test(value)) {
+    // Read a fixed upper bound from the opened descriptor itself: a file
+    // extended between stat and read must not force unbounded allocation.
+    const bytes = Buffer.alloc(66)
+    const received = readSync(fd, bytes, 0, bytes.length, 0)
+    if (received !== stat.size) {
+      throw new Error('Private gateway token file changed during validation')
+    }
+    const value = bytes.toString('utf8', 0, received)
+    // Require canonical ASCII hex with at most one optional LF.
+    if (!/^[a-fA-F0-9]{64}\n?$/.test(value)) {
       throw new Error('Private gateway token must be exactly 32 random bytes in hex')
     }
-    return Buffer.from(value, 'hex')
+    return Buffer.from(value.slice(0, 64), 'hex')
   } finally {
     if (fd !== undefined) closeSync(fd)
   }
