@@ -4,7 +4,7 @@
 
 The default Compose remains internal-only. The separately enabled provider overlay adds a restricted proxy reachable by Workspace AI on its existing internal network. Only the proxy joins a separate outbound bridge; the app retains its original two internal networks and publishes no ports.
 
-The proxy permits HTTPS CONNECT only to `api.openai.com:443` and `auth.openai.com:443`, rejecting private and reserved DNS answers. The app retains end-to-end TLS. The proxy checks CONNECT authority, not independent TLS SNI, so further threat-model review remains important before broader exposure.
+The proxy permits HTTPS CONNECT only to `api.openai.com:443` and `auth.openai.com:443`, rejecting private and reserved DNS answers. **After this hardening is deployed**, it also buffers the plaintext TLS ClientHello and requires its SNI to exactly match the approved CONNECT hostname before opening an outbound socket. Missing, mismatched, malformed, incomplete or oversized ClientHello handshakes fail closed. The application retains end-to-end TLS and certificate validation. The proxy cannot inspect encrypted HTTP Host or payloads without terminating TLS, which it deliberately does not do; shared-infrastructure domain-fronting remains a deployment threat-model consideration. No host port is published.
 
 ## Verified on October 30, 2026
 
