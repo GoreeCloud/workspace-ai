@@ -1,11 +1,25 @@
-# Workspace AI private provider connectivity
+# GoreeCloud Workspace AI: Private provider connectivity
 
-**Status: opt-in QA only. Not deployed.**
+**Status: enabled on the private-development VPS on October 30, 2026; not production approved.**
 
-The default private smoke Compose file intentionally has no outbound internet route. The optional `compose.provider-egress.yaml` creates a separate provider connection service. Only that service joins an outbound Docker bridge; the workspace application remains on its internal network.
+The default Compose remains internal-only. The separately enabled provider overlay adds a restricted proxy reachable by Workspace AI on its existing internal network. Only the proxy joins a separate outbound bridge; the app retains its original two internal networks and publishes no ports.
 
-The connection service permits HTTPS CONNECT only to `api.openai.com:443` and `auth.openai.com:443`. It rejects private, reserved and metadata IP addresses before connecting. The application retains end-to-end TLS verification. No application ports or provider credentials are published by this overlay.
+The proxy permits HTTPS CONNECT only to `api.openai.com:443` and `auth.openai.com:443`, rejecting private and reserved DNS answers. The app retains end-to-end TLS. The proxy checks CONNECT authority, not independent TLS SNI, so further threat-model review remains important before broader exposure.
 
-**Acceptance:** verify the merged Compose configuration, run policy tests, confirm that unapproved hosts are blocked, and validate a no-credential HTTP 401 response from OpenAI's model-list endpoint inside an isolated QA environment. Then verify a real owner-provided key through the existing no-inference checker without logging it. Test rollback before any live change.
+## Verified on October 30, 2026
 
-Hosted ChatGPT sign-in is a separate integration requiring a participating OAuth client and per-user sessions. In the interim, this private hosted preview must not accept shared-state ChatGPT sign-in or token callbacks. The local client may continue using its separate sign-in path.
+- GitHub Actions: application tests/build, browser, private smoke, disposable egress, and isolated HTTPS gateway/rotation checks passed.
+- Disposable VPS QA: OpenAI model-list request returned HTTP 401 without credentials, unapproved CONNECT returned HTTP 403, no published ports, and only proxy used outbound bridge. The QA stack was removed.
+- Live configuration preflight accepted only the proxy service/network plus exact proxy environment and dependency; app image, network memberships, credential mounts and access controls were preserved.
+- Live application and proxy report healthy; allowed catalog request returned HTTP 401 and blocked authority HTTP 403.
+- Protected runtime denial checks and authorized NetBird HTTPS Basic Auth challenge passed.
+
+## Remaining acceptance
+
+An owner-provided API key still needs to be re-entered or verified in Settings through the read-only model catalog. Session keys do not persist through container restarts. Paid inference, authenticated browser acceptance and a full live rollback drill remain unverified.
+
+Hosted ChatGPT sign-in requires a participating OAuth registration and isolated user sessions. API access and ChatGPT subscription allowance are separate.
+
+## Recovery
+
+The previous image remains available. Disable egress by using the existing protected base, ingress and peer-auth Compose files with the image-only candidate override, omitting the optional provider overlay. After protected runtime and trusted-HTTPS checks pass, remove only the unused proxy and network. The complete live rollback drill remains pending. Do not expand this private owner-gated service into a public or multi-tenant deployment without separate review.
