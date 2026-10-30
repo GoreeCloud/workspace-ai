@@ -1,11 +1,29 @@
-# Workspace AI - private provider connectivity
+# GoreeCloud Workspace AI: Private provider connectivity
 
-Verified October 30, 2026: The optional restricted proxy passed isolated CI tests, but it remains disabled on the live VPS. The Workspace AI preview is healthy on image-only candidate 2da3dbc. A protected backend status check verified that no API key is configured. Hosted ChatGPT website sign-in is unavailable.
+**Status: enabled on the private-development VPS on October 30, 2026; not production approved.**
 
-The default private Compose stack has internal-only Docker networks and no published application ports. The optional compose.provider-egress.yaml adds an outbound HTTPS CONNECT proxy. Only the proxy, never the app, joins the outbound bridge.
+The default Compose remains internal-only. The separately enabled provider overlay adds a restricted proxy reachable by Workspace AI on its existing internal network. Only the proxy joins a separate outbound bridge; the app retains its original two internal networks and publishes no ports.
 
-That proxy accepts only api.openai.com:443 and auth.openai.com:443, validates public DNS addresses, and pins the destination IP. CI confirmed uncredentialed OpenAI model-list reachability (HTTP 401), blocked an unrelated host, and found no published ports. This was a disposable QA environment, not proof of live network access or API key validity.
+The proxy permits HTTPS CONNECT only to `api.openai.com:443` and `auth.openai.com:443`, rejecting private and reserved DNS answers. The app retains end-to-end TLS. The proxy checks CONNECT authority, not independent TLS SNI, so further threat-model review remains important before broader exposure.
 
-Workspace AI now reports whether the approved proxy is configured; it does not claim that a configured route has been tested. The private preview refuses key submission, verification, and model chat requests when outbound access is disabled. The local desktop client retains its separate connection behavior.
+## Verified on October 30, 2026
 
-Remaining: validate the live permission change, strengthen per-user credential isolation, preserve and rehearse rollback, verify the live route and private HTTPS boundaries, and verify an owner-provided key without generating paid inference. Do not claim hosted OAuth or billable model inference is working before these gates are complete.
+- GitHub Actions: application tests/build, browser, private smoke, disposable egress, and isolated HTTPS gateway/rotation checks passed.
+- Disposable VPS QA: OpenAI model-list request returned HTTP 401 without credentials, unapproved CONNECT returned HTTP 403, no published ports, and only proxy used outbound bridge. The QA stack was removed.
+- Live configuration preflight accepted only the proxy service/network plus exact proxy environment and dependency; app image, network memberships, credential mounts and access controls were preserved.
+- Live application and proxy report healthy; allowed catalog request returned HTTP 401 and blocked authority HTTP 403.
+- Protected runtime denial checks and authorized NetBird HTTPS Basic Auth challenge passed.
+
+## Remaining acceptance
+
+An owner-provided API key still needs to be re-entered or verified in Settings through the read-only model catalog. Session keys do not persist through container restarts. Paid inference, authenticated browser acceptance and a full live rollback drill remain unverified.
+
+Hosted ChatGPT sign-in requires a participating OAuth registration and isolated user sessions. API access and ChatGPT subscription allowance are separate.
+
+## Recovery
+
+The previous image remains available. Disable egress by using the existing protected base, ingress and peer-auth Compose files with the image-only candidate override, omitting the optional provider overlay. After protected runtime and trusted-HTTPS checks pass, remove only the unused proxy and network. The complete live rollback drill remains pending. Do not expand this private owner-gated service into a public or multi-tenant deployment without separate review.
+
+## Connection readiness UX
+
+The private preview reports `providerEgressStatus` as `configured` when the exact reviewed proxy environment is present or `disabled` otherwise. `configured` describes routing configuration, **not** credential verification or successful inference. While disabled, the app refuses new API key submissions, model-list checks, and API chats, and displays an actionable network explanation. Local client API connections retain their existing behavior. Hosted session API keys remain in the shared server process memory; do not present this as safe multi-user credential isolation.
