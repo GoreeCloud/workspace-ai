@@ -65,3 +65,19 @@ test('verification route resets result after key changes and rejects unauthorize
     await new Promise(resolve => listener.close(resolve))
   }
 })
+
+test('DNS and isolated network failures give actionable, credential-free verification status', async () => {
+  const key = 'synthetic-private-test-key'
+  const failures = [
+    [{ cause: { code: 'EAI_AGAIN' } }, /resolve api\.openai\.com/],
+    [{ cause: { code: 'ENOTFOUND' } }, /resolve api\.openai\.com/],
+    [{ cause: { code: 'ENETUNREACH' } }, /outbound policy/],
+    [{ name: 'TimeoutError' }, /outbound policy/]
+  ]
+  for (const [reason, expected] of failures) {
+    const result = await verifyApiKey(key, { fetchImpl: async () => { throw Object.assign(new Error('synthetic failure'), reason) } })
+    assert.equal(result.state, 'unavailable')
+    assert.match(result.message, expected)
+    assert.ok(!result.message.includes(key))
+  }
+})
