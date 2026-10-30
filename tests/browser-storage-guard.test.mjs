@@ -117,3 +117,85 @@ test('malformed saved messages block startup without overwriting private history
  assert.equal(storage.getItem(CHAT),corrupt)
  assert.equal(readableChatHistory([{id:'one',messages:[{role:'assistant',content:'Partial',pending:true}]}]),true)
 })
+
+test('duplicate or empty conversation IDs fail closed without deleting or merging history',()=>{
+ const fixtures=[
+  [{id:'same',messages:[{role:'user',content:'First'}]},{id:'same',messages:[{role:'user',content:'Second'}]}],
+  [{id:'',messages:[{role:'assistant',content:'Keep'}]}],
+  [{id:'   ',messages:[{role:'assistant',content:'Keep'}]}]
+ ]
+ for(const history of fixtures){
+  const raw=JSON.stringify(history)
+  const storage=store({[CHAT]:raw,[WORKSPACE]:'{"projects":[],"pinned":[]}'})
+  assert.equal(readableChatHistory(history),false)
+  assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/read-only/)
+  assert.equal(storage.getItem(CHAT),raw)
+ }
+})
+
+test('duplicate or malformed message IDs cannot corrupt rendering or streamed replies',()=>{
+ const base={id:'chat',messages:[{id:'one',role:'user',content:'Original'}]}
+ const fixtures=[
+  {...base,messages:[base.messages[0],{id:'one',role:'assistant',content:'Different text'}]},
+  {...base,messages:[{id:'',role:'assistant',content:'Keep'}]},
+  {...base,messages:[{id:null,role:'assistant',content:'Keep'}]}
+ ]
+ for(const chat of fixtures){
+  const raw=JSON.stringify([chat])
+  const storage=store({[CHAT]:raw,[WORKSPACE]:'{"projects":[],"pinned":[]}'})
+  assert.equal(readableChatHistory([chat]),false)
+  assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/read-only/)
+  assert.equal(storage.getItem(CHAT),raw)
+ }
+})
+
+test('unique conversation identifiers and older messages without IDs remain readable',()=>{
+ const saved=[
+  {id:'chat-a',messages:[{role:'user',content:'Legacy message'},{id:'reply-a',role:'assistant',content:'Reply'}]},
+  {id:'chat-b',messages:[{id:'question-b',role:'user',content:'Another'},{id:'reply-b',role:'assistant',content:'Answer'}]}
+ ]
+ assert.equal(readableChatHistory(saved),true)
+ assert.equal(browserStorageLoadProblem(store({[CHAT]:JSON.stringify(saved),[WORKSPACE]:'{"projects":[],"pinned":[]}'}),CHAT,WORKSPACE),null)
+})
+
+
+test('over-capacity saved conversations stay intact and force read-only startup',async()=>{
+ const {readFile}=await import('node:fs/promises')
+ const history=Array.from({length:51},(_,i)=>({id:'chat-'+i,messages:[{id:'msg-'+i,role:'user',content:'Saved '+i}]}))
+ const serialized=JSON.stringify(history)
+ const storage=store({[CHAT]:serialized,[WORKSPACE]:'{"projects":[],"pinned":[]}'})
+ assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/more than 50 conversations/)
+ assert.equal(storage.getItem(CHAT),serialized)
+ const app=await readFile(new URL('../src/App.jsx',import.meta.url),'utf8')
+ assert.match(app,/storageGuard\.current\.write\(KEY,JSON\.stringify\(chatsRef\.current\)\)/)
+ assert.match(app,/function changeLast\(id,replyId,fn\)\{return commitChats/)
+ assert.doesNotMatch(app,/chats\.slice\(0,50\)/)
+})
+
+test('oversized saved projects and pins are preserved behind a read-only startup warning',()=>{
+ const projects=Array.from({length:101},(_,i)=>newProject('project-'+i,'Project '+i,1))
+ const oversized=JSON.stringify({projects,pinned:[]})
+ const storage=store({[CHAT]:'[]',[WORKSPACE]:oversized})
+ assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/projects or pins exceed/)
+ assert.equal(storage.getItem(WORKSPACE),oversized)
+ const tooManyPins=JSON.stringify({projects:[],pinned:Array.from({length:201},(_,i)=>'chat-'+i)})
+ const pinStorage=store({[CHAT]:'[]',[WORKSPACE]:tooManyPins})
+ assert.match(browserStorageLoadProblem(pinStorage,CHAT,WORKSPACE),/projects or pins exceed/)
+ assert.equal(pinStorage.getItem(WORKSPACE),tooManyPins)
+ const valid=JSON.stringify({projects:projects.slice(0,100),pinned:[]})
+ assert.equal(browserStorageLoadProblem(store({[CHAT]:'[]',[WORKSPACE]:valid}),CHAT,WORKSPACE),null)
+})
+
+test('malformed and duplicate saved projects stay intact instead of being skipped on load',()=>{
+ const badFixtures=[
+  {projects:[{id:'missing-name'}],pinned:[]},
+  {projects:[newProject('duplicate','One'),newProject('duplicate','Two')],pinned:[]},
+  {projects:[{...newProject('invalid-file','Project'),files:[null]}],pinned:[]}
+ ]
+ for(const fixture of badFixtures){
+  const serialized=JSON.stringify(fixture)
+  const storage=store({[CHAT]:'[]',[WORKSPACE]:serialized})
+  assert.match(browserStorageLoadProblem(storage,CHAT,WORKSPACE),/read-only/)
+  assert.equal(storage.getItem(WORKSPACE),serialized)
+ }
+})

@@ -1,3 +1,5 @@
+import {normalizeProjects} from './project-model.js'
+
 // Best-effort stale-tab protection for browser-local data.
 // localStorage provides atomic individual writes but no compare-and-swap transaction:
 // an overlapping write between verify and setItem is still possible.
@@ -9,11 +11,26 @@ export class BrowserStorageConflict extends Error {
 }
 
 export function readableChatHistory(value) {
- return Array.isArray(value) && value.every(chat =>
-  chat && typeof chat === 'object' && !Array.isArray(chat) && typeof chat.id === 'string' &&
-  Array.isArray(chat.messages) && chat.messages.every(message =>
-   message && typeof message === 'object' && !Array.isArray(message) &&
-   ['user','assistant'].includes(message.role) && typeof message.content === 'string'))
+ if(!Array.isArray(value))return false
+ const chatIds=new Set()
+ return value.every(chat => {
+  if(!chat||typeof chat!=='object'||Array.isArray(chat)||
+    typeof chat.id!=='string'||!chat.id.trim()||chatIds.has(chat.id)||
+    !Array.isArray(chat.messages))return false
+  chatIds.add(chat.id)
+  const messageIds=new Set()
+  return chat.messages.every(message => {
+   if(!message||typeof message!=='object'||Array.isArray(message)||
+     !['user','assistant'].includes(message.role)||typeof message.content!=='string')return false
+   // Older saved messages may lack IDs; only reject malformed or repeated IDs
+   // when an ID is present, rather than rewriting legacy user data.
+   if(message.id!==undefined){
+    if(typeof message.id!=='string'||!message.id.trim()||messageIds.has(message.id))return false
+    messageIds.add(message.id)
+   }
+   return true
+  })
+ })
 }
 export function createBrowserStorageGuard(storage,keys) {
  if(!Array.isArray(keys)||keys.length===0||new Set(keys).size!==keys.length)
@@ -62,12 +79,20 @@ export function createBrowserStorageGuard(storage,keys) {
 export function browserStorageLoadProblem(storage,chatsKey,workspaceKey) {
  try {
   const chats=storage.getItem(chatsKey)
-  if(chats!==null&&!readableChatHistory(JSON.parse(chats)))throw Error('Invalid saved conversations')
+  if(chats!==null) {
+   const history=JSON.parse(chats)
+   if(!readableChatHistory(history))throw Error('Invalid saved conversations')
+   if(history.length>50)return 'Saved Workspace AI browser data has more than 50 conversations. This tab is read-only to avoid discarding history. Preserve the original data before reducing the conversation count.'
+  }
   const workspace=storage.getItem(workspaceKey)
   if(workspace!==null) {
    const value=JSON.parse(workspace)
    if(!value||typeof value!=='object'||Array.isArray(value)||
     !Array.isArray(value.projects)||!Array.isArray(value.pinned))throw Error('Invalid saved workspace')
+   if(value.projects.length>100 || value.pinned.length>200)return 'Saved Workspace AI projects or pins exceed browser storage limits. This tab is read-only to prevent dropping saved data. Preserve the original data before repairing it.'
+   // The loader otherwise skips malformed projects. Block edits instead of
+   // silently persisting an incomplete normalized workspace on first change.
+   normalizeProjects(value.projects)
   }
   return null
  }catch {
