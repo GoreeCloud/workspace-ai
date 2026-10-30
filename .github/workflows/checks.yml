@@ -61,6 +61,8 @@ jobs:
         run: bash -n scripts/private-dev-qa-gateway-rehearsal.sh
       - name: Validate isolated Docker Compose configuration
         run: docker compose -f deploy/private-dev/compose.yaml config --quiet
+      - name: Validate optional provider egress Compose overlay without starting containers
+        run: docker compose -f deploy/private-dev/compose.yaml -f deploy/private-dev/compose.provider-egress.yaml config --quiet
       - name: Build and start private development smoke backend
         run: docker compose -f deploy/private-dev/compose.yaml up --build -d --wait --wait-timeout 180
       - name: Verify private backend and no published ports
