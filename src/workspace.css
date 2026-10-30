@@ -315,3 +315,59 @@
 .accountProfileCard .privacyInfo,.platformInstallPanel .privacyInfo{font-size:12px;line-height:1.5}
 .platformInstallPanel h3,.accountProfileCard h3{display:flex;align-items:center;gap:9px}
 @media(max-width:500px){.accountProfileAvatar{width:64px;height:64px}.accountProfileDetails strong{font-size:15px}}
+
+/* Workspace AI 2026-10-30: project-first information architecture and responsive controls. */
+.workspacePage,.workspaceCard,.projectPanel{min-width:0}
+.workspacePage .workspaceCard>label{display:grid;gap:9px;margin:15px 0;font-size:13px;font-weight:650;min-width:0}
+.workspacePage textarea{display:block;width:100%;max-width:100%;min-width:0;min-height:110px;padding:12px 14px;border:1px solid var(--gc-outline);border-radius:13px;background:var(--gc-surface);color:var(--gc-text);font:inherit;font-size:13px;line-height:1.6;resize:vertical}
+.workspacePage select,.workspacePage input:not([type=checkbox]){max-width:100%;min-width:0}
+.workspaceCard .actions label{display:inline-flex;align-items:center;gap:8px;font-size:12px}
+.agentExecutionFields{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(220px,1fr);gap:18px;margin-top:20px}
+.agentExecutionFields label{display:grid;gap:9px;align-content:start;min-width:0;font-size:13px;font-weight:650}
+.agentExecutionFields textarea{min-height:150px}
+.agentExecutionControls{display:grid;align-content:start;gap:17px;min-width:0}
+.agentExecutionFields select{width:100%}
+.agentSynthesisOption{display:flex;align-items:flex-start;gap:11px;padding:13px 15px;margin:16px 0 8px;border:1px solid var(--gc-outline);border-radius:14px;background:var(--gc-surface);font-size:13px;font-weight:650;line-height:1.5}
+.agentSynthesisOption input{flex:none;margin-top:3px;accent-color:var(--gc-brand)}
+.agentSynthesisOption span{min-width:0}
+.agentSynthesisOption small{display:block;color:var(--gc-text-soft);font-size:12px;font-weight:400;margin-top:3px}
+.agentExecutionActions{display:flex;flex-wrap:wrap;gap:10px}
+.projectDirectoryToolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin:0 0 18px}
+.projectDirectoryToolbar p{color:var(--gc-text-soft);font-size:13px;line-height:1.5;margin:0}
+.projectDirectoryToolbar .outline,.projectDirectoryToolbar .primary{display:inline-flex;align-items:center;gap:9px}
+.projectOverviewGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.projectOverviewCard{display:flex;align-items:center;text-align:left;gap:13px;min-width:0;min-height:105px;padding:19px;border:1px solid var(--gc-outline);background:var(--gc-surface-raised);border-radius:20px;color:var(--gc-text);box-shadow:var(--gc-shadow-card)}
+.projectOverviewCard:hover{background:var(--gc-surface-raised);border-color:var(--gc-brand);box-shadow:0 12px 28px rgba(44,39,105,.10)}
+.projectOverviewGlyph{flex:none;width:48px;height:48px;display:grid;place-items:center;border-radius:15px;background:var(--gc-brand-container);color:var(--gc-brand)}
+.projectOverviewDetails{display:grid;gap:6px;min-width:0;flex:1}.projectOverviewDetails strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.projectOverviewDetails small{font-size:12px;line-height:1.4;color:var(--gc-text-soft)}
+.projectOverviewArrow{font-size:26px;color:var(--gc-brand)}
+.projectCreateForm{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;margin:0 0 20px;padding:20px;background:var(--gc-surface-raised);border:1px solid var(--gc-outline);border-radius:18px}
+.projectCreateForm>label:first-child{grid-column:1/-1;font-size:13px;font-weight:700}
+.projectCreateForm>input{grid-column:1/-1;width:100%}
+.projectCreateForm .projectMemoryCreate{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--gc-text-soft)}
+.projectCreateForm input[type=checkbox]{accent-color:var(--gc-brand)}
+.projectCreateForm .primary{display:inline-flex;gap:9px;align-items:center}
+.projectConversationHeading{display:flex;justify-content:space-between;align-items:center;gap:15px;margin:24px 0 13px}
+.projectConversationHeading h2{font-size:19px;margin:0 0 5px}.projectConversationHeading p{color:var(--gc-text-soft);font-size:12px;line-height:1.5;margin:0}
+.projectConversationHeading>span{flex:none;font-size:12px;color:var(--gc-text-soft);border-radius:999px;padding:7px 12px;background:var(--gc-surface-tonal)}
+.projectStudioHeader{border-radius:20px;padding:18px 20px;gap:12px;box-shadow:var(--gc-shadow-card)}
+.projectStudioHeader .primary,.projectStudioHeader .outline{display:inline-flex;align-items:center;gap:8px}
+.projectStudioHeader .projectDelete{color:var(--gc-negative)}
+.projectSettingsDisclosure{min-width:0;margin:13px 0 20px}
+.projectSettingsDisclosure>summary{display:flex;align-items:center;gap:12px;list-style:none;cursor:pointer;background:var(--gc-surface-raised);border:1px solid var(--gc-outline);border-radius:16px;padding:17px 20px;box-shadow:var(--gc-shadow-card)}
+.projectSettingsDisclosure>summary::-webkit-details-marker{display:none}
+.projectSettingsSummaryTitle{display:inline-flex;gap:10px;align-items:center;font-size:14px;font-weight:750;color:var(--gc-text)}
+.projectSettingsSummaryTitle svg{color:var(--gc-brand)}
+.projectSettingsSummaryHint{flex:1;text-align:right;font-size:12px;color:var(--gc-text-soft)}
+.projectSettingsDisclosure[open]>summary{border-radius:16px 16px 12px 12px;margin-bottom:15px}
+.projectSettingsDisclosure[open]>summary>svg:last-child{transform:rotate(180deg)}
+.projectStudioGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;align-items:start}
+.projectPanel{border-radius:18px;padding:20px;overflow-wrap:anywhere}
+.projectPanel textarea,.projectPanel input,.projectPanel select{max-width:100%;min-width:0}
+.projectPanel .projectMcpModes{grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr))}
+.projectAdvancedServices{border-top:1px solid var(--gc-divider);margin-top:18px;padding-top:14px}
+.projectAdvancedServices>summary{cursor:pointer;font-size:13px;font-weight:700;line-height:1.6;color:var(--gc-brand);padding:7px 0}
+.projectPanel .projectMcpProvider{min-width:0}
+.projectPanel .projectToggles{grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr))}
+@media(max-width:950px){.agentExecutionFields{grid-template-columns:minmax(0,1fr)}.projectStudioGrid{grid-template-columns:minmax(0,1fr)}.projectOverviewGrid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:580px){.workspacePage{padding:20px 14px 55px}.projectCreateForm{grid-template-columns:1fr;padding:15px}.projectCreateForm>input,.projectCreateForm .projectMemoryCreate,.projectCreateForm .primary{grid-column:1}.projectStudioHeader{padding:15px}.projectSettingsDisclosure>summary{padding:14px;flex-wrap:wrap}.projectSettingsSummaryHint{text-align:left;order:3;flex-basis:100%;padding-left:28px}.projectPanel{padding:15px}.projectConversationHeading{align-items:flex-start}.agentExecutionFields{gap:14px}.workspaceCard{padding:16px}}

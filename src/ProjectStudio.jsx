@@ -1,5 +1,5 @@
 import React,{useState} from 'react'
-import {Folder,FolderKanban,Sparkles,Code2,BookOpen,BriefcaseBusiness,FlaskConical,Rocket,Globe,Heart,Shield,Palette,Database,Trash2,Plus,Upload,CloudDownload,FileText} from 'lucide-react'
+import {Folder,FolderKanban,Sparkles,Code2,BookOpen,BriefcaseBusiness,FlaskConical,Rocket,Globe,Heart,Shield,Palette,Database,Trash2,Plus,Upload,CloudDownload,FileText,Settings2,ChevronDown} from 'lucide-react'
 import DropboxBrowser from './DropboxBrowser.jsx'
 import McpRiskSettings from './McpRiskSettings.jsx'
 import ProjectMcpAccounts from './ProjectMcpAccounts.jsx'
@@ -64,8 +64,10 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
  return <section className="projectStudio" aria-label={'Project '+project.name}>
   <div className="projectStudioHeader"><span className="projectStudioGlyph"><ProjectGlyph icon={project.icon} size={27}/></span><div><h2>{project.name}</h2><p>{chatCount} chats · Private by default · Browser-local</p></div>
   <button className="primary" disabled={busy} onClick={()=>onNewChat(project.id)}><Plus size={16}/> New project chat</button>
-  <button className="outline" disabled={busy} onClick={()=>onDelete(project.id)}><Trash2 size={15}/> Delete</button></div>
-  <div className="projectStudioGrid">
+  <button className="outline projectDelete" disabled={busy} onClick={()=>onDelete(project.id)}><Trash2 size={15}/> Delete project</button></div>
+  <details className="projectSettingsDisclosure">
+   <summary><span className="projectSettingsSummaryTitle"><Settings2 size={18}/> Project settings</span><span className="projectSettingsSummaryHint">Instructions, memory, files and integrations</span><ChevronDown size={18} aria-hidden="true"/></summary>
+   <div className="projectStudioGrid">
    <section className="projectPanel"><h3>Identity & instructions</h3>
     <label htmlFor="project-name">Project name</label>
     <input id="project-name" maxLength={90} value={project.name} onChange={e=>{if(e.target.value.trim())update({name:e.target.value})}}/>
@@ -75,13 +77,13 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
     <p className="projectHint">Project instructions are supplied to the AI when you send a message inside this project. They do not apply to other projects.</p>
    </section>
    <ProjectMemoryManager project={project} onUpdate={update} busy={busy}/>
-   <section className="projectPanel"><h3>Optional reference file sharing</h3>
+   {projects.length>1&&<section className="projectPanel"><h3>Optional reference file sharing</h3>
     {projects.filter(p=>p.id!==project.id).length>0&&<><h4>Share reference files (optional)</h4>
      {projects.filter(p=>p.id!==project.id).map(p=><div key={p.id} className="projectShareRow"><span><ProjectGlyph icon={p.icon} size={15}/>{p.name}</span>
       <label><input type="checkbox" checked={(project.shareFilesWith||[]).includes(p.id)} onChange={()=>toggle('shareFilesWith',p.id)}/> Reference files</label>
      </div>)}
      <p className="projectHint">One-way file sharing allows selected projects to read reference files, never memory notes or project instructions.</p></>}
-   </section>
+   </section>}
    <section className="projectPanel"><h3>Project files</h3>
     <ProjectLiveSources project={project} onUpdate={update} busy={busy}/><p className="projectHint">Text and source files are stored locally in this browser, then included as bounded reference context when chatting. Maximum {PROJECT_FILE_MAX_COUNT} files, 64 KB each. PDF, image and binary parsing are not supported yet.</p>
     <label className="projectUpload"><Upload size={16}/> Import from phone or laptop<input aria-label="Upload project text files" type="file" multiple accept={ACCEPT_TEXT_FILES} onChange={e=>{const files=Array.from(e.target.files||[]);e.target.value='';void addFiles(files)}}/></label>
@@ -103,10 +105,13 @@ export default function ProjectStudio({project,projects,onUpdate,onNewChat,onDel
     <h4>API integrations</h4><div className="projectToggles">{PROJECT_API_SERVICES.map(id=><label key={id}><input type="checkbox" checked={(project.api||[]).includes(id)} onChange={()=>toggle('api',id)}/>{SERVICE_LABELS[id]}</label>)}</div>
     <ProjectMultiProvider project={project}/>
     <h4>MCP services</h4><div className="projectToggles">{PROJECT_MCP_SERVICES.map(id=><label key={id}><input type="checkbox" checked={(project.mcp||[]).includes(id)} onChange={()=>toggle('mcp',id)}/>{SERVICE_LABELS[id]}</label>)}</div>
-    <ProjectMcpAccounts project={project} onUpdate={update} busy={busy}/>
-    <McpRiskSettings project={project} onUpdate={update}/>
+    <details className="projectAdvancedServices"><summary>Advanced MCP permissions and approval policies</summary>
+     <ProjectMcpAccounts project={project} onUpdate={update} busy={busy}/>
+     <McpRiskSettings project={project} onUpdate={update}/>
+    </details>
    </section>
-  </div>
+   </div>
+  </details>
   {error&&<p className="projectAlert" role="alert">{error}</p>}{notice&&<p className="projectSuccess" role="status">{notice}</p>}
  </section>
 }

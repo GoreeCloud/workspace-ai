@@ -36,7 +36,7 @@ async function api(url,data){const extra=url==='/api/models'&&browserAccountScop
 export default function App(){
 const [chats,setChats]=useState(initial),[current,setCurrent]=useState(null),[draft,setDraft]=useState(''),[busy,setBusy]=useState(false),[settings,setSettings]=useState(false),[mobile,setMobile]=useState(false);
 const [provider,setProvider]=useState('auto'),[fallback,setFallback]=useState(false),[planModel,setPlanModel]=useState(''),[models,setModels]=useState([]),[status,setStatus]=useState({connected:false,planEnabled:false,apiConfigured:false,model:''}),[error,setError]=useState('');
-const [connectionError,setConnectionError]=useState(''),[modelWarning,setModelWarning]=useState('');
+const [connectionError,setConnectionError]=useState(''),[modelWarning,setModelWarning]=useState(''),[authError,setAuthError]=useState('');
 const [settingsTab,setSettingsTab]=useState('connections');
 const [attachmentsDraft,setAttachmentsDraft]=useState([]),[chatMenuOpen,setChatMenuOpen]=useState(false),[chatSearchOpen,setChatSearchOpen]=useState(false),[chatSearchQuery,setChatSearchQuery]=useState(''),[chatFullscreen,setChatFullscreen]=useState(false),[listening,setListening]=useState(false);
 const recognitionRef=useRef(null);
@@ -211,7 +211,7 @@ function useSavedPrompt(item){
 }
 function navigate(id){setView(id);setMobile(false);setChatMenuOpen(false);setChatSearchOpen(false);setChatFullscreen(false)}
 function changeLast(id,replyId,fn){return commitChats(v=>updateStreamingReply(v,id,replyId,fn))}
-async function signIn(add=false){try{if(busy||storageConflict)return;const r=await api(add?'/api/auth/start?mode=add':'/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setError(report(e))}}
+async function signIn(add=false){try{if(busy||storageConflict)return;setAuthError('');const r=await api(add?'/api/auth/start?mode=add':'/api/auth/start');if(new URL(r.url).origin!=='https://auth.openai.com')throw Error('Invalid OAuth authorization host');location.assign(r.url)}catch(e){setAuthError(report(e))}}
 async function signOut(){
  if(busy||storageConflict||!status.accountId)return
  if(!confirm('Sign out of '+(status.email||'this account')+'? Local projects and chats are preserved in this browser, and other saved accounts stay connected.'))return
@@ -387,8 +387,11 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <button type="button" className="outline" disabled={busy||Boolean(storageConflict)||!status.connected} onClick={()=>switchAccount(null)}>Use local-only guest workspace</button>
 </div>}
 <p className="privacyInfo">Saved ChatGPT identities have separate browser-local chats, projects, memories and preferences. Guest data remains separate. To move data between accounts, explicitly export and import a backup. The local server still has shared API keys, MCP connections and schedules; this is not secure hosted multi-tenant access.</p>
-<div className="actions">{status.connected?<><button className="outline" onClick={()=>signIn(false)}>Reauthorize</button><button className="outline" onClick={()=>signIn(true)}>Add account</button><button className="danger" onClick={signOut}>Sign out</button></>:<button className="primary" onClick={()=>signIn(true)}><Sparkles size={16}/>Sign in with ChatGPT →</button>}</div></div>
-<div className="connectionCard"><div className="connectionTop"><span className="providerIcon apiIcon"><KeyRound size={20}/></span><div><strong>OpenAI API</strong><small>Separately billed, optional fallback</small></div><span className={'pill '+(status.apiConfigured?'active':'')}>{!status.apiConfigured?'Not configured':status.apiVerification?.state==='verified'?'Key verified':status.apiVerification?.state==='invalid'?'Key rejected':status.apiVerification?.state==='restricted'?'Restricted':'Configured'}</span></div><ConnectionField configured={status.apiConfigured} keySource={status.apiKeySource} verification={status.apiVerification} onRefresh={refresh}/></div>
+<div className="actions">{status.connected?<><button className="outline" onClick={()=>signIn(false)}>Reauthorize</button><button className="outline" onClick={()=>signIn(true)}>Add account</button><button className="danger" onClick={signOut}>Sign out</button></>:<button className="primary" onClick={()=>signIn(true)}><Sparkles size={16}/>Sign in with ChatGPT →</button>}</div>
+ {authError&&<p role="alert" className="projectAlert">{authError}</p>}
+ {window.location.hostname!=='127.0.0.1'&&window.location.hostname!=='localhost'&&<p className="settings-note">Hosted ChatGPT sign-in needs a registered website OAuth client, matching HTTPS callback and isolated user sessions. This preview does not yet establish those requirements; use the local client for supported local sign-in.</p>}
+ </div>
+<div className="connectionCard"><div className="connectionTop"><span className="providerIcon apiIcon"><KeyRound size={20}/></span><div><strong>OpenAI API</strong><small>Separately billed, optional fallback</small></div><span className={'pill '+(status.apiVerification?.state==='verified'?'active':'')}>{!status.apiConfigured?'Not configured':status.apiVerification?.state==='verified'?'Key verified':status.apiVerification?.state==='invalid'?'Key rejected':status.apiVerification?.state==='restricted'?'Restricted':status.apiVerification?.state==='unavailable'?'Connection unavailable':'Saved · unverified'}</span></div><ConnectionField configured={status.apiConfigured} keySource={status.apiKeySource} verification={status.apiVerification} onRefresh={refresh}/></div>
 </section>
 <section className="settingsPanel" hidden={settingsTab!=='routing'}>
 <h3>02 · ROUTING & MODEL</h3><label className="fieldLabel">Preferred provider</label><div className="segments">{[['auto','Automatic'],['plan','ChatGPT plan'],['api','OpenAI API']].map(([key,name])=><button key={key} aria-pressed={provider===key} className={provider===key?'selected':''} onClick={()=>setProvider(key)}>{name}</button>)}</div>

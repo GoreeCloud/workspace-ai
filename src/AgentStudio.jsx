@@ -85,11 +85,15 @@ export default function AgentStudio({workspace,onWorkspace,selectedProject,onPro
   <section className="workspaceCard">
    <h2>Supervised execution</h2>
    <p>{selected.length} of {AGENT_TEAM_MAX} agents selected. Runs are started manually, incur model-provider usage, and have no external tool access.</p>
-   <label>Task<textarea aria-label="Agent task" rows={4} maxLength={12000} disabled={working||busy} value={task} onChange={e=>setTask(e.target.value)} placeholder="Describe the work for these agents"/></label>
-   <label>Model provider<select aria-label="Agent model provider" disabled={working} value={provider} onChange={e=>setProvider(e.target.value)}><option value="api">OpenAI API (separately billed)</option><option value="plan">ChatGPT plan (when eligible)</option></select></label>
-   {provider==='plan'&&<label>Plan model<select aria-label="Agent plan model" disabled={working} value={model} onChange={e=>setModel(e.target.value)}><option value="">Choose model</option>{planModels.map(m=><option key={m.slug} value={m.slug}>{m.name}</option>)}</select></label>}
-   <label><input type="checkbox" checked={synthesize} disabled={working||!coordinator} onChange={e=>setSynthesize(e.target.checked)}/> Run coordinator synthesis (needs another coordinator agent in this project)</label>
-   <div className="actions"><button className="primary" disabled={busy||working||!task.trim()||!selected.length} onClick={run}><Play size={15}/> Run selected agents</button>
+   <div className="agentExecutionFields">
+    <label className="agentTaskField">Task<textarea aria-label="Agent task" rows={4} maxLength={12000} disabled={working||busy} value={task} onChange={e=>setTask(e.target.value)} placeholder="Describe the work for these agents"/></label>
+    <div className="agentExecutionControls">
+     <label>Model provider<select aria-label="Agent model provider" disabled={working} value={provider} onChange={e=>setProvider(e.target.value)}><option value="api">OpenAI API (separately billed)</option><option value="plan">ChatGPT plan (when eligible)</option></select></label>
+     {provider==='plan'&&<label>Plan model<select aria-label="Agent plan model" disabled={working} value={model} onChange={e=>setModel(e.target.value)}><option value="">Choose model</option>{planModels.map(m=><option key={m.slug} value={m.slug}>{m.name}</option>)}</select></label>}
+    </div>
+   </div>
+   <label className="agentSynthesisOption"><input type="checkbox" checked={synthesize} disabled={working||!coordinator} onChange={e=>setSynthesize(e.target.checked)}/><span>Run coordinator synthesis<small>Requires a separate coordinator agent in this project.</small></span></label>
+   <div className="actions agentExecutionActions"><button className="primary" disabled={busy||working||!task.trim()||!selected.length} onClick={run}><Play size={15}/> Run selected agents</button>
     <button className="outline" disabled={!working} onClick={()=>controller.current?.abort()}><Square size={15}/> Stop</button></div>
   </section>
   <AgentSchedules agents={local} projectId={projectId} busy={working||busy}/>
