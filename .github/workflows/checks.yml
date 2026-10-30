@@ -92,3 +92,10 @@ jobs:
       - name: Remove isolated smoke resources
         if: always()
         run: docker compose -f deploy/private-dev/compose.yaml down --remove-orphans
+
+  provider-egress-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Disposable provider connectivity verification
+        run: bash scripts/private-dev-provider-egress-qa.sh
