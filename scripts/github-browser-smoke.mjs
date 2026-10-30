@@ -148,12 +148,12 @@ try {
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
   // A browser reconnection must clear stale provider readiness and self-heal
   // without reloading, while leaving chat/project storage untouched.
-  await wait("document.querySelector('.connected')?.textContent==='API ready'")
+  await wait("document.querySelector('.connected')?.textContent==='API configured'")
   await evaluate("window.__qaStatusFailure=true; window.dispatchEvent(new Event('online'))")
   await wait("document.querySelector('.notice.error button')?.textContent==='Retry connection'")
   assert.equal(await evaluate("document.querySelector('.connected')?.textContent==='Not connected'"),true)
   await evaluate("window.__qaStatusFailure=false; document.dispatchEvent(new Event('visibilitychange'))")
-  await wait("document.querySelector('.connected')?.textContent==='API ready' && ![...document.querySelectorAll('.notice.error button')].some(b=>b.textContent==='Retry connection')")
+  await wait("document.querySelector('.connected')?.textContent==='API configured' && ![...document.querySelectorAll('.notice.error button')].some(b=>b.textContent==='Retry connection')")
   await evaluate("document.querySelector('.workspaceNavLink[aria-label=API]').click()")
   await wait("document.querySelector('.workspaceCardHead strong')?.textContent==='GitHub'")
   await evaluate("[...document.querySelectorAll('.workspaceCard .outline')].find(n=>n.textContent.includes('Browse repositories')).click()")
