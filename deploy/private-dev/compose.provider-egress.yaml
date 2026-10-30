@@ -1,0 +1,47 @@
+# OPTIONAL override. Never enabled by default and not used by the pre-ingress QA.
+# Egress is reachable only through the private internal smoke network.
+# Do not add workspace-ai to provider_outbound or publish either service's ports.
+services:
+  workspace-ai:
+    environment:
+      NODE_USE_ENV_PROXY: "1"
+      HTTPS_PROXY: http://provider-proxy:3128
+      NO_PROXY: localhost,127.0.0.1
+    depends_on:
+      provider-proxy:
+        condition: service_healthy
+  provider-proxy:
+    build:
+      context: ../..
+      dockerfile: deploy/private-dev/ProviderProxy.Dockerfile
+    image: goreecloud-workspace-provider-proxy:local
+    restart: unless-stopped
+    user: "1000:1000"
+    init: true
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 48
+    mem_limit: 96m
+    cpus: 0.5
+    ports: []
+    expose:
+      - "3128"
+    networks:
+      - private_smoke
+      - provider_outbound
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('node:net').connect(3128,'127.0.0.1');s.once('connect',()=>{s.end();process.exit(0)});s.once('error',()=>process.exit(1));s.setTimeout(2000,()=>process.exit(1))"
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 8s
+networks:
+  provider_outbound:
+    driver: bridge

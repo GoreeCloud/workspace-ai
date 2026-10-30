@@ -21,7 +21,13 @@ export async function verifyApiKey(key, { fetchImpl = fetch, timeoutMs = 10000 }
       return { state: 'restricted', message: 'OpenAI denied model-list access (HTTP 403). Check project or key permissions.' }
     }
     return { state: 'unavailable', message: 'The OpenAI model-list check returned HTTP ' + response.status + '. Retry later or check your project settings.' }
-  } catch {
-    return { state: 'unavailable', message: 'Could not reach OpenAI to check the key. Retry when the network is available.' }
+  } catch (error) {
+    // Report network categories without echoing URLs, credentials or raw errors.
+    const code = error?.cause?.code || error?.code
+    if (code === 'EAI_AGAIN' || code === 'ENOTFOUND')
+      return { state: 'unavailable', message: 'The Workspace AI server could not resolve api.openai.com. Check container DNS and the outbound network policy; the saved key has not been validated.' }
+    if (['ENETUNREACH', 'EHOSTUNREACH', 'ETIMEDOUT'].includes(code) || error?.name === 'TimeoutError')
+      return { state: 'unavailable', message: 'The Workspace AI server cannot reach the OpenAI API. Check the private deployment outbound policy; the saved key has not been validated.' }
+    return { state: 'unavailable', message: 'The Workspace AI server could not complete the OpenAI connection check. The key is unverified; inspect server connectivity and retry.' }
   }
 }

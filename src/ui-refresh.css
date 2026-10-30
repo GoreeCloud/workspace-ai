@@ -155,3 +155,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,
 .apiKeyForm .actions{display:flex;flex-wrap:wrap;gap:8px}
 .apiKeyForm .actions button{white-space:normal}
 @media(max-width:580px){.apiKeyForm .actions .outline{flex:1}}
+
+/* Settings remain usable at short viewport heights and on touch screens. */
+.dialogBody{overflow-y:auto;overflow-x:hidden;min-height:0;flex:1}
+.settingsTabs{margin:12px 18px 0;padding:5px;border:1px solid var(--gc-outline);border-radius:15px;gap:4px;scrollbar-width:thin;max-width:calc(100% - 36px)}
+.settingsTabs button{min-height:39px;border-radius:11px;padding:0 12px;flex:1}
+.connectionTop{display:flex;align-items:center;flex-wrap:wrap}
+.connectionTop>div{flex:1;min-width:150px}
+.connectionTop .pill{margin-left:auto;white-space:normal;text-align:center}
+.apiKeyForm [role="status"].keyVerification-unavailable,.apiKeyForm [role="status"].keyVerification-invalid,.apiKeyForm [role="status"].keyVerification-restricted{color:var(--gc-negative)}
+@media(max-width:580px){.settingsTabs{margin:8px 10px 0;max-width:calc(100% - 20px)}.settingsTabs button{font-size:11px;padding:0 11px}.dialogFooter{min-height:60px}}

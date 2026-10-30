@@ -105,9 +105,11 @@ try {
  assert.equal(await evaluate("fetch('/api/status').then(r=>r.status)",true),200)
  await evaluate("document.querySelector('.workspaceNavLink[aria-label=Projects]').click()")
  await wait("document.querySelector('.workspacePage h1')?.textContent==='Projects'")
- await evaluate("document.querySelector('input[aria-label=\"Project name\"]').focus()")
+ await evaluate("document.querySelector('.projectDirectoryToolbar button[aria-expanded]').click()")
+ await wait("document.querySelector('#new-project-name')!==null")
+ await evaluate("document.querySelector('#new-project-name').focus()")
  await send('Input.insertText',{text:'Private HTTPS Synthetic Browser Project'})
- await evaluate("document.querySelector('.workspaceProjectActions button[type=submit]').click()")
+ await evaluate("document.querySelector('.projectCreateForm button[type=submit]').click()")
  await wait("document.querySelector('.projectStudioHeader h2')?.textContent==='Private HTTPS Synthetic Browser Project'")
  const saved="JSON.parse(localStorage.getItem('workspace-ai-workspace-v1')||'{}').projects?.some(p=>p.name==='Private HTTPS Synthetic Browser Project')===true"
  assert.equal(await evaluate(saved),true,'Synthetic project was not persisted.')

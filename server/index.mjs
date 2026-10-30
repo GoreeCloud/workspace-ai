@@ -76,10 +76,13 @@ const credentialSettings = attachCredentialSettings(app, {
 })
 
 app.get('/api/status', safeRoute(async (_req, res) => {
-  res.json({ ...publicStatus(await readProfile(), Boolean(apiKey)), apiKeySource, apiVerification: credentialSettings.getVerification() })
+  const profile = privateDev ? {} : await readProfile()
+  res.json({ ...publicStatus(profile, Boolean(apiKey)), websiteSignInAvailable: !privateDev,
+    apiKeySource, apiVerification: credentialSettings.getVerification() })
 }))
 
 app.get('/api/auth/start', safeRoute(async (req, res) => {
+  if (privateDev) return res.status(409).json({error:'ChatGPT website sign-in is unavailable in this private preview. Use the local client until registered OAuth and isolated sessions are supported.'})
   const profile = await readProfile()
   const url = makeAttempt({
     hostId: await getHostId(), callback,
@@ -90,6 +93,7 @@ app.get('/api/auth/start', safeRoute(async (req, res) => {
 }))
 
 app.get('/auth/callback', async (req, res) => {
+  if (privateDev) return res.status(404).send('Hosted OAuth callback is not enabled.')
   let error = null
   try {
     const state = typeof req.query.state === 'string' ? req.query.state : ''
@@ -109,12 +113,14 @@ app.get('/auth/callback', async (req, res) => {
 })
 
 app.post('/api/auth/disconnect', async (req, res) => {
+  if (privateDev) return res.status(409).json({error:'Hosted account management is not enabled.'})
   try{
     const revoked=await disconnectAccount(req.body?.accountId)
     res.json({revoked,warning:revoked?null:'Local credentials cleared; remote revocation was not confirmed. Disconnect this app in ChatGPT Settings.'})
   }catch(e){res.status(409).json({error:String(e.message).slice(0,190)})}
 })
 app.post('/api/auth/switch', async (req,res) => {
+ if (privateDev) return res.status(409).json({error:'Hosted account management is not enabled.'})
  try{
   const selected=req.body?.accountId
   if(!(selected===null||typeof selected==='string'))return res.status(400).json({error:'Select a saved account or local-only guest'})
@@ -124,10 +130,11 @@ app.post('/api/auth/switch', async (req,res) => {
 })
 function verifyActiveAccount(req,profile){
  const submitted=req.headers['x-workspace-account-id']||null
- return submitted===activeAccountId(profile)
+ return submitted===(privateDev ? null : activeAccountId(profile))
 }
 
 app.get('/api/models', safeRoute(async (req, res) => {
+  if (privateDev) return res.json({planModels:[],apiModel:apiKey?apiModel:null,error:null})
   const p=await readProfile()
   if(!verifyActiveAccount(req,p))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
   const models = []
@@ -173,10 +180,11 @@ app.post('/api/chat', safeRoute(async (req, res) => {
   if (!messages || !images || (images.length>0&&preference!=='api') || !['auto', 'plan', 'api'].includes(preference)) {
     return res.status(400).json({ error: 'Invalid conversation or provider selection.' })
   }
-  const profile = await readProfile()
+  if (privateDev && preference !== 'api') return res.status(409).json({error:'Hosted preview supports only separately billed OpenAI API requests. ChatGPT plan sign-in is unavailable.'})
+  const profile = privateDev ? {} : await readProfile()
   if(!verifyActiveAccount(req,profile))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
-  const expectedAccount=activeAccountId(profile)
-  const planEnabled = Boolean(profile.account?.scopes?.includes('chatgpt.tokens.use.direct') && profile.account?.access_token)
+  const expectedAccount=privateDev ? null : activeAccountId(profile)
+  const planEnabled = !privateDev && Boolean(profile.account?.scopes?.includes('chatgpt.tokens.use.direct') && profile.account?.access_token)
   if (preference === 'plan' && planEnabled && !validModel(requestedModel)) return res.status(400).json({ error: 'Select a valid account model.' })
   let provider = chooseRoute({ preference, planEnabled: planEnabled && validModel(requestedModel), apiConfigured: Boolean(apiKey), fallbackAllowed })
   if (!provider) return res.status(409).json({ error: 'Connect a ChatGPT plan or configure a separately billed OpenAI API key, then select a usable provider.' })
