@@ -59,7 +59,8 @@ const dialogRef=useRef(null);
 const chat=chats.find(c=>c.id===current);
 const activeProjectId=chat?.projectId||(!chat?selectedProject:null);
 const activeProject=workspace.projects.find(p=>p.id===activeProjectId);
-const ready=provider==='api'?status.apiConfigured:provider==='plan'?status.planEnabled&&!!planModel:(status.planEnabled&&!!planModel)||(status.apiConfigured&&fallback);
+const apiAvailable=status.apiConfigured&&status.providerEgressStatus!=='disabled';
+const ready=provider==='api'?apiAvailable:provider==='plan'?status.planEnabled&&!!planModel:(status.planEnabled&&!!planModel)||(apiAvailable&&fallback);
 function handleStorageFailure(error){
  if(error instanceof BrowserStorageConflict){
   setStorageConflict(error.message);
@@ -254,7 +255,7 @@ async function send(value=draft){
   streamWatchdog.start();
   try{
     const response=await fetch('/api/chat',{method:'POST',headers:{'content-type':'application/json',...(browserAccountScope()?{'x-workspace-account-id':browserAccountScope()}:{})},body:JSON.stringify({
-      messages:preparedMessages,images,preference:provider,model:planModel,allowApiFallback:fallback && status.apiConfigured
+      messages:preparedMessages,images,preference:provider,model:planModel,allowApiFallback:fallback && apiAvailable
     }),signal:stop.signal});
     if(!response.ok)await readApiResponse(response,'Response failed')
     if(!response.body)throw Error('The server returned no stream');
@@ -329,7 +330,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
    <button type="button" onClick={()=>{setChatMenuOpen(false);setSettingsTab('connections');setSettings(true)}}>Settings</button>
    <button type="button" className="chatDangerAction" disabled={!chat||busy} onClick={()=>{setChatMenuOpen(false);remove(chat.id)}}>Delete chat</button>
   </div>}
- </div>:<><span className="connected"><i className={status.planEnabled?'green':status.apiConfigured?'gold':''}></i>{status.planEnabled?'Plan connected':status.apiConfigured?'API ready':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></>}
+ </div>:<><span className="connected"><i className={status.planEnabled?'green':apiAvailable?'gold':''}></i>{status.planEnabled?'Plan connected':apiAvailable?'API configured':status.providerEgressStatus==='disabled'?'Provider offline':'Not connected'}</span><button className="iconButton" aria-label="Open settings" onClick={()=>setSettings(true)}><Settings2 size={19}/></button></>}
  </div></header>
  {sync.state!=='enabled'&&<div className="notice" role="status"><ShieldCheck size={16}/><span>Local device data only. Signing in does not automatically sync projects, memories or chats to other devices; lost browser data may not be recoverable.</span><button type="button" onClick={()=>{setSettingsTab('privacy');setSettings(true)}}>Data &amp; sync</button></div>}
  {error&&view!=='chat'&&<div className="notice error" role="alert"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
@@ -358,7 +359,7 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
  <button className="outline" onClick={()=>setMemoryDraft(null)}>Cancel</button></div></div>}
  </div></article>)}<div ref={bottom}/></section></>}</div>
  {view==='chat'&&<div className="composerArea">{chat&&conversationContextStart(chat)>0&&<p className="disclaimer" role="status">This chat was moved between projects. Older messages remain visible, but the AI does not receive them in new requests.</p>}{activeProject&&<div className="workspaceScope">Project: {activeProject.name} · {activeProject.files?.length||0} files · Project instructions active {chat?<button title="Move chat to no project" aria-label="Move chat out of project" disabled={busy} onClick={()=>assignChat(chat.id,null)}>Remove from project</button>:<button title="New chat outside project" aria-label="Start a chat outside this project" onClick={()=>setSelectedProject(null)}>×</button>}</div>}{error&&<div className="notice error"><AlertTriangle size={16}/><span>{error}</span><button onClick={()=>setError('')} aria-label="Dismiss error"><X size={15}/></button></div>}
- {!ready&&<div className="notice"><span>Connect ChatGPT or configure a separately billed OpenAI API connection.</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}
+ {!ready&&<div className="notice"><span>{status.providerEgressStatus==='disabled'?'This private preview cannot reach OpenAI until restricted provider access is enabled.':'Connect ChatGPT or configure a separately billed OpenAI API connection.'}</span><button onClick={()=>{setSettingsTab('connections');setSettings(true)}}>Configure →</button></div>}
  <div className="composer"><textarea ref={prompt} value={draft} onChange={e=>setDraft(e.target.value)} maxLength={12000} rows={2} placeholder="Ask anything…" aria-label="Message to Workspace AI" onKeyDown={e=>{if(shouldSendOnComposerEnter(e,{mobileViewport:window.matchMedia('(max-width: 800px)').matches,coarsePointer:window.matchMedia('(pointer: coarse)').matches})){e.preventDefault();void send()}}}/>
  <div className="composerBottom">
   <ChatAttachments items={attachmentsDraft} onChange={setAttachmentsDraft} onError={setError} disabled={busy||Boolean(storageConflict)} availablePrompts={promptsForContext(workspace.prompts||[],activeProjectId)} onSavedPrompt={item=>{try{setDraft(old=>appendPromptDraft(old,item.content))}catch(e){setError(report(e))}}}/>
@@ -393,13 +394,13 @@ return <div className={"shell workspaceShell"+(workspace.collapsed?" isCollapsed
 {status.websiteSignInAvailable===false?<p className="privacyInfo" role="status">ChatGPT sign-in is unavailable on this hosted preview. A supported registered website OAuth client and isolated account sessions are required. The local application can continue using its separate, supported sign-in flow.</p>:<div className="actions">{status.connected?<><button className="outline" onClick={()=>signIn(false)}>Reauthorize</button><button className="outline" onClick={()=>signIn(true)}>Add account</button><button className="danger" onClick={signOut}>Sign out</button></>:<button className="primary" onClick={()=>signIn(true)}><Sparkles size={16}/>Sign in with ChatGPT →</button>}</div>}
  {authError&&<p role="alert" className="projectAlert">{authError}</p>}
  </div>
-<div className="connectionCard"><div className="connectionTop"><span className="providerIcon apiIcon"><KeyRound size={20}/></span><div><strong>OpenAI API</strong><small>Separately billed, optional fallback</small></div><span className={'pill '+(status.apiVerification?.state==='verified'?'active':'')}>{!status.apiConfigured?'Not configured':status.apiVerification?.state==='verified'?'Key verified':status.apiVerification?.state==='invalid'?'Key rejected':status.apiVerification?.state==='restricted'?'Restricted':status.apiVerification?.state==='unavailable'?'Connection unavailable':'Saved · unverified'}</span></div><ConnectionField configured={status.apiConfigured} keySource={status.apiKeySource} verification={status.apiVerification} onRefresh={refresh}/></div>
+<div className="connectionCard"><div className="connectionTop"><span className="providerIcon apiIcon"><KeyRound size={20}/></span><div><strong>OpenAI API</strong><small>Separately billed, optional fallback</small></div><span className={'pill '+(status.apiVerification?.state==='verified'?'active':'')}>{status.providerEgressStatus==='disabled'?'Provider offline':!status.apiConfigured?'Not configured':status.apiVerification?.state==='verified'?'Key verified':status.apiVerification?.state==='invalid'?'Key rejected':status.apiVerification?.state==='restricted'?'Restricted':status.apiVerification?.state==='unavailable'?'Connection unavailable':'Saved · unverified'}</span></div><ConnectionField configured={status.apiConfigured} keySource={status.apiKeySource} verification={status.apiVerification} providerEgressStatus={status.providerEgressStatus} onRefresh={refresh}/></div>
 </section>
 <section className="settingsPanel" hidden={settingsTab!=='routing'}>
 <h3>02 · ROUTING & MODEL</h3><label className="fieldLabel">Preferred provider</label><div className="segments">{[['auto','Automatic'],['plan','ChatGPT plan'],['api','OpenAI API']].map(([key,name])=><button key={key} aria-pressed={provider===key} className={provider===key?'selected':''} onClick={()=>setProvider(key)}>{name}</button>)}</div>
-<p className="helper">Automatic uses the eligible ChatGPT plan first. Separate API billing requires explicit opt-in below.</p>
+<p className="helper">{status.websiteSignInAvailable===false?'Hosted preview supports separately billed OpenAI API connections only. The provider route must be configured before use.':'Automatic uses the eligible ChatGPT plan first. Separate API billing requires explicit opt-in below.'}</p>
 {provider!=='api'&&status.planEnabled&&<><label className="fieldLabel" htmlFor="modelPicker">ChatGPT plan model</label><select id="modelPicker" value={planModel} onChange={e=>setPlanModel(e.target.value)}>{models.length===0&&<option value="">No eligible models found</option>}{models.map(m=><option key={m.slug} value={m.slug}>{m.name}</option>)}</select></>}
-{provider==='auto'&&<label className="toggle"><div><strong>Allow API fallback</strong><small>{status.apiConfigured ? 'May incur separate API charges if the ChatGPT plan cannot respond.' : 'Unavailable until an OpenAI API key is configured in the local server.'}</small></div><input type="checkbox" disabled={!status.apiConfigured} checked={Boolean(fallback && status.apiConfigured)} onChange={e=>setFallback(e.target.checked)}/></label>}
+{provider==='auto'&&<label className="toggle"><div><strong>Allow API fallback</strong><small>{status.providerEgressStatus==='disabled'?'Unavailable while outbound provider access is disabled.':status.apiConfigured ? 'May incur separate API charges if the ChatGPT plan cannot respond.' : 'Unavailable until an OpenAI API key is configured in the local server.'}</small></div><input type="checkbox" disabled={!apiAvailable} checked={Boolean(fallback && apiAvailable)} onChange={e=>setFallback(e.target.checked)}/></label>}
 </section>
 <section className="settingsPanel" hidden={settingsTab!=='appearance'}>
 <h3>03 · APPEARANCE</h3>

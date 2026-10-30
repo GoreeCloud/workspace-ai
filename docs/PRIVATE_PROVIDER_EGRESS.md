@@ -23,3 +23,7 @@ Hosted ChatGPT sign-in requires a participating OAuth registration and isolated 
 ## Recovery
 
 The previous image remains available. Disable egress by using the existing protected base, ingress and peer-auth Compose files with the image-only candidate override, omitting the optional provider overlay. After protected runtime and trusted-HTTPS checks pass, remove only the unused proxy and network. The complete live rollback drill remains pending. Do not expand this private owner-gated service into a public or multi-tenant deployment without separate review.
+
+## Connection readiness UX
+
+The private preview reports `providerEgressStatus` as `configured` when the exact reviewed proxy environment is present or `disabled` otherwise. `configured` describes routing configuration, **not** credential verification or successful inference. While disabled, the app refuses new API key submissions, model-list checks, and API chats, and displays an actionable network explanation. Local client API connections retain their existing behavior. Hosted session API keys remain in the shared server process memory; do not present this as safe multi-user credential isolation.

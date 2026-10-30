@@ -15,11 +15,13 @@ import {attachAccountSyncRelay} from './account-sync-relay.mjs'
 import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
 import {resolveIngress} from './ingress-config.mjs'
+import {providerNetworkStatus} from './provider-network-status.mjs'
 import {loadPrivateGatewayToken, matchesPrivateGatewayToken, GATEWAY_TOKEN_HEADER, GATEWAY_VERSION_HEADER, GATEWAY_CONTRACT_VERSION} from './private-gateway-auth.mjs'
 
 const app = express()
 const {port: PORT, privateDev, bindHost, clientOrigin, allowedHosts, allowedOrigins} = resolveIngress()
 const gatewayToken = loadPrivateGatewayToken()
+const providerEgressStatus = providerNetworkStatus(process.env, privateDev)
 const environmentApiKey = process.env.OPENAI_API_KEY?.trim() || ''
 let apiKey = environmentApiKey
 let apiKeySource = environmentApiKey ? 'environment' : null
@@ -61,6 +63,14 @@ app.use((req, res, next) => {
 app.use('/api/chat',express.json({limit:'520kb'}))
 app.use(express.json({ limit: '90kb' }))
 const localOrigins=allowedOrigins
+// An offline private preview must not accept a server-shared API credential.
+// DELETE still clears an existing session key after an egress change.
+app.use('/api/settings/credential', (req, res, next) => {
+  if (providerEgressStatus === 'disabled' && req.method === 'POST') {
+    return res.status(409).json({error:'Restricted OpenAI outbound access is disabled on this private preview. Configure the provider route before submitting or checking a key.'})
+  }
+  next()
+})
 const mcpApproval=attachMcpApprovalRoutes(app,localOrigins)
 const mcpIntegration=attachIntegrationRoutes(app,localOrigins,{onMcpChange:provider=>mcpApproval.revokeProvider(provider)})
 attachMcpLiveRoutes(app,localOrigins,{broker:mcpApproval,...mcpIntegration,providerReady:mcpIntegration.isMcpReady})
@@ -78,7 +88,7 @@ const credentialSettings = attachCredentialSettings(app, {
 app.get('/api/status', safeRoute(async (_req, res) => {
   const profile = privateDev ? {} : await readProfile()
   res.json({ ...publicStatus(profile, Boolean(apiKey)), websiteSignInAvailable: !privateDev,
-    apiKeySource, apiVerification: credentialSettings.getVerification() })
+    providerEgressStatus, apiKeySource, apiVerification: credentialSettings.getVerification() })
 }))
 
 app.get('/api/auth/start', safeRoute(async (req, res) => {
@@ -181,6 +191,7 @@ app.post('/api/chat', safeRoute(async (req, res) => {
     return res.status(400).json({ error: 'Invalid conversation or provider selection.' })
   }
   if (privateDev && preference !== 'api') return res.status(409).json({error:'Hosted preview supports only separately billed OpenAI API requests. ChatGPT plan sign-in is unavailable.'})
+  if (privateDev && providerEgressStatus === 'disabled') return res.status(409).json({error:'Outbound provider access is disabled on this private preview. Enable the restricted OpenAI connection before chatting.'})
   const profile = privateDev ? {} : await readProfile()
   if(!verifyActiveAccount(req,profile))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
   const expectedAccount=privateDev ? null : activeAccountId(profile)
