@@ -3,7 +3,8 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 const load = name => readFile(new URL('../deploy/private-dev/' + name, import.meta.url), 'utf8')
 test('provider overlay keeps the workspace on its internal network', async () => {
- const [base,overlay] = await Promise.all([load('compose.yaml'),load('compose.provider-egress.yaml')])
+ const [base,overlay,dockerfile] = await Promise.all([load('compose.yaml'),load('compose.provider-egress.yaml'),load('ProviderProxy.Dockerfile')])
+ assert.match(dockerfile,/provider-tls-client-hello\.mjs/)
  assert.match(base,/internal:\s*true/)
  assert.match(overlay,/NODE_USE_ENV_PROXY:/)
  assert.match(overlay,/HTTPS_PROXY:/)

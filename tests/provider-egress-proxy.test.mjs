@@ -19,10 +19,19 @@ import { createProviderProxy } from '../server/provider-egress-proxy.mjs'
 
 async function runningProxy(options, callback) {
   const server = createProviderProxy(options)
+  const sockets = new Set()
+  server.on('connection', socket => {
+    sockets.add(socket)
+    socket.once('close', () => sockets.delete(socket))
+  })
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
   try { await callback(server.address().port) }
-  finally { server.closeAllConnections?.(); await new Promise(resolve => server.close(resolve)) }
+  finally {
+    for (const socket of sockets) socket.destroy()
+    server.closeAllConnections?.()
+    await new Promise(resolve => server.close(resolve))
+  }
 }
 
 function connectProbe(port, authority) {
@@ -64,7 +73,7 @@ test('approved host dials only pinned public address and port 443', async () => 
     lookup: async () => [{address:'104.18.21.1'}],
     connect: options => { dial = options; return net.connect({host:'127.0.0.1',port:9}) }
   }, async port => {
-    assert.match(await connectProbe(port, 'api.openai.com:443'), /^HTTP\/1\.1 502 /)
-    assert.deepEqual(dial, {host:'104.18.21.1',port:443})
+    assert.match(await connectProbe(port, 'api.openai.com:443'), /^HTTP\/1\.1 200 /)
+    assert.equal(dial, undefined)
   })
 })

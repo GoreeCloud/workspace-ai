@@ -3,10 +3,13 @@ import net from 'node:net'
 import { lookup as dnsLookup } from 'node:dns/promises'
 import { fileURLToPath } from 'node:url'
 import { resolve } from 'node:path'
+import { inspectTlsClientHello } from './provider-tls-client-hello.mjs'
 
 const ALLOWED_HOSTS = new Set(['api.openai.com', 'auth.openai.com'])
 const TARGET_PORT = 443
 const MAX_TUNNELS = 24
+const MAX_HELLO_BYTES = 65536
+const HANDSHAKE_TIMEOUT_MS = 8000
 const IDLE_TIMEOUT_MS = 180_000
 
 export function parseAllowedAuthority(authority) {
@@ -16,8 +19,8 @@ export function parseAllowedAuthority(authority) {
   return match[1]
 }
 
-// For this proxy, IPv6 results are not accepted. Every IPv4 DNS answer must be
-// globally routable; never forward cloud metadata, localhost or private IPs.
+// Every IPv4 DNS answer must be globally routable; never forward metadata,
+// localhost, reserved or private IP destinations.
 export function isPublicIpv4(address) {
   if (net.isIP(address) !== 4) return false
   const [a, b, c] = address.split('.').map(Number)
@@ -50,10 +53,11 @@ export function createProviderProxy({ lookup = dnsLookup, connect = net.connect 
     if (active >= MAX_TUNNELS) return reject(client, 429)
     active++
     let released = false
-    const release = () => { if (!released) { released = true; active-- } }
     let upstream
-    client.setTimeout(IDLE_TIMEOUT_MS, () => client.destroy())
+    const release = () => { if (!released) { released = true; active-- } }
+    client.on('error', () => { client.destroy() })
     client.once('close', () => { upstream?.destroy(); release() })
+    client.setTimeout(HANDSHAKE_TIMEOUT_MS, () => client.destroy())
     try {
       const answers = await lookup(hostname, { all: true, family: 4 })
       if (!Array.isArray(answers) || !answers.length || answers.some(record => !isPublicIpv4(record.address))) {
@@ -61,18 +65,40 @@ export function createProviderProxy({ lookup = dnsLookup, connect = net.connect 
         return reject(client, 502)
       }
       if (client.destroyed) { release(); return }
-      // Pin the reviewed DNS answer to avoid re-resolution between ACL and connect.
-      upstream = connect({ host: answers[0].address, port: TARGET_PORT })
-      upstream.setTimeout?.(IDLE_TIMEOUT_MS, () => upstream.destroy())
-      upstream.once('error', () => { release(); reject(client, 502) })
-      upstream.once('close', () => { client.destroy(); release() })
-      upstream.once('connect', () => {
-        if (client.destroyed) { upstream.destroy(); return }
-        client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
-        if (head?.length) upstream.write(head)
-        client.pipe(upstream)
-        upstream.pipe(client)
-      })
+      // CONNECT gets 200 before TLS begins; hold every byte until the hostname
+      // in the plaintext ClientHello exactly matches the allowlisted authority.
+      // Invalid, absent, oversized and encrypted/hidden SNI fail closed.
+      let hello = Buffer.alloc(0)
+      let started = false
+      const onHandshake = chunk => {
+        if (started || client.destroyed) return
+        if (hello.length + chunk.length > MAX_HELLO_BYTES) return client.destroy()
+        hello = Buffer.concat([hello, chunk], hello.length + chunk.length)
+        const match = inspectTlsClientHello(hello, hostname)
+        if (match === 'invalid') return client.destroy()
+        if (match !== 'valid') return
+        started = true
+        client.pause()
+        client.removeListener('data', onHandshake)
+        client.setTimeout(IDLE_TIMEOUT_MS, () => client.destroy())
+        // No outbound socket has been opened until the CONNECT and TLS host
+        // checks have both passed. DNS IP is pinned before connecting.
+        upstream = connect({ host: answers[0].address, port: TARGET_PORT })
+        upstream.setTimeout?.(IDLE_TIMEOUT_MS, () => upstream.destroy())
+        upstream.once('error', () => client.destroy())
+        upstream.once('close', () => { client.destroy(); release() })
+        upstream.once('connect', () => {
+          if (client.destroyed) return upstream.destroy()
+          upstream.write(hello)
+          hello = Buffer.alloc(0)
+          client.pipe(upstream)
+          upstream.pipe(client)
+          client.resume()
+        })
+      }
+      client.on('data', onHandshake)
+      client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+      if (head?.length) onHandshake(head)
     } catch {
       upstream?.destroy()
       release()
