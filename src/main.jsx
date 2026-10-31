@@ -10,7 +10,7 @@ import {registerWorkspacePwa} from './register-pwa.js'
 
 const root=createRoot(document.getElementById('root'))
 async function verifiedScope(){
- const response=await fetch('/api/status',{cache:'no-store',signal:AbortSignal.timeout(12000)})
+ const response=await fetch('/api/status?bootstrap=1',{cache:'no-store',signal:AbortSignal.timeout(12000)})
  if(!response.ok)throw Error('Could not verify the current account')
  return scopeFromStatus(await response.json())
 }
