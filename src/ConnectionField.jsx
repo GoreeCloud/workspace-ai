@@ -75,7 +75,7 @@ export default function ConnectionField({ configured, keySource, verification, o
       setValue('')
       setShow(false)
       await onRefresh()
-      setMessage({ kind: 'success', text: 'Session key cleared. Any private .env key remains available.' })
+      setMessage({ kind: 'success', text: hosted ? 'Browser session key cleared. Other browser sessions are unchanged.' : 'Session key cleared. Any private .env key remains available.' })
     } catch (error) {
       setMessage({ kind: 'error', text: error instanceof Error ? error.message : 'Unable to clear the key.' })
     } finally { setBusy(false) }
