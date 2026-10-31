@@ -18,11 +18,20 @@ The proxy permits HTTPS CONNECT only to `api.openai.com:443` and `auth.openai.co
 ## Verified browser-session isolation rollout (October 30, 2026)
 
 - PR #115 merged as `164c923692e822a449c642b45ad5169424c1e547` after the full Node suite, production build, disposable provider/private smoke, and isolated HTTPS browser QA passed.
-- The live application image is `goreecloud-workspace-ai-private-dev:candidate-164c923`. The restricted proxy image remains `goreecloud-workspace-provider-proxy:candidate-b62e026`, with the proxy container unchanged.
+- The application image deployed at that stage was `goreecloud-workspace-ai-private-dev:candidate-164c923` (superseded by the inference-revocation release below). The restricted proxy image remains `goreecloud-workspace-provider-proxy:candidate-b62e026`, with the proxy container unchanged.
 - The guarded release preflight proved that the resolved Compose change was **only the application image**; peer authentication, secrets mounts, read-only filesystem, capabilities, internal networks, and absence of published ports were preserved. The old app image `candidate-7443ec0` remains available for rollback.
 - Protected runtime checks passed: healthy backend, wrong or missing gateway token denied (HTTP 403), non-NetBird HTTPS source denied (HTTP 403 with verified TLS). An authorized NetBird laptop resolved the private host and received the expected unauthenticated Basic Auth challenge (HTTP 401).
 - A live backend synthetic two-browser test, authenticated only to the private backend peer gateway, confirmed separate secure HttpOnly cookies and per-browser credential readiness, missing-cookie write rejection, cross-site bootstrap denial, non-allocating health checks, and deletion of both synthetic keys. No real API key or paid inference was used. This is **not** owner-authenticated visual browser acceptance.
 - The browser bootstrap route is `/api/status?bootstrap=1`; ordinary `/api/status` health checks do not create browser sessions. Keys remain ephemeral in-memory, scoped to a browser cookie, and cannot survive process restarts.
+
+## Verified inference-revocation rollout (October 30, 2026)
+
+- PR #117 merged as `79e6bc8853474d74239cd4088854e257b73c2657` with all GitHub application, provider-egress, private smoke and isolated HTTPS QA checks passing. The local suite passed **327 tests** and the production build.
+- The **current** application image is `goreecloud-workspace-ai-private-dev:candidate-79e6bc8`; the provider proxy remains `goreecloud-workspace-provider-proxy:candidate-b62e026` and was not replaced. The guarded, exact-source VPS image-only preflight proved that no other Compose settings changed.
+- A hosted browser's key rotation, clearing or session expiration now aborts that browser's outstanding API inference. Unit and real HTTP integration tests used a **synthetic hanging provider** to prove that clearing browser A cancels its request without affecting browser B; no actual API key or paid inference was used.
+- Protected live acceptance passed: healthy backend, read-only/drop-all-capabilities, same two internal networks, no application host ports, denied missing/wrong peer tokens (HTTP 403), denied non-NetBird ingress (HTTP 403 with trusted TLS). On a NetBird laptop, both private routes challenged unauthenticated access with HTTP 401 Basic Auth.
+- Live synthetic two-browser session tests confirmed independent keys, failed writes without a valid cookie, cross-site bootstrap denial, read-only health checks, and deletion of both synthetic keys. The approved OpenAI catalog endpoint returned HTTP 401 without a key.
+- A **disposable rollback-image rehearsal** booted both preserved `candidate-7443ec0` and `candidate-164c923` independently under no-network, no-port, read-only, least-privileged containers and automatically removed them. This **does not** constitute a live application rollback and restoration. The immediately previous live application image `candidate-164c923` remains available for controlled rollback.
 
 ## Remaining acceptance
 
@@ -32,7 +41,7 @@ Hosted ChatGPT sign-in requires a participating OAuth registration and isolated 
 
 ## Recovery
 
-The previous image remains available. Disable egress by using the existing protected base, ingress and peer-auth Compose files with the image-only candidate override, omitting the optional provider overlay. After protected runtime and trusted-HTTPS checks pass, remove only the unused proxy and network. The complete live rollback drill remains pending. Do not expand this private owner-gated service into a public or multi-tenant deployment without separate review.
+The immediately previous application image `candidate-164c923` remains available. Disable egress by using the existing protected base, ingress and peer-auth Compose files with the image-only candidate override, omitting the optional provider overlay. After protected runtime and trusted-HTTPS checks pass, remove only the unused proxy and network. The complete live rollback drill remains pending. Do not expand this private owner-gated service into a public or multi-tenant deployment without separate review.
 
 ## Connection readiness UX
 
