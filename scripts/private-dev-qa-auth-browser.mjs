@@ -9,7 +9,6 @@ import {readFile,mkdtemp,rm,chmod} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {setTimeout as delay} from 'node:timers/promises'
-import {createServer} from 'node:net'
 
 assert.equal(process.env.GITHUB_ACTIONS,'true','This test is restricted to disposable GitHub CI.')
 const gateway=process.env.WORKSPACE_AI_QA_GATEWAY_CONTAINER||''
@@ -26,19 +25,12 @@ const ip=execFileSync('docker',['inspect',gateway,'--format',
 assert.match(ip,/^172\.(1[6-9]|2[0-9]|3[01])\.\d{1,3}\.\d{1,3}$/)
 const profile=await mkdtemp(join(tmpdir(),'goreecloud-qa-chrome-'))
 await chmod(profile,0o700)
-const port=await new Promise((resolve,reject)=>{
- const socket=createServer().once('error',reject)
- socket.listen(0,'127.0.0.1',()=>{
-  const selected=socket.address().port
-  socket.close(()=>resolve(selected))
- })
-})
 const chrome=spawn(chromePath,[
  '--headless=new','--no-sandbox','--disable-gpu','--disable-dev-shm-usage',
  '--no-first-run','--no-default-browser-check','--no-proxy-server',
  '--ignore-certificate-errors', // disposable synthetic CA ONLY; curl independently verifies TLS.
  '--host-resolver-rules=MAP workspace-ai-dev.goreecloud.com '+ip,
- '--remote-debugging-address=127.0.0.1','--remote-debugging-port='+port,
+ '--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',
  '--user-data-dir='+profile,'about:blank'
 ],{stdio:['ignore','ignore','ignore']})
 let ws
@@ -50,16 +42,33 @@ const send=(method,params={})=>new Promise((resolve,reject)=>{
  ws.send(JSON.stringify({id,method,params}))
 })
 try {
- let tab
- for(let attempt=0;attempt<120;attempt++){
-  if(chrome.exitCode!==null)throw Error('Synthetic Chromium terminated before connecting.')
-  try{
-   const r=await fetch('http://127.0.0.1:'+port+'/json/list')
-   if(r.ok){tab=(await r.json()).find(x=>x.type==='page'&&x.webSocketDebuggerUrl);if(tab)break}
-  }catch{}
+ let tab, port
+ const deadline=Date.now()+45_000
+ while(Date.now()<deadline){
+  if(chrome.exitCode!==null||chrome.signalCode!==null){
+   throw Error('Synthetic Chromium terminated before debugging was ready.')
+  }
+  // --remote-debugging-port=0 asks Chrome to bind an available loopback port
+  // and publish it in its ephemeral profile. Avoid a close-then-bind port race.
+  if(!port){
+   try{
+    const active=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).split(/\\r?\\n/)
+    const candidate=Number(active[0])
+    if(Number.isInteger(candidate)&&candidate>=1024&&candidate<=65535)port=candidate
+   }catch{}
+  }
+  if(port){
+   try{
+    const r=await fetch('http://127.0.0.1:'+port+'/json/list',{
+     signal:AbortSignal.timeout(1500)
+    })
+    if(r.ok){tab=(await r.json()).find(x=>x.type==='page'&&x.webSocketDebuggerUrl);if(tab)break}
+   }catch{}
+  }
   await delay(150)
  }
- assert.ok(tab?.webSocketDebuggerUrl,'Synthetic browser debugging endpoint unavailable.')
+ assert.ok(tab?.webSocketDebuggerUrl,
+  'Synthetic browser debugging target unavailable after bounded Chromium startup.')
  ws=new WebSocket(tab.webSocketDebuggerUrl)
  await new Promise((resolve,reject)=>{
   ws.addEventListener('open',resolve,{once:true})
