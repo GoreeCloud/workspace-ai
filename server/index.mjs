@@ -16,7 +16,7 @@ import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
 import {resolveIngress} from './ingress-config.mjs'
 import {providerNetworkStatus} from './provider-network-status.mjs'
-import {createHostedCredentialSessions} from './hosted-credential-sessions.mjs'
+import {createHostedCredentialSessions, cancelHostedSessionRequests} from './hosted-credential-sessions.mjs'
 import {loadPrivateGatewayToken, matchesPrivateGatewayToken, GATEWAY_TOKEN_HEADER, GATEWAY_VERSION_HEADER, GATEWAY_CONTRACT_VERSION} from './private-gateway-auth.mjs'
 
 const app = express()
@@ -85,8 +85,8 @@ attachAccountSyncRelay(app,localOrigins)
 const credentialSettings = attachCredentialSettings(app, {
   allowedOrigins: localOrigins,
   getCredential: req => apiKeyFor(req),
-  setCredential: (value,req) => { if (privateDev) hostedSession(req).key = value; else { apiKey = value; apiKeySource = 'session' } },
-  clearCredential: req => { if (privateDev) hostedSession(req).key = ''; else { apiKey = environmentApiKey; apiKeySource = environmentApiKey ? 'environment' : null } },
+  setCredential: (value,req) => { if (privateDev) { const session = hostedSession(req); cancelHostedSessionRequests(session); session.key = value } else { apiKey = value; apiKeySource = 'session' } },
+  clearCredential: req => { if (privateDev) { const session = hostedSession(req); cancelHostedSessionRequests(session); session.key = '' } else { apiKey = environmentApiKey; apiKeySource = environmentApiKey ? 'environment' : null } },
   verifyCredential: verifyApiKey,
   sessionForRequest: privateDev ? hostedSession : null
 })
@@ -200,7 +200,8 @@ app.post('/api/chat', safeRoute(async (req, res) => {
   }
   if (privateDev && preference !== 'api') return res.status(409).json({error:'Hosted preview supports only separately billed OpenAI API requests. ChatGPT plan sign-in is unavailable.'})
   if (privateDev && providerEgressStatus === 'disabled') return res.status(409).json({error:'Outbound provider access is disabled on this private preview. Enable the restricted OpenAI connection before chatting.'})
-  if (privateDev && !hostedSession(req)) return res.status(409).json({error:'Browser session expired. Reload the workspace.'})
+  const browserSession = privateDev ? hostedSession(req) : null
+  if (privateDev && !browserSession) return res.status(409).json({error:'Browser session expired. Reload the workspace.'})
   const profile = privateDev ? {} : await readProfile()
   if(!verifyActiveAccount(req,profile))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
   const expectedAccount=privateDev ? null : activeAccountId(profile)
@@ -214,7 +215,11 @@ app.post('/api/chat', safeRoute(async (req, res) => {
   }
 
   const aborter = new AbortController()
-  res.on('close', () => aborter.abort())
+  if (browserSession) browserSession.activeRequests.add(aborter)
+  res.on('close', () => {
+    aborter.abort()
+    browserSession?.activeRequests.delete(aborter)
+  })
   const requestWith = async (route) => {
     const token = route === 'plan' ? await getPlanToken(expectedAccount) : requestKey
     if (!token) throw new Error(route === 'plan' ? 'Sign in again to renew ChatGPT plan access.' : 'OpenAI API key is missing.')
