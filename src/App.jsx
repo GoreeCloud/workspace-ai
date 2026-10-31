@@ -148,7 +148,7 @@ useEffect(()=>{
 },[settings,busy]);
 const connectionRefresh=useRef(null);
 if(!connectionRefresh.current)connectionRefresh.current=createConnectionRefresher({
- readStatus:()=>api('/api/status'),
+ readStatus:()=>api('/api/status?bootstrap=1'),
  readModels:()=>api('/api/models'),
  publish:({status:next,models:list,connectionError:problem,modelError:warning})=>{
   setStatus(next);setModels(list);setConnectionError(problem);setModelWarning(warning);

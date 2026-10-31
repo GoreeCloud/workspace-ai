@@ -16,15 +16,20 @@ import {validateChatImages,multimodalChatInput} from './chat-image-input.mjs'
 import {activeAccountId,rememberAccount,selectAccount} from './account-profiles.mjs'
 import {resolveIngress} from './ingress-config.mjs'
 import {providerNetworkStatus} from './provider-network-status.mjs'
+import {createHostedCredentialSessions} from './hosted-credential-sessions.mjs'
 import {loadPrivateGatewayToken, matchesPrivateGatewayToken, GATEWAY_TOKEN_HEADER, GATEWAY_VERSION_HEADER, GATEWAY_CONTRACT_VERSION} from './private-gateway-auth.mjs'
 
 const app = express()
 const {port: PORT, privateDev, bindHost, clientOrigin, allowedHosts, allowedOrigins} = resolveIngress()
 const gatewayToken = loadPrivateGatewayToken()
 const providerEgressStatus = providerNetworkStatus(process.env, privateDev)
-const environmentApiKey = process.env.OPENAI_API_KEY?.trim() || ''
+const environmentApiKey = privateDev ? '' : (process.env.OPENAI_API_KEY?.trim() || '')
 let apiKey = environmentApiKey
 let apiKeySource = environmentApiKey ? 'environment' : null
+const hostedCredentials = privateDev ? createHostedCredentialSessions() : null
+const hostedSession = req => hostedCredentials?.find(req) || null
+const apiKeyFor = req => privateDev ? (hostedSession(req)?.key || '') : apiKey
+const apiSourceFor = req => privateDev ? (hostedSession(req)?.key ? 'session' : null) : apiKeySource
 const apiModel = process.env.OPENAI_API_MODEL || 'gpt-5-mini'
 const callback = clientOrigin + '/auth/callback'
 const endpoint = 'https://api.openai.com/v1'
@@ -79,16 +84,19 @@ attachAgentRoutes(app,localOrigins,{getApiKey:()=>environmentApiKey,model:apiMod
 attachAccountSyncRelay(app,localOrigins)
 const credentialSettings = attachCredentialSettings(app, {
   allowedOrigins: localOrigins,
-  getCredential: () => apiKey,
-  setCredential: value => { apiKey = value; apiKeySource = 'session' },
-  clearCredential: () => { apiKey = environmentApiKey; apiKeySource = environmentApiKey ? 'environment' : null },
-  verifyCredential: verifyApiKey
+  getCredential: req => apiKeyFor(req),
+  setCredential: (value,req) => { if (privateDev) hostedSession(req).key = value; else { apiKey = value; apiKeySource = 'session' } },
+  clearCredential: req => { if (privateDev) hostedSession(req).key = ''; else { apiKey = environmentApiKey; apiKeySource = environmentApiKey ? 'environment' : null } },
+  verifyCredential: verifyApiKey,
+  sessionForRequest: privateDev ? hostedSession : null
 })
 
-app.get('/api/status', safeRoute(async (_req, res) => {
+app.get('/api/status', safeRoute(async (req, res) => {
+  if (privateDev && req.query.bootstrap === '1' && req.headers['sec-fetch-site'] && req.headers['sec-fetch-site'] !== 'same-origin') return res.status(403).json({error:'Cross-site browser bootstrap rejected.'})
+  if (privateDev && req.query.bootstrap === '1' && !hostedCredentials.begin(req,res)) return res.status(503).json({error:'Private browser session capacity reached.'})
   const profile = privateDev ? {} : await readProfile()
-  res.json({ ...publicStatus(profile, Boolean(apiKey)), websiteSignInAvailable: !privateDev,
-    providerEgressStatus, apiKeySource, apiVerification: credentialSettings.getVerification() })
+  res.json({ ...publicStatus(profile, Boolean(apiKeyFor(req))), websiteSignInAvailable: !privateDev,
+    providerEgressStatus, apiKeySource: apiSourceFor(req), apiVerification: credentialSettings.getVerification(req) })
 }))
 
 app.get('/api/auth/start', safeRoute(async (req, res) => {
@@ -144,7 +152,7 @@ function verifyActiveAccount(req,profile){
 }
 
 app.get('/api/models', safeRoute(async (req, res) => {
-  if (privateDev) return res.json({planModels:[],apiModel:apiKey?apiModel:null,error:null})
+  if (privateDev) return res.json({planModels:[],apiModel:apiKeyFor(req)?apiModel:null,error:null})
   const p=await readProfile()
   if(!verifyActiveAccount(req,p))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
   const models = []
@@ -167,7 +175,7 @@ app.get('/api/models', safeRoute(async (req, res) => {
   } catch (reason) { error = reason.message }
   res.json({
     planModels: models,
-    apiModel: apiKey ? apiModel : null,
+    apiModel: apiKeyFor(req) ? apiModel : null,
     error
   })
 }))
@@ -192,12 +200,14 @@ app.post('/api/chat', safeRoute(async (req, res) => {
   }
   if (privateDev && preference !== 'api') return res.status(409).json({error:'Hosted preview supports only separately billed OpenAI API requests. ChatGPT plan sign-in is unavailable.'})
   if (privateDev && providerEgressStatus === 'disabled') return res.status(409).json({error:'Outbound provider access is disabled on this private preview. Enable the restricted OpenAI connection before chatting.'})
+  if (privateDev && !hostedSession(req)) return res.status(409).json({error:'Browser session expired. Reload the workspace.'})
   const profile = privateDev ? {} : await readProfile()
   if(!verifyActiveAccount(req,profile))return res.status(409).json({error:'Active account changed. Reload the workspace.'})
   const expectedAccount=privateDev ? null : activeAccountId(profile)
   const planEnabled = !privateDev && Boolean(profile.account?.scopes?.includes('chatgpt.tokens.use.direct') && profile.account?.access_token)
+  const requestKey = apiKeyFor(req)
   if (preference === 'plan' && planEnabled && !validModel(requestedModel)) return res.status(400).json({ error: 'Select a valid account model.' })
-  let provider = chooseRoute({ preference, planEnabled: planEnabled && validModel(requestedModel), apiConfigured: Boolean(apiKey), fallbackAllowed })
+  let provider = chooseRoute({ preference, planEnabled: planEnabled && validModel(requestedModel), apiConfigured: Boolean(requestKey), fallbackAllowed })
   if (!provider) return res.status(409).json({ error: 'Connect a ChatGPT plan or configure a separately billed OpenAI API key, then select a usable provider.' })
   if (provider === 'plan' && !validModel(requestedModel)) {
     return res.status(400).json({ error: 'Select a model from your ChatGPT plan model list.' })
@@ -206,7 +216,7 @@ app.post('/api/chat', safeRoute(async (req, res) => {
   const aborter = new AbortController()
   res.on('close', () => aborter.abort())
   const requestWith = async (route) => {
-    const token = route === 'plan' ? await getPlanToken(expectedAccount) : apiKey
+    const token = route === 'plan' ? await getPlanToken(expectedAccount) : requestKey
     if (!token) throw new Error(route === 'plan' ? 'Sign in again to renew ChatGPT plan access.' : 'OpenAI API key is missing.')
     const model = route === 'plan' ? requestedModel : apiModel
     const response = await fetch(endpoint + '/responses', {
@@ -227,7 +237,7 @@ app.post('/api/chat', safeRoute(async (req, res) => {
       const body = await result.response.json().catch(() => ({}))
       const fault = normalizedError(result.response, body)
       const shouldFallback = provider === 'plan'
-        && preference === 'auto' && fallbackAllowed && Boolean(apiKey)
+        && preference === 'auto' && fallbackAllowed && Boolean(requestKey)
         && (cooldownCodes.has(fault.code) || [401, 429, 503].includes(fault.status))
       if (!shouldFallback) return res.status(fault.status).json({ error: fault.message, code: fault.code, requestId: fault.requestId })
       provider = 'api'
@@ -250,7 +260,7 @@ app.post('/api/chat', safeRoute(async (req, res) => {
       await streamResponse(result.response, emit)
     } catch (streamError) {
       const quota = /subscription_sharing_(usage_limit_exceeded|usage_unavailable|user_not_eligible|user_unavailable)/.test(String(streamError?.message || streamError))
-      if (!(provider === 'plan' && preference === 'auto' && fallbackAllowed && Boolean(apiKey) && !emittedText && quota)) throw streamError
+      if (!(provider === 'plan' && preference === 'auto' && fallbackAllowed && Boolean(requestKey) && !emittedText && quota)) throw streamError
       provider = 'api'
       result = await requestWith(provider)
       if (!result.response.ok) {

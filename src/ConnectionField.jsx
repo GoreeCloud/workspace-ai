@@ -108,7 +108,7 @@ export default function ConnectionField({ configured, keySource, verification, o
         <Trash2 size={15}/> Clear session key
       </button>}
     </div>
-    <p id="api-key-help" className="helper">{hosted ? 'A hosted preview session key is held in shared server memory until restart, not in this browser. Do not use this preview as a multi-user credential store. ' : 'A session key stays in the local server process until restart. '}Verification checks the model list without paid inference; API chats are billed separately.</p>
+    <p id="api-key-help" className="helper">{hosted ? 'Your API key is isolated to this browser session in temporary server memory and expires automatically. This preview is not yet approved for public or multi-user hosting. ' : 'A session key stays in the local server process until restart. '}Verification checks the model list without paid inference; API chats are billed separately.</p>
     <p className={'keyVerification keyVerification-' + state} role="status">
       {indicator}<span>{statusText}</span>
     </p>
