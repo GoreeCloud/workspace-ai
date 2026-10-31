@@ -32,7 +32,11 @@ const chrome=spawn(chromePath,[
  '--host-resolver-rules=MAP workspace-ai-dev.goreecloud.com '+ip,
  '--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',
  '--user-data-dir='+profile,'about:blank'
-],{stdio:['ignore','ignore','ignore']})
+],{stdio:['ignore','ignore','pipe']})
+let chromeStartupLog=''
+let chromeSpawnError=null
+chrome.stderr.on('data',chunk=>{chromeStartupLog=(chromeStartupLog+String(chunk)).slice(-4096)})
+chrome.once('error',error=>{chromeSpawnError=error?.code||'spawn-error'})
 let ws
 const pending=new Map()
 let nextId=0,authChallenges=0,stopped=false
@@ -67,8 +71,17 @@ try {
   }
   await delay(150)
  }
- assert.ok(tab?.webSocketDebuggerUrl,
-  'Synthetic browser debugging target unavailable after bounded Chromium startup.')
+ if(!tab?.webSocketDebuggerUrl){
+  // This is a disposable synthetic Chromium instance, before authentication.
+  // Print only bounded, scrubbed startup diagnostics; never log credentials.
+  const stderr=chromeStartupLog.split(/\r?\n/).filter(Boolean).slice(-6)
+   .map(line=>line.replace(/\/[A-Za-z0-9_.\/-]+/g,'[path]').slice(0,160))
+  console.error('Synthetic Chrome startup diagnostics:',{
+   exitCode:chrome.exitCode,signalCode:chrome.signalCode,
+   spawnError:chromeSpawnError,debugPortFileFound:Boolean(port),stderr
+  })
+  throw Error('Synthetic browser debugging target unavailable after bounded Chromium startup.')
+ }
  ws=new WebSocket(tab.webSocketDebuggerUrl)
  await new Promise((resolve,reject)=>{
   ws.addEventListener('open',resolve,{once:true})
