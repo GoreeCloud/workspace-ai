@@ -32,10 +32,20 @@ const chrome=spawn(chromePath,[
  '--host-resolver-rules=MAP workspace-ai-dev.goreecloud.com '+ip,
  '--remote-debugging-address=127.0.0.1','--remote-debugging-port=0',
  '--user-data-dir='+profile,'about:blank'
-],{stdio:['ignore','ignore','pipe']})
+],{stdio:['ignore','pipe','pipe']})
 let chromeStartupLog=''
+let chromeDebugPort=null
 let chromeSpawnError=null
-chrome.stderr.on('data',chunk=>{chromeStartupLog=(chromeStartupLog+String(chunk)).slice(-4096)})
+const captureChromeOutput=chunk=>{
+ chromeStartupLog=(chromeStartupLog+String(chunk)).slice(-4096)
+ const match=chromeStartupLog.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d{2,5})\/devtools\/browser\//)
+ if(match){
+  const candidate=Number(match[1])
+  if(Number.isInteger(candidate)&&candidate>=1024&&candidate<=65535)chromeDebugPort=candidate
+ }
+}
+chrome.stdout.on('data',captureChromeOutput)
+chrome.stderr.on('data',captureChromeOutput)
 chrome.once('error',error=>{chromeSpawnError=error?.code||'spawn-error'})
 let ws
 const pending=new Map()
@@ -61,6 +71,7 @@ try {
     if(Number.isInteger(candidate)&&candidate>=1024&&candidate<=65535)port=candidate
    }catch{}
   }
+  if(!port && chromeDebugPort)port=chromeDebugPort
   if(port){
    try{
     const r=await fetch('http://127.0.0.1:'+port+'/json/list',{
@@ -78,7 +89,7 @@ try {
    .map(line=>line.replace(/\/[A-Za-z0-9_.\/-]+/g,'[path]').slice(0,160))
   console.error('Synthetic Chrome startup diagnostics:',{
    exitCode:chrome.exitCode,signalCode:chrome.signalCode,
-   spawnError:chromeSpawnError,debugPortFileFound:Boolean(port),stderr
+   spawnError:chromeSpawnError,debugPortDiscovered:Boolean(port),stderr
   })
   throw Error('Synthetic browser debugging target unavailable after bounded Chromium startup.')
  }
