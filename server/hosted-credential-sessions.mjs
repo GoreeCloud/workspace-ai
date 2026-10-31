@@ -1,6 +1,11 @@
 import { randomBytes } from 'node:crypto'
 
 export const HOSTED_COOKIE = '__Host-gcwa-browser'
+
+export function cancelHostedSessionRequests(session) {
+  for (const controller of session?.activeRequests || []) controller.abort()
+  session?.activeRequests?.clear()
+}
 const COOKIE_TTL_SECONDS = 2 * 60 * 60
 const COOKIE_TTL_MS = COOKIE_TTL_SECONDS * 1000
 const MAX_SESSIONS = 64
@@ -19,6 +24,7 @@ export function createHostedCredentialSessions({
     const clock = now()
     for (const [token, session] of sessions) {
       if (clock - session.touchedAt >= idleMs || clock < session.touchedAt || clock - session.startedAt >= lifetimeMs) {
+        cancelHostedSessionRequests(session)
         session.key = ''
         sessions.delete(token)
       }
@@ -53,7 +59,7 @@ export function createHostedCredentialSessions({
     // existing gateway, Host and origin checks. Writes never mint sessions.
     const token = generate()
     if (typeof token !== 'string' || !TOKEN_PATTERN.test(token) || sessions.has(token)) return null
-    const session = { key: '', verification: {state:'untested',checkedAt:null}, revision:0, startedAt:now(), touchedAt:now() }
+    const session = { key: '', verification: {state:'untested',checkedAt:null}, revision:0, activeRequests:new Set(), startedAt:now(), touchedAt:now() }
     sessions.set(token, session)
     res.setHeader('Set-Cookie', HOSTED_COOKIE + '=' + token + '; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=' + COOKIE_TTL_SECONDS)
     return session
