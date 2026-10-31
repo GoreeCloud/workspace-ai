@@ -9,6 +9,7 @@ import {readFile,mkdtemp,rm,chmod} from 'node:fs/promises'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {setTimeout as delay} from 'node:timers/promises'
+import {chromiumDebugPortFromFile} from './private-dev-qa-chromium-port.mjs'
 
 assert.equal(process.env.GITHUB_ACTIONS,'true','This test is restricted to disposable GitHub CI.')
 const gateway=process.env.WORKSPACE_AI_QA_GATEWAY_CONTAINER||''
@@ -66,9 +67,7 @@ try {
   // and publish it in its ephemeral profile. Avoid a close-then-bind port race.
   if(!port){
    try{
-    const active=(await readFile(join(profile,'DevToolsActivePort'),'utf8')).split(/\\r?\\n/)
-    const candidate=Number(active[0])
-    if(Number.isInteger(candidate)&&candidate>=1024&&candidate<=65535)port=candidate
+    port=chromiumDebugPortFromFile(await readFile(join(profile,'DevToolsActivePort'),'utf8'))
    }catch{}
   }
   if(!port && chromeDebugPort)port=chromeDebugPort
